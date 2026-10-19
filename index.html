@@ -47,16 +47,27 @@
         <button class="btn round primary" id="btnPlay" aria-label="Leggi ad alta voce">▶️</button>
         <button class="btn round" id="btnStop" aria-label="Ferma">⏹️</button>
         <label class="speed">🐢 <input type="range" id="rngRate" min="0.6" max="1.5" step="0.05"> 🐇</label>
-        <button class="btn small" id="btnRuler" title="Righello di lettura">📏 Righello</button>
+        <button class="btn small" id="btnRuler" title="Righello di lettura" aria-label="Righello di lettura">📏</button>
         <button class="btn small" id="btnEdit" title="Modifica testo">✏️</button>
+        <button class="btn small" id="btnPick" title="Scegli una parte del testo">✂️ Scegli</button>
         <button class="btn small" id="btnSave" title="Salva nel quaderno">💾</button>
+        <button class="btn small" id="btnClear" title="Chiudi questo testo">🗑️</button>
       </div>
+      <p class="hint pick-hint hidden" id="pickHint">✂️ Tocca le frasi che vuoi usare. Tocca di nuovo per toglierle. Poi premi <b>Fatto</b>.</p>
       <div id="reader" class="reader" tabindex="0"></div>
       <div id="ruler" class="ruler hidden" aria-hidden="true"></div>
     </div>
 
     <div class="card hidden" id="toolsCard">
       <h2>Cosa vuoi fare con questo testo?</h2>
+      <div class="pick-info hidden" id="pickInfo">
+        <span>✂️ Userò solo la parte scelta: <b id="pickCount"></b></span>
+        <div class="row gap wrap">
+          <button class="btn small" id="btnPickRead">🔊 Ascolta</button>
+          <button class="btn small" id="btnPickClear">✖ Usa tutto il testo</button>
+        </div>
+      </div>
+      <p class="hint" id="pickTip">Vuoi usare solo una parte? Premi <b>✂️ Scegli</b> o seleziona il testo tenendo premuto.</p>
       <div class="grid-actions">
         <button class="action" data-act="semplifica"><span>🪄</span>Semplifica</button>
         <button class="action" data-act="riassunto"><span>📝</span>Riassunto</button>
@@ -76,6 +87,11 @@
         </div>
       </div>
       <div id="result" class="result"></div>
+      <div class="row gap wrap result-actions">
+        <button class="btn" id="btnResultMap">🗺️ Fai la mappa</button>
+        <button class="btn" id="btnResultCards">🃏 Flashcard</button>
+        <button class="btn" id="btnResultSave">💾 Salva</button>
+      </div>
     </div>
   </section>
 

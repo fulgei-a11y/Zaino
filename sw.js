@@ -1,5 +1,5 @@
 // Permette di aprire l'app anche senza connessione (le funzioni IA richiedono comunque internet).
-const CACHE = "studio-facile-v2";
+const CACHE = "studio-facile-v3";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {

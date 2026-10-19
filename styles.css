@@ -146,6 +146,14 @@ input:focus, textarea:focus, select:focus, .btn:focus-visible { outline: 3px sol
 .reader .s.on { background: var(--hl-sentence); }
 .reader .w.on { background: var(--hl); border-radius: 4px; }
 .reader.edit { outline: 2px dashed var(--accent); padding: 6px; }
+.reader .s.picked { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-soft); }
+.reader.picking .s { cursor: pointer; text-decoration: underline dotted var(--line); text-underline-offset: 6px; }
+.reader.picking .s.picked { text-decoration-color: var(--accent); }
+.pick-info {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--accent-soft); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px;
+}
+.result-actions { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .syl-b { color: var(--syl); }
 .ruler {
   position: fixed; left: 0; right: 0; height: calc(var(--read-size) * var(--read-line) + 8px);

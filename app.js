@@ -439,14 +439,69 @@ const reader = {
   playing: false,
   editing: false,
 
+  picked: new Set(),   // frasi scelte: gli strumenti useranno solo quelle
+  picking: false,
+
   load(text, { keepPosition = false } = {}) {
     this.text = text.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
     if (!keepPosition) this.idx = 0;
     store.set("current", this.text);
     this.render();
+    this.setPicked(new Set());
+    if (this.picking) this.togglePick();
     const has = !!this.text;
     $("#readerCard").classList.toggle("hidden", !has);
     $("#toolsCard").classList.toggle("hidden", !has);
+    if (!has) $("#resultCard").classList.add("hidden");
+  },
+
+  /** Il testo su cui lavorano gli strumenti: la parte scelta, oppure tutto. */
+  activeText() {
+    if (!this.picked.size) return this.text;
+    return [...this.picked].sort((a, b) => a - b).map(i => this.sentences[i]?.text.trim()).filter(Boolean).join(" ");
+  },
+
+  setPicked(set) {
+    this.picked = set;
+    this.sentences.forEach((s, i) => s.el.classList.toggle("picked", set.has(i)));
+    const n = set.size;
+    $("#pickInfo").classList.toggle("hidden", !n);
+    $("#pickTip").classList.toggle("hidden", !!n || !this.text);
+    if (n) {
+      const words = this.activeText().split(/\s+/).length;
+      $("#pickCount").textContent = `${n} ${n === 1 ? "frase" : "frasi"} (${words} parole)`;
+    }
+  },
+
+  /** Modalità "Scegli": toccando le frasi le aggiungi o togli dalla parte scelta. */
+  togglePick() {
+    this.picking = !this.picking;
+    if (this.picking) this.pause();
+    $("#reader").classList.toggle("picking", this.picking);
+    $("#pickHint").classList.toggle("hidden", !this.picking);
+    const b = $("#btnPick");
+    b.textContent = this.picking ? "✅ Fatto" : "✂️ Scegli";
+    b.classList.toggle("primary", this.picking);
+  },
+
+  /** Selezione fatta col dito o col mouse: prendo le frasi toccate dalla selezione. */
+  fromSelection() {
+    const sel = getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount || this.editing) return;
+    const range = sel.getRangeAt(0);
+    if (!$("#reader").contains(range.commonAncestorContainer)) return;
+    const set = new Set();
+    this.sentences.forEach((s, i) => { if (range.intersectsNode(s.el)) set.add(i); });
+    if (set.size) this.setPicked(set);
+  },
+
+  async clear() {
+    const saved = store.get("notebook", []).some(x => x.type === "testo" && x.data === this.text);
+    const msg = saved ? "Chiudere questo testo? È salvato nel quaderno." : "Chiudere questo testo? Non è salvato nel quaderno: premi 💾 prima, se vuoi tenerlo.";
+    if (!(await uiConfirm(msg, "Chiudi", !saved))) return;
+    this.stop();
+    this.load("");
+    scrollTo({ top: 0, behavior: "smooth" });
   },
 
   render() {
@@ -699,8 +754,8 @@ function mdToHtml(md) {
 let lastResult = "";
 const ACT_LABELS = { semplifica: "Testo semplificato", riassunto: "Riassunto", parole: "Parole chiave", spiega: "Spiegazione" };
 
-async function runAction(act) {
-  const text = reader.text;
+async function runAction(act, source) {
+  const text = source || reader.activeText();
   if (!text) return;
   reader.pause();
   try {
@@ -728,7 +783,7 @@ async function runAction(act) {
     busy(true, act === "spiega" ? "Preparo la spiegazione…" : "Ci sto pensando…");
     const out = await ask({ prompt: PROMPTS[act](text), system: SYSTEM_TUTOR });
     lastResult = out;
-    $("#resultTitle").textContent = ACT_LABELS[act] || "Risultato";
+    $("#resultTitle").textContent = (ACT_LABELS[act] || "Risultato") + (!source && reader.picked.size ? " (parte scelta)" : "");
     $("#result").innerHTML = mdToHtml(out);
     $("#resultCard").classList.remove("hidden");
     $("#resultCard").scrollIntoView({ behavior: "smooth" });
@@ -1360,7 +1415,7 @@ function bindSettings() {
     });
   }
   $("#setSyllables").addEventListener("change", (e) => {
-    settings.syllables = e.target.checked; saveSettings(); reader.render();
+    settings.syllables = e.target.checked; saveSettings(); reader.render(); reader.setPicked(reader.picked);
   });
   $("#setTheme").addEventListener("change", () => mindmap.root && mindmap.draw());
   $("#btnVoiceTest").addEventListener("click", () => tts.say("Ciao! Questa è la voce che leggerà i tuoi testi."));
@@ -1448,8 +1503,25 @@ function init() {
   $("#reader").addEventListener("click", (e) => {
     if (reader.editing) return;
     const s = e.target.closest(".s");
-    if (s) reader.play(Number(s.dataset.i));
+    if (!s) return;
+    const i = Number(s.dataset.i);
+    if (reader.picking) {
+      const set = new Set(reader.picked);
+      set.has(i) ? set.delete(i) : set.add(i);
+      return reader.setPicked(set);
+    }
+    if (!getSelection().isCollapsed) return; // sta selezionando, non leggo
+    reader.play(i);
   });
+  let selTimer;
+  document.addEventListener("selectionchange", () => {
+    clearTimeout(selTimer);
+    selTimer = setTimeout(() => reader.fromSelection(), 350);
+  });
+  $("#btnPick").addEventListener("click", () => reader.togglePick());
+  $("#btnClear").addEventListener("click", () => reader.clear());
+  $("#btnPickClear").addEventListener("click", () => { reader.setPicked(new Set()); getSelection().removeAllRanges(); });
+  $("#btnPickRead").addEventListener("click", () => tts.say(reader.activeText()));
   $("#btnRuler").addEventListener("click", () => ruler.toggle());
   addEventListener("pointermove", (e) => { if (ruler.on && e.pointerType === "mouse") ruler.moveTo(e.clientY); });
   addEventListener("touchmove", (e) => { if (ruler.on && e.target.closest?.("#reader")) ruler.moveTo(e.touches[0].clientY - 40); }, { passive: true });
@@ -1459,6 +1531,16 @@ function init() {
   // azioni
   $$(".action").forEach(b => b.addEventListener("click", () => runAction(b.dataset.act)));
   $("#btnResultRead").addEventListener("click", () => tts.say(lastResult));
+  $("#btnResultMap").addEventListener("click", () => runAction("mappa", lastResult));
+  $("#btnResultCards").addEventListener("click", () => runAction("flashcard", lastResult));
+  $("#btnResultSave").addEventListener("click", async () => {
+    const title = await uiPrompt("Dai un nome a questo " + $("#resultTitle").textContent.toLowerCase(), $("#resultTitle").textContent);
+    if (title === null) return;
+    const nb = store.get("notebook", []);
+    const text = lastResult.replace(/\*\*/g, "").replace(/^##\s*/gm, "# ").replace(/^[-*•]\s+/gm, "• ");
+    nb.unshift({ id: uid(), type: "testo", title: title || "Risultato", date: todayLabel(), data: text });
+    if (store.set("notebook", nb)) toast("Salvato nel quaderno 📚");
+  });
   $("#btnResultToReader").addEventListener("click", () => {
     reader.load(lastResult.replace(/\*\*/g, "").replace(/^##\s*/gm, "# ").replace(/^[-*•]\s+/gm, ""));
     $("#resultCard").classList.add("hidden");
