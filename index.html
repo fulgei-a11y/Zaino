@@ -5,231 +5,467 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow">
-<meta name="theme-color" content="#2f6f6a">
-<title>Studio Facile</title>
+<meta name="theme-color" content="#f5f6fa">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Zaino">
+<title>Zaino</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@400;600&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@300;400;500;600;700&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+<!-- ============ ICONE (un solo set, a linea) ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4" height="15" rx="1" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1" fill="currentColor"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="2"/></symbol>
+    <symbol id="i-ruler" viewBox="0 0 24 24"><rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 8v3M10 8v4M14 8v3M18 8v4"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><rect x="8.5" y="9.5" width="7" height="5" rx="1.5"/><rect x="1.5" y="2.5" width="6" height="4" rx="1"/><rect x="16.5" y="2.5" width="6" height="4" rx="1"/><rect x="1.5" y="17.5" width="6" height="4" rx="1"/><rect x="16.5" y="17.5" width="6" height="4" rx="1"/><path d="M7.5 5.5 10 9.5M16.5 5.5 14 9.5M7.5 18.5 10 14.5M16.5 18.5 14 14.5"/></symbol>
+    <symbol id="i-calc" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15v4M8 19h.01M12 19h.01"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.2L3 16M3 21v-5h5"/></symbol>
+    <symbol id="i-library" viewBox="0 0 24 24"><path d="M4 4v16M8 6v14M12 4v16M15.5 6.5l4 13.5"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></symbol>
+    <symbol id="i-feather" viewBox="0 0 24 24"><path d="M20.2 12.2a6 6 0 0 0-8.5-8.5L5 10.5V19h8.5z"/><path d="M16 8 2 22M17.5 15H9"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></symbol>
+    <symbol id="i-languages" viewBox="0 0 24 24"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h8M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+    <symbol id="i-timeline" viewBox="0 0 24 24"><path d="M3 12h18"/><circle cx="6" cy="12" r="2"/><circle cx="13" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M6 10V5M13 14v5M19 10V6"/></symbol>
+    <symbol id="i-columns" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 9h18"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 16.5h.01"/></symbol>
+    <symbol id="i-cards" viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="16" rx="2"/><path d="M6 6V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/></symbol>
+    <symbol id="i-type" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></symbol>
+    <symbol id="i-sigma" viewBox="0 0 24 24"><path d="M18 7V4H6l6 8-6 8h12v-3"/></symbol>
+    <symbol id="i-steps" viewBox="0 0 24 24"><path d="M3 20h5v-5h5v-5h5V5h3"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+    <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></symbol>
+    <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="m21 21-4.3-4.3M8 11h6"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/><path d="M19 15v4M17 17h4"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+    <symbol id="i-file-plus" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12 2H2v10l9.3 9.3a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7" cy="7" r="1.5"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22M18 2l4 4-4 4M2 6h1.9c1.5 0 2.9.9 3.6 2.2M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8M18 14l4 4-4 4"/></symbol>
+    <symbol id="i-present" viewBox="0 0 24 24"><path d="M2 3h20M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3M7 21l5-5 5 5"/></symbol>
+    <symbol id="i-flip" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"/></symbol>
+    <symbol id="i-graph" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M6 17c2.5-7 5-11 8-11s4 3 6 3"/></symbol>
+    <symbol id="i-equal" viewBox="0 0 24 24"><path d="M4 5l6 8M10 5l-6 8M14 8h6M14 12h6M4 19h16"/></symbol>
+    <symbol id="i-scale" viewBox="0 0 24 24"><path d="M4 20h4v-4h4v-4h4V8h4V4"/><path d="M4 4v16h16"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-branch" viewBox="0 0 24 24"><path d="m15 10 5 5-5 5"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/></symbol>
+    <symbol id="i-sibling" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"/></symbol>
+    <symbol id="i-spell" viewBox="0 0 24 24"><path d="M3 16 7.5 4 12 16M4.5 12h6"/><path d="m13 17 3 3 6-7"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+  </defs>
+</svg>
+
 <header class="topbar">
-  <div class="brand"><span class="logo" aria-hidden="true">✦</span> Studio Facile</div>
-  <button class="timer-chip hidden" id="timerChip" aria-label="Timer di studio"></button>
-  <button class="icon-btn" id="btnSettings" aria-label="Impostazioni" title="Impostazioni">⚙️</button>
+  <div class="wordmark" aria-label="Zaino"><span>zaino</span></div>
+  <div class="top-actions">
+    <button class="timer-chip hidden" id="timerChip" aria-label="Timer di studio"></button>
+    <button class="icon-btn" id="btnNotebook" aria-label="Quaderno" title="Quaderno"><svg class="i"><use href="#i-library"/></svg></button>
+    <button class="icon-btn" id="btnHelp" aria-label="Guida" title="Guida"><svg class="i"><use href="#i-help"/></svg></button>
+    <button class="icon-btn" id="btnSettings" aria-label="Impostazioni" title="Impostazioni"><svg class="i"><use href="#i-sliders"/></svg></button>
+  </div>
 </header>
 
 <main id="main">
 
-  <!-- ============ LEGGI ============ -->
-  <section class="view active" id="view-leggi" aria-label="Leggi">
-    <div class="card input-card">
-      <div class="row wrap gap">
-        <label class="btn big primary file-btn">
-          📷 Foto del libro
-          <input type="file" id="inPhoto" accept="image/*" capture="environment" hidden>
-        </label>
-        <label class="btn big file-btn">
-          🖼️ Da galleria / PDF
-          <input type="file" id="inFile" accept="image/*,application/pdf" multiple hidden>
-        </label>
-        <button class="btn big" id="btnPaste">📋 Incolla testo</button>
-      </div>
-      <textarea id="txtInput" class="hidden" rows="6" placeholder="Incolla o scrivi qui il testo…"></textarea>
-      <div class="row gap hidden" id="pasteActions">
-        <button class="btn primary" id="btnUseText">Usa questo testo</button>
+  <!-- ================= STUDIA ================= -->
+  <section class="view active" id="view-leggi" aria-label="Studia">
+    <div class="intro" id="homeIntro">
+      <h1>Cosa studiamo oggi?</h1>
+      <p>Porta qui una pagina del libro: te la leggo, la semplifico e la trasformo in mappe e domande.</p>
+    </div>
+
+    <div class="card sources" id="inputCard">
+      <label class="source">
+        <span class="tile t-pen"><svg class="i"><use href="#i-camera"/></svg></span>
+        <span class="s-txt"><b><span class="lg">Fotografa una pagina</span><span class="sh">Fotografa</span></b><small>Anche più pagine, una dopo l'altra</small></span>
+        <input type="file" id="inPhoto" accept="image/*" capture="environment" hidden>
+      </label>
+      <label class="source">
+        <span class="tile"><svg class="i"><use href="#i-image"/></svg></span>
+        <span class="s-txt"><b><span class="lg">Carica foto o PDF</span><span class="sh">Carica</span></b><small>Dalla galleria o dai file</small></span>
+        <input type="file" id="inFile" accept="image/*,application/pdf" multiple hidden>
+      </label>
+      <button class="source" id="btnPaste">
+        <span class="tile"><svg class="i"><use href="#i-clipboard"/></svg></span>
+        <span class="s-txt"><b><span class="lg">Incolla un testo</span><span class="sh">Incolla</span></b><small>Da un sito, una mail, un documento</small></span>
+      </button>
+      <div class="paste-box hidden" id="pasteActions">
+        <textarea id="txtInput" rows="6" placeholder="Incolla o scrivi qui il testo"></textarea>
+        <button class="btn primary" id="btnUseText">Apri il testo</button>
       </div>
     </div>
 
-    <div class="card reader-card hidden" id="readerCard">
+    <div class="home-panels" id="homePanels">
+      <div class="card panel hidden" id="homeToday"></div>
+      <div class="card panel hidden" id="homeRecent"></div>
+    </div>
+
+    <!-- lettore -->
+    <article class="card reader-card hidden" id="readerCard">
       <div class="reader-toolbar">
-        <button class="btn round primary" id="btnPlay" aria-label="Leggi ad alta voce">▶️</button>
-        <button class="btn round" id="btnStop" aria-label="Ferma">⏹️</button>
-        <label class="speed">🐢 <input type="range" id="rngRate" min="0.6" max="1.5" step="0.05"> 🐇</label>
-        <select id="selLang" class="lang-sel" aria-label="Lingua della voce"></select>
-        <button class="btn small" id="btnRuler" title="Righello di lettura" aria-label="Righello di lettura">📏</button>
-        <button class="btn small" id="btnEdit" title="Modifica testo">✏️</button>
-        <button class="btn small" id="btnPick" title="Scegli una parte del testo">✂️ Scegli</button>
-        <button class="btn small" id="btnSave" title="Salva nel quaderno">💾</button>
-        <button class="btn small" id="btnPrintText" title="Stampa" aria-label="Stampa">🖨️</button>
-        <button class="btn small" id="btnClear" title="Chiudi questo testo">🗑️</button>
-      </div>
-      <p class="hint pick-hint hidden" id="pickHint">✂️ Tocca le frasi che vuoi usare. Tocca di nuovo per toglierle. Poi premi <b>Fatto</b>.</p>
-      <div id="reader" class="reader" tabindex="0"></div>
-      <div id="ruler" class="ruler hidden" aria-hidden="true"></div>
-    </div>
-
-    <div class="card hidden" id="toolsCard">
-      <h2>Cosa vuoi fare con questo testo?</h2>
-      <div class="pick-info hidden" id="pickInfo">
-        <span>✂️ Userò solo la parte scelta: <b id="pickCount"></b></span>
-        <div class="row gap wrap">
-          <button class="btn small" id="btnPickRead">🔊 Ascolta</button>
-          <button class="btn small" id="btnPickClear">✖ Usa tutto il testo</button>
+        <div class="tb-main">
+          <button class="btn play" id="btnPlay" aria-label="Leggi ad alta voce"><svg class="i"><use href="#i-play"/></svg></button>
+          <button class="icon-btn" id="btnStop" aria-label="Ferma"><svg class="i"><use href="#i-stop"/></svg></button>
+          <label class="speed" title="Velocità della voce">
+            <span class="speed-l">Lenta</span>
+            <input type="range" id="rngRate" min="0.6" max="1.5" step="0.05" aria-label="Velocità della voce">
+            <span class="speed-l">Veloce</span>
+          </label>
+        </div>
+        <div class="tb-tools">
+          <label class="tool lang"><svg class="i"><use href="#i-languages"/></svg><select id="selLang" aria-label="Lingua della voce"></select></label>
+          <button class="tool" id="btnRuler"><svg class="i"><use href="#i-ruler"/></svg><span>Righello</span></button>
+          <button class="tool" id="btnPick"><svg class="i"><use href="#i-scissors"/></svg><span>Scegli parte</span></button>
+          <button class="tool" id="btnEdit"><svg class="i"><use href="#i-pencil"/></svg><span>Modifica</span></button>
+          <button class="tool" id="btnSave"><svg class="i"><use href="#i-bookmark"/></svg><span>Salva</span></button>
+          <button class="tool" id="btnPrintText"><svg class="i"><use href="#i-printer"/></svg><span>Stampa</span></button>
+          <button class="tool" id="btnClear"><svg class="i"><use href="#i-x"/></svg><span>Chiudi</span></button>
         </div>
       </div>
-      <p class="hint" id="pickTip">Vuoi usare solo una parte? Premi <b>✂️ Scegli</b> o seleziona il testo tenendo premuto.</p>
-      <h3 class="group-title">Per capire</h3>
-      <div class="grid-actions">
-        <button class="action" data-act="semplifica"><span>🪄</span>Semplifica</button>
-        <button class="action" data-act="spiega"><span>💡</span>Spiegami</button>
-        <button class="action" data-act="parole"><span>🔑</span>Parole chiave</button>
-        <button class="action" data-act="traduci"><span>🌍</span>Traduci</button>
+      <p class="hint pick-hint hidden" id="pickHint">Tocca le frasi che vuoi usare, poi premi <b>Fatto</b>.</p>
+      <div id="reader" class="reader" tabindex="0"></div>
+      <div id="ruler" class="ruler hidden" aria-hidden="true"></div>
+    </article>
+
+    <!-- strumenti -->
+    <div class="card tools hidden" id="toolsCard">
+      <div class="tools-head">
+        <h2>Cosa vuoi fare con questo testo?</h2>
+        <p class="hint" id="pickTip">Puoi usare anche solo una parte: premi <b>Scegli parte</b> o seleziona il testo.</p>
+        <div class="pick-info hidden" id="pickInfo">
+          <span>Userò solo la parte scelta: <b id="pickCount"></b></span>
+          <div class="row gap wrap">
+            <button class="btn small" id="btnPickRead"><svg class="i"><use href="#i-volume"/></svg>Ascolta</button>
+            <button class="btn small" id="btnPickClear">Usa tutto il testo</button>
+          </div>
+        </div>
       </div>
-      <h3 class="group-title">Per studiare</h3>
-      <div class="grid-actions">
-        <button class="action" data-act="riassunto"><span>📝</span>Riassunto</button>
-        <button class="action" data-act="mappa"><span>🗺️</span>Mappa</button>
-        <button class="action" data-act="linea"><span>📅</span>Linea del tempo</button>
-        <button class="action" data-act="confronta"><span>⚖️</span>Confronta</button>
+
+      <div class="tool-group g-sky">
+        <h3>Capire</h3>
+        <div class="actions">
+          <button class="action" data-act="semplifica"><span class="tile"><svg class="i"><use href="#i-feather"/></svg></span><span class="a-txt"><b>Semplifica</b><small>Frasi brevi e parole chiare, senza perdere nulla</small></span></button>
+          <button class="action" data-act="spiega"><span class="tile"><svg class="i"><use href="#i-bulb"/></svg></span><span class="a-txt"><b>Spiegami</b><small>Come un'insegnante, con esempi e domande</small></span></button>
+          <button class="action" data-act="parole"><span class="tile"><svg class="i"><use href="#i-key"/></svg></span><span class="a-txt"><b>Parole chiave</b><small>I termini da sapere, con la spiegazione</small></span></button>
+          <button class="action" data-act="traduci"><span class="tile"><svg class="i"><use href="#i-languages"/></svg></span><span class="a-txt"><b>Traduci</b><small>Originale e traduzione, paragrafo per paragrafo</small></span></button>
+        </div>
       </div>
-      <h3 class="group-title">Per esercitarsi</h3>
-      <div class="grid-actions">
-        <button class="action" data-act="interroga"><span>🎤</span>Interrogami</button>
-        <button class="action" data-act="flashcard"><span>🃏</span>Flashcard</button>
-        <button class="action lang-only" data-act="vocaboli"><span>🔤</span>Vocaboli</button>
-        <button class="action" data-act="formulario"><span>📐</span>Formulario</button>
-        <button class="action" data-act="esercizio"><span>🧮</span>Esercizio passo passo</button>
+      <div class="tool-group g-yellow">
+        <h3>Studiare</h3>
+        <div class="actions">
+          <button class="action" data-act="riassunto"><span class="tile"><svg class="i"><use href="#i-list"/></svg></span><span class="a-txt"><b>Riassunto</b><small>I punti principali e cosa ricordare per la verifica</small></span></button>
+          <button class="action" data-act="mappa"><span class="tile"><svg class="i"><use href="#i-map"/></svg></span><span class="a-txt"><b>Mappa</b><small>Mappa concettuale da modificare e stampare</small></span></button>
+          <button class="action" data-act="linea"><span class="tile"><svg class="i"><use href="#i-timeline"/></svg></span><span class="a-txt"><b>Linea del tempo</b><small>Le date in ordine, con cosa è successo</small></span></button>
+          <button class="action" data-act="confronta"><span class="tile"><svg class="i"><use href="#i-columns"/></svg></span><span class="a-txt"><b>Confronta</b><small>Tabella con somiglianze e differenze</small></span></button>
+        </div>
+      </div>
+      <div class="tool-group g-mint">
+        <h3>Esercitarsi</h3>
+        <div class="actions">
+          <button class="action" data-act="interroga"><span class="tile"><svg class="i"><use href="#i-chat"/></svg></span><span class="a-txt"><b>Interrogami</b><small>Rispondi a voce e scopri cosa manca</small></span></button>
+          <button class="action" data-act="flashcard"><span class="tile"><svg class="i"><use href="#i-cards"/></svg></span><span class="a-txt"><b>Flashcard</b><small>Domanda e risposta, per ripassare</small></span></button>
+          <button class="action lang-only" data-act="vocaboli"><span class="tile"><svg class="i"><use href="#i-type"/></svg></span><span class="a-txt"><b>Vocaboli</b><small>Parole straniere con traduzione e pronuncia</small></span></button>
+          <button class="action" data-act="formulario"><span class="tile"><svg class="i"><use href="#i-sigma"/></svg></span><span class="a-txt"><b>Formulario</b><small>Le formule su una pagina, da stampare</small></span></button>
+          <button class="action" data-act="esercizio"><span class="tile"><svg class="i"><use href="#i-steps"/></svg></span><span class="a-txt"><b>Esercizio passo passo</b><small>Ti guida senza darti subito il risultato</small></span></button>
+        </div>
       </div>
     </div>
 
-    <div class="card hidden" id="resultCard">
-      <div class="row between wrap gap">
+    <!-- risultato -->
+    <article class="card result-card hidden" id="resultCard">
+      <div class="result-head">
         <h2 id="resultTitle">Risultato</h2>
         <div class="row gap">
-          <button class="btn small" id="btnResultRead">🔊 Ascolta</button>
-          <button class="btn small" id="btnResultToReader">⬆️ Leggi questo</button>
+          <button class="btn small" id="btnResultRead"><svg class="i"><use href="#i-volume"/></svg>Ascolta</button>
+          <button class="btn small" id="btnResultToReader"><svg class="i"><use href="#i-arrow-up"/></svg>Apri nel lettore</button>
         </div>
       </div>
       <div id="result" class="result"></div>
-      <div class="row gap wrap result-actions">
-        <button class="btn" id="btnResultMap">🗺️ Fai la mappa</button>
-        <button class="btn" id="btnResultCards">🃏 Flashcard</button>
-        <button class="btn" id="btnResultSave">💾 Salva</button>
-        <button class="btn" id="btnResultPrint">🖨️ Stampa</button>
+      <div class="result-actions">
+        <button class="btn" id="btnResultMap"><svg class="i"><use href="#i-map"/></svg>Fai la mappa</button>
+        <button class="btn" id="btnResultCards"><svg class="i"><use href="#i-cards"/></svg>Flashcard</button>
+        <button class="btn" id="btnResultSave"><svg class="i"><use href="#i-bookmark"/></svg>Salva</button>
+        <button class="btn" id="btnResultPrint"><svg class="i"><use href="#i-printer"/></svg>Stampa</button>
       </div>
-    </div>
+    </article>
   </section>
 
-  <!-- ============ MAPPA ============ -->
-  <section class="view" id="view-mappa" aria-label="Mappa">
-    <div class="card" id="mapCreate">
-      <h2>Nuova mappa concettuale</h2>
-      <div class="map-new">
-        <button class="btn big primary" id="btnMapNew">✍️ Faccio io la mappa</button>
-        <div class="row gap">
-          <input type="text" id="mapTopic" placeholder="…oppure scrivi un argomento">
-          <button class="btn" id="btnMapTopic">🪄 Crea</button>
-        </div>
-      </div>
-      <p class="hint" id="mapHint">Puoi anche crearla da un testo nella scheda <b>Leggi</b> (pulsante 🗺️ Mappa).</p>
+  <!-- ================= SCRIVI ================= -->
+  <section class="view" id="view-detta" aria-label="Scrivi">
+    <div class="intro">
+      <h1>Scrivi parlando</h1>
+      <p>Detta un tema, una risposta o degli appunti. Poi controlla gli errori, con la regola spiegata.</p>
     </div>
-    <div class="card map-card hidden" id="mapCard">
-      <div class="map-tools" id="mapTools">
-        <button class="btn small primary" id="btnMapImprove">🪄 Migliora</button>
-        <button class="btn small" id="btnMapUndo" disabled aria-label="Annulla">↩️</button>
-        <button class="btn small" id="btnZoomOut" aria-label="Rimpicciolisci">➖</button>
-        <button class="btn small" id="btnZoomIn" aria-label="Ingrandisci">➕</button>
-        <button class="btn small" id="btnMapLayout" aria-label="Cambia forma">↔️</button>
-        <button class="btn small" id="btnMapSave" aria-label="Salva nel quaderno">💾</button>
-        <button class="btn small" id="btnMapPrint" aria-label="Stampa">🖨️</button>
-        <button class="btn small" id="btnMapPng" aria-label="Scarica immagine">⬇️</button>
-        <button class="btn small" id="btnMapOther" aria-label="Nuova mappa">🆕</button>
-      </div>
-      <div id="mapWrap" class="map-wrap"><div class="empty">La mappa comparirà qui.<br>Tocca un riquadro per ascoltarlo o modificarlo.</div></div>
-      <p class="hint map-legend hidden" id="mapLegend">✨ I riquadri con il bordo tratteggiato li ha aggiunti l'IA: controllali e tienili solo se ti convincono.</p>
-    </div>
-  </section>
-
-  <!-- ============ DETTA ============ -->
-  <section class="view" id="view-detta" aria-label="Detta">
-    <div class="card center">
-      <h2>Parla, io scrivo</h2>
-      <button class="mic" id="btnMic" aria-label="Avvia registrazione">🎙️</button>
-      <div id="micStatus" class="hint">Tocca il microfono per iniziare</div>
-    </div>
-    <div class="card">
-      <textarea id="txtDictation" rows="8" placeholder="Il testo dettato comparirà qui. Puoi anche modificarlo."></textarea>
-      <div class="row gap wrap">
-        <button class="btn primary" id="btnExplain">📚 Spiegami gli errori</button>
-        <button class="btn" id="btnFix">✔️ Correggi errori</button>
-        <button class="btn" id="btnDictRead">🔊 Rileggi</button>
-        <button class="btn" id="btnCopy">📋 Copia</button>
-        <button class="btn" id="btnDictToReader">📖 Apri in Leggi</button>
-        <button class="btn" id="btnDictClear">🗑️ Svuota</button>
+    <div class="card dictate">
+      <button class="mic" id="btnMic" aria-label="Avvia registrazione"><svg class="i"><use href="#i-mic"/></svg></button>
+      <div id="micStatus" class="mic-status">Tocca il microfono per iniziare</div>
+      <textarea id="txtDictation" rows="9" placeholder="Il testo dettato comparirà qui. Puoi anche scrivere o correggere a mano."></textarea>
+      <div class="btn-row">
+        <button class="btn primary" id="btnExplain"><svg class="i"><use href="#i-spell"/></svg>Spiegami gli errori</button>
+        <button class="btn" id="btnFix"><svg class="i"><use href="#i-check"/></svg>Correggi tutto</button>
+        <button class="btn" id="btnDictRead"><svg class="i"><use href="#i-volume"/></svg>Rileggi</button>
+        <button class="btn" id="btnCopy"><svg class="i"><use href="#i-copy"/></svg>Copia</button>
+        <button class="btn" id="btnDictToReader"><svg class="i"><use href="#i-book"/></svg>Apri in Studia</button>
+        <button class="btn" id="btnDictClear"><svg class="i"><use href="#i-trash"/></svg>Svuota</button>
       </div>
     </div>
     <div class="card hidden" id="errCard">
       <h2>Gli errori, spiegati</h2>
       <ul class="err-list" id="errList"></ul>
-      <div class="row gap wrap">
-        <button class="btn primary" id="btnErrApply">✔️ Applica le correzioni</button>
-        <button class="btn" id="btnErrRead">🔊 Ascolta le spiegazioni</button>
+      <div class="btn-row">
+        <button class="btn primary" id="btnErrApply"><svg class="i"><use href="#i-check"/></svg>Applica le correzioni</button>
+        <button class="btn" id="btnErrRead"><svg class="i"><use href="#i-volume"/></svg>Ascolta le spiegazioni</button>
       </div>
-      <p class="hint" id="errStats"></p>
+      <p class="err-stats" id="errStats"></p>
     </div>
   </section>
 
-  <!-- ============ RIPASSA ============ -->
+  <!-- ================= MAPPE ================= -->
+  <section class="view" id="view-mappa" aria-label="Mappe">
+    <div class="card" id="mapCreate">
+      <div class="intro in-card">
+        <h1>Mappe concettuali</h1>
+        <p>Costruiscila tu e chiedi all'IA di controllarla, oppure falla preparare da un argomento o da un testo.</p>
+      </div>
+      <button class="source" id="btnMapNew">
+        <span class="tile t-pen"><svg class="i"><use href="#i-pencil"/></svg></span>
+        <span class="s-txt"><b>Faccio io la mappa</b><small>Parti dall'argomento e aggiungi le idee</small></span>
+      </button>
+      <div class="topic-row">
+        <input type="text" id="mapTopic" placeholder="Oppure scrivi un argomento, es. la cellula">
+        <button class="btn primary" id="btnMapTopic"><svg class="i"><use href="#i-sparkles"/></svg>Crea</button>
+      </div>
+      <p class="hint" id="mapHint">Da un testo: in Studia scegli <b>Mappa</b>.</p>
+    </div>
+    <div class="card map-card hidden" id="mapCard">
+      <div class="map-tools" id="mapTools">
+        <button class="btn small primary" id="btnMapImprove"><svg class="i"><use href="#i-sparkles"/></svg>Migliora con l'IA</button>
+        <button class="icon-btn" id="btnMapUndo" disabled aria-label="Annulla" title="Annulla"><svg class="i"><use href="#i-undo"/></svg></button>
+        <button class="icon-btn" id="btnZoomOut" aria-label="Rimpicciolisci" title="Rimpicciolisci"><svg class="i"><use href="#i-zoom-out"/></svg></button>
+        <button class="icon-btn" id="btnZoomIn" aria-label="Ingrandisci" title="Ingrandisci"><svg class="i"><use href="#i-zoom-in"/></svg></button>
+        <button class="icon-btn" id="btnMapLayout" aria-label="Cambia forma" title="Cambia forma"><svg class="i"><use href="#i-swap"/></svg></button>
+        <button class="icon-btn" id="btnMapSave" aria-label="Salva nel quaderno" title="Salva nel quaderno"><svg class="i"><use href="#i-bookmark"/></svg></button>
+        <button class="icon-btn" id="btnMapPrint" aria-label="Stampa" title="Stampa"><svg class="i"><use href="#i-printer"/></svg></button>
+        <button class="icon-btn" id="btnMapPng" aria-label="Scarica immagine" title="Scarica immagine"><svg class="i"><use href="#i-download"/></svg></button>
+        <button class="icon-btn" id="btnMapOther" aria-label="Nuova mappa" title="Nuova mappa"><svg class="i"><use href="#i-file-plus"/></svg></button>
+      </div>
+      <div id="mapWrap" class="map-wrap"><div class="empty">La mappa comparirà qui.</div></div>
+      <p class="map-legend">Tocca un riquadro per modificarlo, toccalo di nuovo per ascoltarlo.<span class="hidden" id="mapLegend"> I riquadri tratteggiati li ha aggiunti l'IA: tienili solo se ti convincono.</span></p>
+    </div>
+  </section>
+
+  <!-- ================= MATEMATICA ================= -->
+  <section class="view" id="view-mate" aria-label="Matematica">
+    <div class="seg scroll" id="mateSeg" role="tablist">
+      <button data-mt="calc" class="on"><svg class="i"><use href="#i-calc"/></svg>Calcolatrice</button>
+      <button data-mt="eq"><svg class="i"><use href="#i-equal"/></svg>Equazioni</button>
+      <button data-mt="graph"><svg class="i"><use href="#i-graph"/></svg>Grafici</button>
+      <button data-mt="units"><svg class="i"><use href="#i-scale"/></svg>Unità</button>
+      <button data-mt="formule"><svg class="i"><use href="#i-sigma"/></svg>Formule</button>
+      <button data-mt="tab"><svg class="i"><use href="#i-grid"/></svg>Tabelline</button>
+      <button data-mt="foto"><svg class="i"><use href="#i-camera"/></svg>Da foto</button>
+    </div>
+
+    <!-- calcolatrice -->
+    <div class="mate-pane" data-mpane="calc">
+      <div class="card calc">
+        <div class="calc-screen">
+          <input type="text" id="calcExpr" inputmode="none" autocomplete="off" spellcheck="false" aria-label="Espressione" placeholder="0">
+          <div class="calc-result" id="calcResult" aria-live="polite"></div>
+        </div>
+        <div class="calc-opts">
+          <label class="switch"><input type="checkbox" id="calcSpeak" checked> Leggi il risultato</label>
+          <label class="switch"><input type="checkbox" id="calcDeg" checked> Angoli in gradi</label>
+          <button class="btn small" id="calcKeyboard">Usa la tastiera</button>
+        </div>
+        <div class="keys" id="calcKeys"></div>
+      </div>
+      <div class="card">
+        <h2>Calcoli fatti</h2>
+        <ul class="calc-history" id="calcHistory"><li class="hint">I calcoli compariranno qui. Toccane uno per riusarlo.</li></ul>
+      </div>
+    </div>
+
+    <!-- equazioni -->
+    <div class="mate-pane hidden" data-mpane="eq">
+      <div class="card">
+        <h2>Equazioni di 1° e 2° grado</h2>
+        <p class="hint">Scrivi l'equazione come sul quaderno. Esempi: <code>3x + 5 = 2x − 1</code> · <code>x^2 − 5x + 6 = 0</code></p>
+        <div class="topic-row">
+          <input type="text" id="eqInput" placeholder="x^2 - 5x + 6 = 0" autocomplete="off" spellcheck="false">
+          <button class="btn primary" id="btnEqSolve">Risolvi</button>
+        </div>
+        <div class="eq-keys" id="eqKeys"></div>
+      </div>
+      <div class="card hidden" id="eqOut"></div>
+    </div>
+
+    <!-- grafici -->
+    <div class="mate-pane hidden" data-mpane="graph">
+      <div class="card">
+        <h2>Grafici di funzioni</h2>
+        <div class="fx-list">
+          <label class="fx"><span class="fx-dot c1"></span>y = <input type="text" id="fx1" value="x^2 - 4" autocomplete="off" spellcheck="false"></label>
+          <label class="fx"><span class="fx-dot c2"></span>y = <input type="text" id="fx2" placeholder="es. 2x + 1" autocomplete="off" spellcheck="false"></label>
+          <label class="fx"><span class="fx-dot c3"></span>y = <input type="text" id="fx3" placeholder="es. sin(x)" autocomplete="off" spellcheck="false"></label>
+        </div>
+        <div class="graph-wrap"><canvas id="graph" aria-label="Grafico"></canvas><div class="graph-pt" id="graphPt"></div></div>
+        <div class="btn-row">
+          <button class="icon-btn" id="gZoomOut" aria-label="Rimpicciolisci"><svg class="i"><use href="#i-zoom-out"/></svg></button>
+          <button class="icon-btn" id="gZoomIn" aria-label="Ingrandisci"><svg class="i"><use href="#i-zoom-in"/></svg></button>
+          <button class="btn small" id="gReset">Centra</button>
+          <span class="hint">Trascina per spostarti, tocca la curva per leggere un punto.</span>
+        </div>
+        <p class="hint">Per le funzioni goniometriche il grafico usa i radianti.</p>
+      </div>
+    </div>
+
+    <!-- unità di misura -->
+    <div class="mate-pane hidden" data-mpane="units">
+      <div class="card">
+        <h2>Convertire le unità di misura</h2>
+        <div class="seg small" id="unitSeg"></div>
+        <div class="unit-row">
+          <input type="text" id="unitVal" value="1" inputmode="decimal" aria-label="Valore">
+          <select id="unitFrom" aria-label="Da"></select>
+          <button class="icon-btn" id="unitSwap" aria-label="Inverti"><svg class="i"><use href="#i-swap"/></svg></button>
+          <select id="unitTo" aria-label="A"></select>
+        </div>
+        <div class="unit-out" id="unitOut"></div>
+        <div class="ladder" id="unitLadder"></div>
+      </div>
+    </div>
+
+    <!-- formulario -->
+    <div class="mate-pane hidden" data-mpane="formule">
+      <div class="card">
+        <div class="row between wrap gap">
+          <h2>Formulario</h2>
+          <button class="btn small" id="btnFormPrint"><svg class="i"><use href="#i-printer"/></svg>Stampa</button>
+        </div>
+        <div id="formulario" class="formulario"></div>
+      </div>
+    </div>
+
+    <!-- tabelline -->
+    <div class="mate-pane hidden" data-mpane="tab">
+      <div class="card">
+        <h2>Tavola pitagorica</h2>
+        <p class="hint">Tocca un numero: senti l'operazione e vedi la riga e la colonna.</p>
+        <div class="pyth" id="pyth"></div>
+      </div>
+    </div>
+
+    <!-- esercizio da foto -->
+    <div class="mate-pane hidden" data-mpane="foto">
+      <div class="card">
+        <h2>Esercizio da foto</h2>
+        <p class="hint">Fotografa un esercizio: lo risolviamo insieme un passo alla volta.</p>
+        <label class="source">
+          <span class="tile t-pen"><svg class="i"><use href="#i-camera"/></svg></span>
+          <span class="s-txt"><b>Fotografa l'esercizio</b><small>Inquadra solo quello che ti serve</small></span>
+          <input type="file" id="mathPhoto" accept="image/*" capture="environment" hidden>
+        </label>
+        <div class="topic-row">
+          <input type="text" id="mathText" placeholder="…oppure scrivilo qui">
+          <button class="btn primary" id="btnMathText">Risolviamolo</button>
+        </div>
+      </div>
+      <div class="card hidden" id="mathOut"><div class="result" id="mathResult"></div></div>
+    </div>
+  </section>
+
+  <!-- ================= RIPASSA ================= -->
   <section class="view" id="view-ripassa" aria-label="Ripassa">
     <div class="seg" id="ripSeg" role="tablist">
-      <button data-rt="carte" class="on">🃏 Flashcard</button>
-      <button data-rt="interroga">🎤 Interrogami</button>
-      <button data-rt="piano">📅 Piano</button>
+      <button data-rt="carte" class="on"><svg class="i"><use href="#i-cards"/></svg>Flashcard</button>
+      <button data-rt="interroga"><svg class="i"><use href="#i-chat"/></svg>Interrogami</button>
+      <button data-rt="piano"><svg class="i"><use href="#i-calendar"/></svg>Piano</button>
     </div>
 
     <div class="rip-pane" data-pane="carte">
-    <div class="card">
-      <div class="row between wrap gap">
-        <h2>Flashcard</h2>
-        <select id="selDeck" aria-label="Scegli mazzo"></select>
+      <div class="card">
+        <div class="row between wrap gap">
+          <h2>Flashcard</h2>
+          <select id="selDeck" aria-label="Scegli mazzo"></select>
+        </div>
+        <p class="hint" id="deckHint">Non hai ancora mazzi. In Studia apri un testo e scegli <b>Flashcard</b> o <b>Vocaboli</b>.</p>
       </div>
-      <p class="hint" id="deckHint">Crea un mazzo dalla scheda <b>Leggi</b> (pulsante 🃏 Flashcard).</p>
-    </div>
-    <div class="card flash-area hidden" id="flashArea">
-      <div class="progress"><div id="flashBar"></div></div>
-      <div class="flashcard" id="flashcard" tabindex="0">
-        <div class="face front" id="flashFront"></div>
-        <div class="face back" id="flashBack"></div>
+      <div class="card flash-area hidden" id="flashArea">
+        <div class="progress"><div id="flashBar"></div></div>
+        <div class="flashcard" id="flashcard" tabindex="0">
+          <div class="face front" id="flashFront"></div>
+          <div class="face back" id="flashBack"></div>
+        </div>
+        <div class="flash-ctrl">
+          <button class="icon-btn" id="btnFlashRead" aria-label="Ascolta"><svg class="i"><use href="#i-volume"/></svg></button>
+          <button class="btn primary big" id="btnFlip"><svg class="i"><use href="#i-flip"/></svg>Gira la carta</button>
+        </div>
+        <div class="flash-ctrl hidden" id="flashJudge">
+          <button class="btn big again" id="btnAgain">Da ripassare</button>
+          <button class="btn big know" id="btnKnow">La so</button>
+        </div>
+        <div class="flash-ctrl minor">
+          <button class="btn small ghost" id="btnDeckPrint"><svg class="i"><use href="#i-printer"/></svg>Stampa</button>
+          <button class="btn small ghost" id="btnDeckDelete"><svg class="i"><use href="#i-trash"/></svg>Elimina mazzo</button>
+        </div>
       </div>
-      <div class="row gap center-row">
-        <button class="btn round" id="btnFlashRead" aria-label="Ascolta">🔊</button>
-        <button class="btn big" id="btnFlip">Gira la carta</button>
-      </div>
-      <div class="row gap center-row hidden" id="flashJudge">
-        <button class="btn big bad" id="btnAgain">😕 Da ripassare</button>
-        <button class="btn big good" id="btnKnow">😃 La so!</button>
-      </div>
-      <div class="row gap center-row">
-        <button class="btn small" id="btnDeckPrint">🖨️ Stampa</button>
-        <button class="btn small" id="btnDeckDelete">🗑️ Elimina mazzo</button>
-      </div>
-    </div>
     </div>
 
     <div class="rip-pane hidden" data-pane="interroga">
       <div class="card">
         <h2>Interrogazione simulata</h2>
+        <p class="hint">Ti faccio una domanda come in classe. Rispondi a voce: poi ti dico cosa hai detto bene e cosa mancava.</p>
         <label class="field">Su cosa ti interrogo?
           <select id="quizSource"></select>
         </label>
-        <div class="row gap wrap">
-          <button class="btn big primary" id="btnQuizAsk">🎲 Fammi una domanda</button>
-          <button class="btn big" id="btnQuizExpose">📢 Esponi tutto l'argomento</button>
+        <div class="btn-row">
+          <button class="btn primary" id="btnQuizAsk"><svg class="i"><use href="#i-shuffle"/></svg>Fammi una domanda</button>
+          <button class="btn" id="btnQuizExpose"><svg class="i"><use href="#i-present"/></svg>Esponi tutto l'argomento</button>
         </div>
       </div>
       <div class="card hidden" id="quizQ">
-        <div class="row between gap">
+        <div class="quiz-top">
           <div class="quiz-question" id="quizQuestion"></div>
-          <button class="btn round" id="btnQuizRepeat" aria-label="Ripeti la domanda">🔊</button>
+          <button class="icon-btn" id="btnQuizRepeat" aria-label="Ripeti la domanda"><svg class="i"><use href="#i-volume"/></svg></button>
         </div>
-        <button class="mic" id="btnQuizMic" aria-label="Rispondi a voce">🎙️</button>
-        <div id="quizMicStatus" class="hint center">Rispondi a voce, come in classe</div>
+        <button class="mic" id="btnQuizMic" aria-label="Rispondi a voce"><svg class="i"><use href="#i-mic"/></svg></button>
+        <div id="quizMicStatus" class="mic-status">Rispondi a voce, come in classe</div>
         <textarea id="quizAnswer" rows="4" placeholder="…oppure scrivi qui la risposta"></textarea>
-        <div class="row gap wrap" style="margin-top:10px">
-          <button class="btn big primary" id="btnQuizCheck">✅ Com'è andata?</button>
+        <div class="btn-row">
+          <button class="btn primary" id="btnQuizCheck"><svg class="i"><use href="#i-check"/></svg>Com'è andata?</button>
         </div>
       </div>
       <div class="card hidden" id="quizFeedback"></div>
@@ -237,20 +473,20 @@
 
     <div class="rip-pane hidden" data-pane="piano">
       <div class="card timer-card">
-        <div class="row between wrap gap">
+        <div class="timer-face">
           <div>
-            <div class="timer-label" id="timerLabel">⏱️ Timer di studio</div>
+            <div class="timer-label" id="timerLabel">Timer di studio</div>
             <div class="timer-display" id="timerDisplay">25:00</div>
           </div>
-          <div class="row gap wrap">
+          <div class="timer-ctrl">
             <select id="timerLen" aria-label="Durata">
               <option value="15">15 min</option><option value="20">20 min</option><option value="25" selected>25 min</option><option value="30">30 min</option>
             </select>
-            <button class="btn primary" id="btnTimer">▶️ Avvia</button>
-            <button class="btn" id="btnTimerStop" aria-label="Ferma">⏹️</button>
+            <button class="btn primary" id="btnTimer">Avvia</button>
+            <button class="icon-btn" id="btnTimerStop" aria-label="Ferma"><svg class="i"><use href="#i-stop"/></svg></button>
           </div>
         </div>
-        <p class="hint">Dopo ogni sessione ti avviso e parte una pausa di 5 minuti.</p>
+        <p class="hint">Alla fine di ogni sessione ti avviso e parte una pausa di 5 minuti.</p>
       </div>
       <div class="card">
         <h2>Piano verso la verifica</h2>
@@ -262,17 +498,19 @@
         <label class="field">Quanto tempo al giorno?
           <select id="planMinutes"><option value="20">20 minuti</option><option value="30">30 minuti</option><option value="45" selected>45 minuti</option><option value="60">1 ora</option><option value="90">1 ora e mezza</option></select>
         </label>
-        <button class="btn big primary" id="btnPlanCreate">📅 Crea il piano</button>
+        <button class="btn primary" id="btnPlanCreate"><svg class="i"><use href="#i-calendar"/></svg>Crea il piano</button>
       </div>
       <div id="planList"></div>
     </div>
   </section>
 
-  <!-- ============ QUADERNO ============ -->
+  <!-- ================= QUADERNO ================= -->
   <section class="view" id="view-quaderno" aria-label="Quaderno">
+    <div class="intro">
+      <h1>Quaderno</h1>
+      <p>Testi, mappe e flashcard salvati. Restano su questo dispositivo: per spostarli usa il backup nelle impostazioni.</p>
+    </div>
     <div class="card">
-      <h2>Il mio quaderno</h2>
-      <p class="hint">Testi e mappe salvati restano solo su questo dispositivo.</p>
       <div class="chips" id="nbFilter"></div>
       <ul id="notebook" class="notebook"></ul>
     </div>
@@ -280,31 +518,24 @@
 </main>
 
 <nav class="tabbar" aria-label="Sezioni">
-  <button class="tab active" data-view="leggi"><span>📖</span>Leggi</button>
-  <button class="tab" data-view="mappa"><span>🗺️</span>Mappa</button>
-  <button class="tab" data-view="detta"><span>🎙️</span>Detta</button>
-  <button class="tab" data-view="ripassa"><span>🃏</span>Ripassa</button>
-  <button class="tab" data-view="quaderno"><span>📚</span>Quaderno</button>
+  <button class="tab active" data-view="leggi"><svg class="i"><use href="#i-book"/></svg><span>Studia</span></button>
+  <button class="tab" data-view="detta"><svg class="i"><use href="#i-mic"/></svg><span>Scrivi</span></button>
+  <button class="tab" data-view="mappa"><svg class="i"><use href="#i-map"/></svg><span>Mappe</span></button>
+  <button class="tab" data-view="mate"><svg class="i"><use href="#i-calc"/></svg><span>Mate</span></button>
+  <button class="tab" data-view="ripassa"><svg class="i"><use href="#i-repeat"/></svg><span>Ripassa</span></button>
 </nav>
 
 <!-- ============ IMPOSTAZIONI ============ -->
-<dialog id="dlgSettings">
+<dialog id="dlgSettings" class="sheet">
   <form method="dialog" class="settings">
-    <h2>Impostazioni</h2>
-
-    <fieldset>
-      <legend>Chiavi gratuite</legend>
-      <label>Chiave Gemini <small>(da aistudio.google.com)</small>
-        <input type="password" id="keyGemini" autocomplete="off" spellcheck="false">
-      </label>
-      <label>Chiave Groq <small>(da console.groq.com)</small>
-        <input type="password" id="keyGroq" autocomplete="off" spellcheck="false">
-      </label>
-      <p class="hint">Le chiavi restano salvate solo su questo dispositivo.</p>
-    </fieldset>
+    <div class="sheet-head">
+      <h2>Impostazioni</h2>
+      <button class="icon-btn" value="ok" aria-label="Chiudi"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
 
     <fieldset>
       <legend>Lettura</legend>
+      <div class="preview-text" id="setPreview">Il Congresso di Vienna ridisegnò i confini dell'Europa dopo Napoleone.</div>
       <label>Carattere
         <select id="setFont">
           <option value="Atkinson">Atkinson Hyperlegible</option>
@@ -313,78 +544,113 @@
           <option value="Verdana">Verdana</option>
         </select>
       </label>
-      <label>Grandezza testo <input type="range" id="setSize" min="16" max="34" step="1"></label>
-      <label>Spazio tra lettere <input type="range" id="setLetter" min="0" max="0.25" step="0.01"></label>
-      <label>Spazio tra righe <input type="range" id="setLine" min="1.4" max="2.6" step="0.1"></label>
-      <label>Sfondo
+      <label>Grandezza del testo <input type="range" id="setSize" min="16" max="34" step="1"></label>
+      <label>Spazio tra le lettere <input type="range" id="setLetter" min="0" max="0.25" step="0.01"></label>
+      <label>Spazio tra le righe <input type="range" id="setLine" min="1.4" max="2.6" step="0.1"></label>
+      <label>Colore della pagina
         <select id="setTheme">
-          <option value="crema">Crema</option>
+          <option value="crema">Carta</option>
           <option value="azzurro">Azzurro</option>
           <option value="verde">Verde chiaro</option>
           <option value="bianco">Bianco</option>
           <option value="scuro">Scuro</option>
         </select>
       </label>
-      <label><input type="checkbox" id="setSyllables"> Colora le sillabe alternate</label>
+      <label class="check"><input type="checkbox" id="setSyllables"> Colora le sillabe alternate</label>
     </fieldset>
 
     <fieldset>
       <legend>Voce</legend>
-      <label>Voce <select id="setVoice"></select></label>
-      <button type="button" class="btn small" id="btnVoiceTest">🔊 Prova voce</button>
+      <label>Voce italiana <select id="setVoice"></select></label>
+      <button type="button" class="btn small" id="btnVoiceTest"><svg class="i"><use href="#i-volume"/></svg>Prova la voce</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Chiavi gratuite</legend>
+      <label>Chiave Gemini <small>da aistudio.google.com</small>
+        <input type="password" id="keyGemini" autocomplete="off" spellcheck="false">
+      </label>
+      <label>Chiave Groq <small>da console.groq.com</small>
+        <input type="password" id="keyGroq" autocomplete="off" spellcheck="false">
+      </label>
+      <p class="hint">Le chiavi restano salvate solo su questo dispositivo.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Quaderno</legend>
+      <p class="hint">Per spostare il lavoro tra telefono e computer: scarica il backup su uno e caricalo sull'altro.</p>
+      <div class="row gap wrap" id="backupRow">
+        <button type="button" class="btn small" id="btnExport"><svg class="i"><use href="#i-download"/></svg>Scarica backup</button>
+      </div>
     </fieldset>
 
     <details>
-      <summary>Avanzate (modelli)</summary>
+      <summary>Avanzate</summary>
       <label>Modello Gemini <input type="text" id="modGemini" list="listGemini"></label>
       <datalist id="listGemini"></datalist>
       <label>Modello Groq (testo) <input type="text" id="modGroq" list="listGroq"></label>
       <datalist id="listGroq"></datalist>
       <label>Modello Groq (voce) <input type="text" id="modWhisper"></label>
       <label>Modello Groq (foto) <input type="text" id="modGroqVision" placeholder="automatico"></label>
-      <p class="hint">Ordine usato: Gemini → Gemini Flash-Lite → Groq. Se un servizio segnala il limite, per un po' viene saltato.</p>
-      <button type="button" class="btn small" id="btnLoadModels">🔄 Carica modelli disponibili</button>
+      <p class="hint">Ordine usato: Gemini, poi Gemini Flash-Lite, poi Groq. Se un servizio segnala il limite, per un po' viene saltato.</p>
+      <button type="button" class="btn small" id="btnLoadModels">Carica modelli disponibili</button>
       <p class="hint" id="modelsInfo"></p>
+      <button type="button" class="btn small" id="btnShowWelcome">Rivedi la presentazione</button>
     </details>
-
-    <div class="row between">
-      <button type="button" class="btn small" id="btnExport">⬇️ Backup quaderno</button>
-      <button class="btn primary" value="ok">Fatto</button>
-    </div>
   </form>
 </dialog>
 
-<!-- ============ FINESTRA DOMANDE (sostituisce prompt/confirm del browser) ============ -->
+<!-- ============ GUIDA ============ -->
+<dialog id="dlgGuide" class="sheet wide">
+  <div class="sheet-head">
+    <h2>Guida</h2>
+    <button class="icon-btn" id="btnGuideClose" aria-label="Chiudi"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="seg scroll small" id="guideSeg"></div>
+  <div class="guide" id="guideBody"></div>
+</dialog>
+
+<!-- ============ BENVENUTO ============ -->
+<dialog id="dlgWelcome" class="sheet welcome">
+  <div class="welcome-body" id="welcomeBody"></div>
+  <div class="welcome-foot">
+    <div class="dots" id="welcomeDots"></div>
+    <button class="btn primary" id="btnWelcomeNext">Avanti</button>
+  </div>
+</dialog>
+
+<!-- ============ FINESTRA DOMANDE ============ -->
 <dialog id="dlgAsk">
   <form method="dialog" class="ask-box">
     <h2 id="askTitle"></h2>
     <p id="askMsg" class="hint"></p>
     <textarea id="askInput" rows="3" class="hidden"></textarea>
     <label class="field hidden" id="askSubjWrap">Materia <input type="text" id="askSubject" list="subjectsList" placeholder="Es. Storia (facoltativa)"></label>
-    <div id="askBtns" class="row gap wrap ask-btns"></div>
+    <div id="askBtns" class="ask-btns"></div>
   </form>
 </dialog>
 
 <!-- ============ BARRA DEL RIQUADRO SELEZIONATO (mappa) ============ -->
 <div id="nodeBar" class="node-bar hidden" role="toolbar" aria-label="Riquadro selezionato">
-  <button data-nb="say"><span>🔊</span>Ascolta</button>
-  <button data-nb="edit"><span>✏️</span>Scrivi</button>
-  <button data-nb="child"><span>↘️</span>Sotto</button>
-  <button data-nb="sibling"><span>⬇️</span>Accanto</button>
-  <button data-nb="up"><span>🔼</span>Su</button>
-  <button data-nb="down"><span>🔽</span>Giù</button>
-  <button data-nb="del"><span>🗑️</span>Togli</button>
-  <button data-nb="close" aria-label="Chiudi"><span>✖️</span>Chiudi</button>
+  <button data-nb="say"><svg class="i"><use href="#i-volume"/></svg>Ascolta</button>
+  <button data-nb="edit"><svg class="i"><use href="#i-pencil"/></svg>Scrivi</button>
+  <button data-nb="child"><svg class="i"><use href="#i-branch"/></svg>Sotto</button>
+  <button data-nb="sibling"><svg class="i"><use href="#i-sibling"/></svg>Accanto</button>
+  <button data-nb="up"><svg class="i"><use href="#i-up"/></svg>Su</button>
+  <button data-nb="down"><svg class="i"><use href="#i-down"/></svg>Giù</button>
+  <button data-nb="del"><svg class="i"><use href="#i-trash"/></svg>Togli</button>
+  <button data-nb="close"><svg class="i"><use href="#i-x"/></svg>Chiudi</button>
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Sto lavorando…</div></div>
+<div id="busy" class="busy hidden"><div class="busy-box"><div class="spinner"></div><div id="busyText">Sto lavorando…</div></div></div>
 
 <datalist id="subjectsList"></datalist>
 <div id="printArea" aria-hidden="true"></div>
 <style id="printPage"></style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script src="mate.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>

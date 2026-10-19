@@ -19,6 +19,8 @@ const store = {
 };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const escapeHtml = (s) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+/** Icona dal set in index.html */
+const icon = (name) => `<svg class="i" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 let toastTimer;
@@ -68,7 +70,7 @@ const uiConfirm = (message, okLabel = "Sì", danger = false) =>
   uiDialog({ title: message, buttons: [{ label: "No", value: false }, { label: okLabel, value: true, primary: !danger, danger }] }).then(v => v === true);
 /** Chiede nome e materia prima di salvare nel quaderno. */
 const askSave = (title, value = "", subject = "") =>
-  uiDialog({ title, input: value, subject, buttons: [{ label: "Annulla", value: null }, { label: "💾 Salva", value: "ok", primary: true }] })
+  uiDialog({ title, input: value, subject, buttons: [{ label: "Annulla", value: null }, { label: "Salva", value: "ok", primary: true }] })
     .then(r => (r && r.choice === "ok") ? { title: r.text || value, subject: r.subject } : null);
 
 const DEFAULT_SUBJECTS = ["Italiano", "Storia", "Geografia", "Matematica", "Fisica", "Chimica", "Scienze", "Inglese", "Francese", "Spagnolo", "Tedesco", "Latino", "Filosofia", "Arte", "Diritto", "Economia", "Informatica"];
@@ -125,7 +127,7 @@ function applySettings() {
   r.setProperty("--read-letter", settings.letter + "em");
   r.setProperty("--read-line", settings.line);
   document.body.dataset.theme = settings.theme;
-  $("meta[name=theme-color]").content = settings.theme === "scuro" ? "#1d1f21" : "#2f6f6a";
+  $("meta[name=theme-color]").content = settings.theme === "scuro" ? "#12151f" : "#f5f6fa";
   $("#rngRate").value = settings.rate;
 }
 
@@ -166,7 +168,7 @@ function waitSeconds(status, raw, retryAfter) {
 }
 
 async function geminiCall({ prompt, system, images = [], json = false, temperature = 0.4, model }) {
-  if (!settings.keyGemini) throw new AIError("Manca la chiave Gemini (Impostazioni ⚙️).", -1);
+  if (!settings.keyGemini) throw new AIError("Manca la chiave Gemini (in Impostazioni).", -1);
   const parts = [];
   for (const img of images) parts.push({ inline_data: { mime_type: img.mime, data: img.data } });
   parts.push({ text: prompt });
@@ -202,7 +204,7 @@ async function geminiCall({ prompt, system, images = [], json = false, temperatu
 }
 
 async function groqChat({ prompt, system, images = [], json = false, temperature = 0.4, model }) {
-  if (!settings.keyGroq) throw new AIError("Manca la chiave Groq (Impostazioni ⚙️).", -1);
+  if (!settings.keyGroq) throw new AIError("Manca la chiave Groq (in Impostazioni).", -1);
   const messages = [];
   if (system) messages.push({ role: "system", content: system });
   if (images.length) {
@@ -305,7 +307,7 @@ function parseJSON(text) {
 }
 
 async function transcribe(blob) {
-  if (!settings.keyGroq) throw new AIError("Per la dettatura serve la chiave Groq (Impostazioni ⚙️).", -1);
+  if (!settings.keyGroq) throw new AIError("Per la dettatura serve la chiave Groq (in Impostazioni).", -1);
   const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
   const fd = new FormData();
   fd.append("file", blob, "registrazione." + ext);
@@ -588,7 +590,7 @@ const tts = {
     if (!this.voices.length) this.voices = this.all;
     const sel = $("#setVoice");
     sel.innerHTML = `<option value="">Automatica (la migliore disponibile)</option>` +
-      this.voices.map(v => `<option value="${escapeHtml(v.name)}">${escapeHtml(v.name)}${v.localService ? "" : " ☁️"}</option>`).join("");
+      this.voices.map(v => `<option value="${escapeHtml(v.name)}">${escapeHtml(v.name)}${v.localService ? "" : " (online)"}</option>`).join("");
     sel.value = settings.voice;
   },
   pickVoice(lang = "it") {
@@ -667,6 +669,10 @@ const reader = {
     const has = !!this.text;
     $("#readerCard").classList.toggle("hidden", !has);
     $("#toolsCard").classList.toggle("hidden", !has);
+    $("#homeIntro").classList.toggle("hidden", has);
+    $("#homePanels").classList.toggle("hidden", has);
+    $("#inputCard").classList.toggle("compact", has);
+    if (!has) home.render();
     if (!has) $("#resultCard").classList.add("hidden");
   },
 
@@ -707,8 +713,8 @@ const reader = {
     $("#reader").classList.toggle("picking", this.picking);
     $("#pickHint").classList.toggle("hidden", !this.picking);
     const b = $("#btnPick");
-    b.textContent = this.picking ? "✅ Fatto" : "✂️ Scegli";
-    b.classList.toggle("primary", this.picking);
+    b.innerHTML = this.picking ? `${icon("check")}<span>Fatto</span>` : `${icon("scissors")}<span>Scegli parte</span>`;
+    b.classList.toggle("on", this.picking);
   },
 
   /** Selezione fatta col dito o col mouse: prendo le frasi toccate dalla selezione. */
@@ -724,7 +730,7 @@ const reader = {
 
   async clear() {
     const saved = store.get("notebook", []).some(x => x.type === "testo" && x.data === this.text);
-    const msg = saved ? "Chiudere questo testo? È salvato nel quaderno." : "Chiudere questo testo? Non è salvato nel quaderno: premi 💾 prima, se vuoi tenerlo.";
+    const msg = saved ? "Chiudere questo testo? È salvato nel quaderno." : "Chiudere questo testo? Non è salvato nel quaderno: premi Salva prima, se vuoi tenerlo.";
     if (!(await uiConfirm(msg, "Chiudi", !saved))) return;
     this.stop();
     this.load("");
@@ -820,7 +826,7 @@ const reader = {
   stop() { this.pause(); this.idx = 0; this.mark(-1); },
   updateBtn() {
     const b = $("#btnPlay");
-    b.textContent = this.playing ? "⏸️" : "▶️";
+    b.innerHTML = icon(this.playing ? "pause" : "play");
     b.setAttribute("aria-label", this.playing ? "Pausa" : "Leggi ad alta voce");
   },
 
@@ -833,12 +839,14 @@ const reader = {
       box.classList.add("edit");
       box.innerText = this.text;
       box.focus();
-      $("#btnEdit").textContent = "✅ Fatto";
+      $("#btnEdit").innerHTML = `${icon("check")}<span>Fatto</span>`;
+      $("#btnEdit").classList.add("on");
     } else {
       this.editing = false;
       box.contentEditable = "false";
       box.classList.remove("edit");
-      $("#btnEdit").textContent = "✏️";
+      $("#btnEdit").innerHTML = `${icon("pencil")}<span>Modifica</span>`;
+      $("#btnEdit").classList.remove("on");
       this.load(box.innerText);
     }
   }
@@ -850,7 +858,7 @@ const ruler = {
   toggle() {
     this.on = !this.on;
     $("#ruler").classList.toggle("hidden", !this.on);
-    $("#btnRuler").classList.toggle("primary", this.on);
+    $("#btnRuler").classList.toggle("on", this.on);
     if (this.on) this.moveTo(innerHeight / 2.5);
   },
   moveTo(y) {
@@ -927,7 +935,7 @@ async function handleFiles(files) {
     const c = await uiDialog({
       title: "Hai già un testo aperto",
       message: "Vuoi aggiungere queste pagine in fondo o iniziare un testo nuovo?",
-      buttons: [{ label: "Annulla", value: null }, { label: "📄 Nuovo testo", value: "new" }, { label: "➕ Aggiungi", value: "add", primary: true }]
+      buttons: [{ label: "Annulla", value: null }, { label: "Testo nuovo", value: "new" }, { label: "Aggiungi in fondo", value: "add", primary: true }]
     });
     if (!c) return;
     append = c === "add";
@@ -1038,21 +1046,21 @@ function renderExercise(d) {
     <p class="hint no-print">Prova a fare ogni passo da sola, poi apri il passo dopo per controllare.</p>
     ${steps.map((p, i) => `<div class="ex-step${i ? " hidden" : ""}" data-step="${i}">
       <div class="ex-num">Passo ${i + 1} di ${steps.length}</div><b>${escapeHtml(p.titolo || "")}</b><p>${escapeHtml(p.spiegazione || "")}</p></div>`).join("")}
-    <div class="ex-final hidden"><b>🏁 Risultato</b><p>${escapeHtml(d.risultato || "")}</p>
-      ${d.controllo ? `<b>✔️ Controllo</b><p>${escapeHtml(d.controllo)}</p>` : ""}</div>
+    <div class="ex-final hidden"><b>Risultato</b><p>${escapeHtml(d.risultato || "")}</p>
+      ${d.controllo ? `<b>Controllo</b><p>${escapeHtml(d.controllo)}</p>` : ""}</div>
     <div class="row gap wrap no-print ex-ctrl">
-      <button class="btn primary" data-ex="next">👉 Passo successivo</button>
+      <button class="btn primary" data-ex="next">Passo successivo</button>
       <button class="btn" data-ex="all">Mostra tutto</button>
     </div></div>`;
   const md = `Esercizio: ${d.esercizio || ""}\n\n` + steps.map((p, i) => `## Passo ${i + 1}: ${p.titolo || ""}\n${p.spiegazione || ""}`).join("\n\n") +
     `\n\n## Risultato\n${d.risultato || ""}` + (d.controllo ? `\n\n## Controllo\n${d.controllo}` : "");
   return { title: "Esercizio passo passo", html, md };
 }
-function exerciseControl(which) {
-  const hidden = $$("#result .ex-step.hidden, #result .ex-final.hidden");
+function exerciseControl(which, root = $("#result")) {
+  const hidden = [...root.querySelectorAll(".ex-step.hidden, .ex-final.hidden")];
   if (which === "all") hidden.forEach(e => e.classList.remove("hidden"));
   else if (hidden[0]) { hidden[0].classList.remove("hidden"); hidden[0].scrollIntoView({ behavior: "smooth", block: "center" }); tts.say(hidden[0].innerText); }
-  if (!$$("#result .ex-step.hidden, #result .ex-final.hidden").length) $("#result .ex-ctrl")?.remove();
+  if (!root.querySelectorAll(".ex-step.hidden, .ex-final.hidden").length) root.querySelector(".ex-ctrl")?.remove();
 }
 
 async function chooseTargetLang() {
@@ -1263,7 +1271,7 @@ const mindmap = {
       this.zoom = null; // la mappa è cambiata molto: la rimetto tutta nello schermo
       this.change(() => { this.root = fresh; });
       const added = JSON.stringify(fresh).split('"ai":true').length - 1;
-      toast(added ? `Fatto! ${added} riquadri nuovi hanno il bordo tratteggiato. ↩️ Annulla per tornare indietro.` : "Fatto! ↩️ Annulla per tornare indietro.", 6000);
+      toast(added ? `Fatto! ${added} riquadri nuovi hanno il bordo tratteggiato. Con Annulla torni a prima.` : "Fatto! Con Annulla torni a prima.", 6000);
     } catch (e) { toast(e.message || "Non sono riuscito a migliorare la mappa. Riprova.", 6000); }
     finally { busy(false); }
   },
@@ -1468,7 +1476,7 @@ const mindmap = {
       subject = this.subject = r.subject;
     }
     const item = { id: this.savedId || uid(), type: "mappa", title: this.root.text, subject, date: todayLabel(), data: cleanMap(this.root) };
-    if (notebookPut(item)) { this.savedId = item.id; toast("Mappa salvata nel quaderno 📚"); }
+    if (notebookPut(item)) { this.savedId = item.id; toast("Mappa salvata nel quaderno"); }
   }
 };
 const slug = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "mappa";
@@ -1499,7 +1507,7 @@ function makeRecorder(btn, statusEl, onText, idleMsg) {
     btn.setAttribute("aria-label", "Ferma registrazione");
     r.timer = setInterval(() => {
       const sec = Math.floor((Date.now() - r.t0) / 1000);
-      statusEl.textContent = `🔴 Ti ascolto… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")} — tocca per finire`;
+      statusEl.textContent = `Ti ascolto… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")} — tocca per finire`;
       if (sec >= 600) r.rec.stop(); // massimo 10 minuti per registrazione
     }, 300);
   };
@@ -1510,7 +1518,7 @@ function makeRecorder(btn, statusEl, onText, idleMsg) {
     btn.setAttribute("aria-label", "Avvia registrazione");
     const blob = new Blob(r.chunks, { type: r.rec.mimeType || "audio/webm" });
     if (blob.size < 1200) { statusEl.textContent = "Registrazione troppo corta. Riprova."; return; }
-    statusEl.textContent = "✍️ Sto scrivendo…";
+    statusEl.textContent = "Sto scrivendo…";
     try {
       onText(await transcribe(blob));
       statusEl.textContent = idleMsg;
@@ -1551,7 +1559,7 @@ const dictation = {
       $("#errList").innerHTML = errs.length
         ? errs.map(e => `<li><span class="err-bad">${escapeHtml(e.sbagliato)}</span> → <span class="err-good">${escapeHtml(e.corretto)}</span>
             <small class="err-type">${escapeHtml(e.tipo || "")}</small><p>${escapeHtml(e.regola || "")}</p></li>`).join("")
-        : `<li class="hint">🎉 Non ho trovato errori. Brava!</li>`;
+        : `<li class="hint">Nessun errore trovato. Ottimo lavoro.</li>`;
       $("#btnErrApply").classList.toggle("hidden", !errs.length || !this.fixed);
       this.renderStats();
       card.scrollIntoView({ behavior: "smooth" });
@@ -1563,10 +1571,10 @@ const dictation = {
     this.undo = $("#txtDictation").value;
     $("#txtDictation").value = this.fixed;
     store.set("dictation", this.fixed);
-    $("#btnFix").textContent = "↩️ Annulla correzione";
+    $("#btnFix").innerHTML = `${icon("undo")}Annulla correzione`;
     $("#btnFix").dataset.undo = "1";
     $("#btnErrApply").classList.add("hidden");
-    toast("Correzioni applicate ✔️");
+    toast("Correzioni applicate");
   },
   renderStats() {
     const stats = Object.entries(store.get("errStats", {})).sort((a, b) => b[1] - a[1]).slice(0, 4);
@@ -1585,7 +1593,7 @@ const dictation = {
       this.undo = t;
       ta.value = out;
       store.set("dictation", out);
-      $("#btnFix").textContent = "↩️ Annulla correzione";
+      $("#btnFix").innerHTML = `${icon("undo")}Annulla correzione`;
       $("#btnFix").dataset.undo = "1";
     } catch (e) { toast(e.message, 6000); }
     finally { busy(false); }
@@ -1597,7 +1605,7 @@ const dictation = {
     this.undo = null;
     this.resetFixBtn();
   },
-  resetFixBtn() { $("#btnFix").textContent = "✔️ Correggi errori"; delete $("#btnFix").dataset.undo; }
+  resetFixBtn() { $("#btnFix").innerHTML = `${icon("check")}Correggi tutto`; delete $("#btnFix").dataset.undo; }
 };
 
 /* =========================================================
@@ -1637,7 +1645,7 @@ const flash = {
     $("#btnFlip").classList.remove("hidden");
     $("#flashBar").style.width = (this.total ? this.done / this.total * 100 : 0) + "%";
     if (!this.queue.length) {
-      $("#flashFront").innerHTML = "🎉<br>Hai finito il mazzo!<br><small>Tocca per ricominciare</small>";
+      $("#flashFront").innerHTML = "Mazzo finito.<br><small>Tocca la carta per ricominciare</small>";
       $("#flashBack").textContent = "";
       $("#btnFlip").classList.add("hidden");
       this.finished = true;
@@ -1702,9 +1710,9 @@ const quiz = {
     const sel = $("#quizSource");
     const texts = store.get("notebook", []).filter(x => x.type === "testo");
     const opts = [];
-    if (this.source && !texts.some(t => t.data === this.source) && this.source !== reader.text) opts.push(["custom", "📝 " + (this.title || "Testo scelto")]);
-    if (reader.text) opts.push(["reader", "📖 Testo aperto: " + reader.title()]);
-    texts.forEach(t => opts.push(["nb:" + t.id, `📚 ${t.subject ? t.subject + " · " : ""}${t.title}`]));
+    if (this.source && !texts.some(t => t.data === this.source) && this.source !== reader.text) opts.push(["custom", "Testo scelto: " + (this.title || "")]);
+    if (reader.text) opts.push(["reader", "Testo aperto in Studia: " + reader.title()]);
+    texts.forEach(t => opts.push(["nb:" + t.id, `${t.subject ? t.subject + ": " : ""}${t.title}`]));
     sel.innerHTML = opts.length ? opts.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("")
       : `<option value="">Prima apri un testo in Leggi o salvane uno nel quaderno</option>`;
     if (selectValue) sel.value = selectValue;
@@ -1725,7 +1733,7 @@ const quiz = {
   setSource(text, title) {
     this.source = text; this.title = title; this.asked = [];
     this.fillSources(text === reader.activeText() ? "reader" : "custom");
-    toast("Pronta? Premi «Fammi una domanda» 🎤");
+    toast("Pronta? Premi «Fammi una domanda».");
   },
 
   async next(expose = false) {
@@ -1760,29 +1768,29 @@ const quiz = {
 
   async check() {
     const answer = $("#quizAnswer").value.trim();
-    if (!answer) return toast("Prima rispondi a voce 🎙️ o scrivi la risposta.");
+    if (!answer) return toast("Prima rispondi a voce o scrivi la risposta.");
     try {
       busy(true, "Ascolto la tua risposta…");
       const d = parseJSON(await ask({ prompt: PROMPTS.valuta(this.source, this.question, answer), json: true, temperature: 0.3 }));
-      const LV = { ottimo: ["🌟", "Ottimo!", "good"], buono: ["👍", "Buona risposta", "good"], sufficiente: ["🙂", "Sufficiente", "mid"], "da rivedere": ["📖", "Da rivedere", "bad"] };
+      const LV = { ottimo: ["check", "Ottimo", "good"], buono: ["check", "Buona risposta", "good"], sufficiente: ["bulb", "Sufficiente", "mid"], "da rivedere": ["book", "Da rivedere", "bad"] };
       const [ico, label, cls] = LV[d.livello] || LV.sufficiente;
       const list = (arr, cls2) => (arr || []).length ? `<ul class="${cls2}">${arr.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : "";
       $("#quizFeedback").innerHTML = `
-        <div class="quiz-level ${cls}">${ico} ${label}</div>
-        ${(d.bene || []).length ? `<h3>✅ Cosa hai detto bene</h3>${list(d.bene, "fb-good")}` : ""}
-        ${(d.manca || []).length ? `<h3>➕ Cosa mancava</h3>${list(d.manca, "fb-miss")}` : ""}
-        ${(d.errori || []).length ? `<h3>✏️ Da correggere</h3>${list(d.errori, "fb-err")}` : ""}
-        ${d.risposta_modello ? `<h3>💬 Una risposta completa</h3><p class="model">${escapeHtml(d.risposta_modello)}</p>` : ""}
-        ${d.consiglio ? `<p class="tip">💡 ${escapeHtml(d.consiglio)}</p>` : ""}
+        <div class="quiz-level ${cls}">${icon(ico)} ${label}</div>
+        ${(d.bene || []).length ? `<h3>Cosa hai detto bene</h3>${list(d.bene, "fb-good")}` : ""}
+        ${(d.manca || []).length ? `<h3>Cosa mancava</h3>${list(d.manca, "fb-miss")}` : ""}
+        ${(d.errori || []).length ? `<h3>Da correggere</h3>${list(d.errori, "fb-err")}` : ""}
+        ${d.risposta_modello ? `<h3>Una risposta completa</h3><p class="model">${escapeHtml(d.risposta_modello)}</p>` : ""}
+        ${d.consiglio ? `<p class="tip"><b>Consiglio:</b> ${escapeHtml(d.consiglio)}</p>` : ""}
         <div class="row gap wrap">
-          <button class="btn" id="btnFbRead">🔊 Ascolta</button>
-          <button class="btn" id="btnFbRetry">🔁 Riprova questa</button>
-          <button class="btn primary" id="btnFbNext">🎲 Altra domanda</button>
+          <button class="btn" id="btnFbRead">${icon("volume")}Ascolta</button>
+          <button class="btn" id="btnFbRetry">${icon("undo")}Riprova questa</button>
+          <button class="btn primary" id="btnFbNext">${icon("shuffle")}Altra domanda</button>
         </div>`;
       const fb = $("#quizFeedback");
       fb.classList.remove("hidden");
       fb.scrollIntoView({ behavior: "smooth" });
-      $("#btnFbRead").onclick = () => tts.say(fb.innerText.replace(/🔊 Ascolta|🔁 Riprova questa|🎲 Altra domanda/g, ""), null, "it");
+      $("#btnFbRead").onclick = () => tts.say(fb.innerText.replace(/Ascolta|Riprova questa|Altra domanda/g, ""), null, "it");
       $("#btnFbRetry").onclick = () => { $("#quizAnswer").value = ""; fb.classList.add("hidden"); $("#quizQ").scrollIntoView({ behavior: "smooth" }); };
       $("#btnFbNext").onclick = () => this.next();
     } catch (e) { toast(e.message || "Non sono riuscito a valutare. Riprova.", 6000); }
@@ -1859,13 +1867,13 @@ const planner = {
       const when = left > 1 ? `tra ${left} giorni` : left === 1 ? "domani!" : left === 0 ? "oggi!" : "passata";
       return `<div class="card plan${left < 0 ? " past" : ""}" data-plan="${p.id}">
         <div class="row between wrap gap">
-          <h2>📅 ${escapeHtml(p.subject)} — ${escapeHtml(when)}</h2>
-          <div class="row gap"><button class="btn small" data-pp="print" aria-label="Stampa">🖨️</button><button class="btn small" data-pp="del" aria-label="Elimina">🗑️</button></div>
+          <h2>${escapeHtml(p.subject)} <span class="plan-when">${escapeHtml(when)}</span></h2>
+          <div class="row"><button class="icon-btn" data-pp="print" aria-label="Stampa">${icon("printer")}</button><button class="icon-btn" data-pp="del" aria-label="Elimina">${icon("trash")}</button></div>
         </div>
         <p class="hint">Verifica: ${escapeHtml(dayLabel(p.date))} · ${done} attività fatte su ${all.length}</p>
         <div class="progress"><div style="width:${all.length ? done / all.length * 100 : 0}%"></div></div>
         ${p.sessions.map((s, si) => `<div class="plan-day${s.date === today ? " today" : s.date < today ? " gone" : ""}">
-          <div class="plan-date">${s.date === today ? "👉 Oggi" : escapeHtml(dayLabel(s.date))}</div>
+          <div class="plan-date">${s.date === today ? "Oggi" : escapeHtml(dayLabel(s.date))}</div>
           ${s.items.map((it, ii) => `<label class="plan-item"><input type="checkbox" data-si="${si}" data-ii="${ii}"${it.done ? " checked" : ""}> <span>${escapeHtml(it.t)}</span></label>`).join("")}
         </div>`).join("")}
       </div>`;
@@ -1879,7 +1887,7 @@ const planner = {
     p.sessions[si].items[ii].done = done;
     store.set("plans", plans);
     const all = p.sessions.flatMap(s => s.items);
-    if (all.every(i => i.done)) toast("🎉 Piano completato! Sei pronta per la verifica.", 5000);
+    if (all.every(i => i.done)) toast("Piano completato: sei pronta per la verifica.", 5000);
     this.render();
   },
 
@@ -1919,13 +1927,13 @@ const timer = {
     const running = this.phase === "study" || this.phase === "break";
     const ms = running ? this.end - Date.now() : this.phase === "idle" ? Number($("#timerLen").value) * 60000 : this.left;
     const t = this.fmt(ms);
-    const label = { idle: "⏱️ Timer di studio", study: "📚 Studio", break: "☕ Pausa", "paused-study": "⏸️ Studio in pausa", "paused-break": "⏸️ Pausa ferma" }[this.phase];
+    const label = { idle: "Timer di studio", study: "Studio", break: "Pausa", "paused-study": "Studio in pausa", "paused-break": "Pausa ferma" }[this.phase];
     $("#timerDisplay").textContent = t;
     $("#timerLabel").textContent = label;
-    $("#btnTimer").textContent = running ? "⏸️ Pausa" : this.phase === "idle" ? "▶️ Avvia" : "▶️ Riprendi";
+    $("#btnTimer").textContent = running ? "Pausa" : this.phase === "idle" ? "Avvia" : "Riprendi";
     const chip = $("#timerChip");
     chip.classList.toggle("hidden", this.phase === "idle");
-    chip.textContent = (this.phase.includes("break") ? "☕ " : "📚 ") + t;
+    chip.textContent = (this.phase.includes("break") ? "Pausa " : "Studio ") + t;
     if (running && ms <= 0) this.ring();
   },
   ring() {
@@ -1964,7 +1972,7 @@ async function saveCurrentText() {
   const r = await askSave("Salva nel quaderno", reader.title(), reader.subject);
   if (!r) return;
   reader.subject = r.subject;
-  if (notebookPut({ id: uid(), type: "testo", title: r.title, subject: r.subject, date: todayLabel(), data: reader.text })) toast("Salvato nel quaderno 📚");
+  if (notebookPut({ id: uid(), type: "testo", title: r.title, subject: r.subject, date: todayLabel(), data: reader.text })) toast("Salvato nel quaderno");
 }
 
 let nbFilter = "";
@@ -1984,15 +1992,15 @@ function renderNotebook() {
         .map(([v, l]) => `<button class="chip${v === nbFilter ? " on" : ""}" data-sub="${escapeHtml(v)}">${escapeHtml(l)}</button>`).join("")
     : "";
   const shown = items.filter(x => !nbFilter || (nbFilter === "-" ? !x.subject : x.subject === nbFilter));
-  const icons = { testo: "📄", mappa: "🗺️", flashcard: "🃏" };
+  const icons = { testo: "file", mappa: "map", flashcard: "cards" };
   const ul = $("#notebook");
-  if (!items.length) { ul.innerHTML = `<li class="hint">Ancora vuoto. Salva un testo con 💾 o una mappa.</li>`; return; }
+  if (!items.length) { ul.innerHTML = `<li class="hint">Il quaderno è vuoto. Quando apri un testo o una mappa, premi Salva per ritrovarli qui.</li>`; return; }
   ul.innerHTML = shown.map(it => `
     <li data-id="${it.id}" data-type="${it.type}">
-      <span aria-hidden="true">${icons[it.type]}</span>
+      <span class="nb-ico" aria-hidden="true">${icon(icons[it.type])}</span>
       <span class="t">${escapeHtml(it.title)}<small>${it.subject ? `<span class="tag">${escapeHtml(it.subject)}</span> ` : ""}${it.type} · ${escapeHtml(it.date || "")}</small></span>
-      <button class="btn small" data-tag aria-label="Cambia materia">🏷️</button>
-      <button class="btn small" data-del aria-label="Elimina">🗑️</button>
+      <button class="icon-btn" data-tag aria-label="Cambia materia">${icon("tag")}</button>
+      <button class="icon-btn" data-del aria-label="Elimina">${icon("trash")}</button>
     </li>`).join("");
 }
 
@@ -2027,7 +2035,7 @@ async function deleteNotebookItem(id, type) {
 function exportBackup() {
   const data = { app: "studio-facile", version: 1, date: new Date().toISOString(),
     notebook: store.get("notebook", []), decks: store.get("decks", []), plans: store.get("plans", []), errStats: store.get("errStats", {}) };
-  download(`studio-facile-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 1), "application/json");
+  download(`zaino-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 1), "application/json");
 }
 async function importBackup(file) {
   try {
@@ -2047,7 +2055,7 @@ async function importBackup(file) {
       store.set("errStats", st);
     }
     renderNotebook(); flash.refreshDecks();
-    toast("Backup caricato ✅");
+    toast("Backup caricato");
   } catch { toast("Questo file non è un backup valido."); }
 }
 
@@ -2055,7 +2063,7 @@ async function importBackup(file) {
    12b. STAMPA (mappe, testi, riassunti, flashcard)
    ========================================================= */
 const printer = {
-  run(html, { title = "Studio Facile", landscape = false } = {}) {
+  run(html, { title = "Zaino", landscape = false } = {}) {
     const area = $("#printArea");
     area.innerHTML = `<div class="print-head"><b>${escapeHtml(title)}</b><span>${todayLabel()}</span></div>` + html;
     $("#printPage").textContent = `@page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 12mm; }`;
@@ -2092,6 +2100,163 @@ const printer = {
 };
 
 /* =========================================================
+   12c. SCHERMATA INIZIALE, GUIDA, BENVENUTO
+   ========================================================= */
+const home = {
+  render() {
+    const today = isoDay(new Date());
+    // oggi nel piano
+    const plans = store.get("plans", []).filter(p => p.date >= today);
+    const todayItems = [];
+    plans.forEach(p => p.sessions.forEach((s, si) => { if (s.date === today) s.items.forEach((it, ii) => todayItems.push({ p, si, ii, it })); }));
+    const next = plans.slice().sort((a, b) => a.date.localeCompare(b.date))[0];
+    const t = $("#homeToday");
+    if (todayItems.length) {
+      t.innerHTML = `<h2>${icon("calendar")}Oggi nel piano</h2><ul>${todayItems.map(({ p, si, ii, it }) =>
+        `<li><label class="p-item"><input type="checkbox" data-plan="${p.id}" data-si="${si}" data-ii="${ii}"${it.done ? " checked" : ""}><span>${escapeHtml(it.t)}<small>${escapeHtml(p.subject)}</small></span></label></li>`).join("")}</ul>`;
+    } else if (next) {
+      const left = daysBetween(today, next.date);
+      t.innerHTML = `<h2>${icon("calendar")}Prossima verifica</h2><ul><li><button class="p-item" data-go="piano"><span>${escapeHtml(next.subject)}<small>${left === 1 ? "domani" : "tra " + left + " giorni"}: oggi niente in programma</small></span></button></li></ul>`;
+    } else {
+      t.innerHTML = `<h2>${icon("calendar")}Hai una verifica in arrivo?</h2><p class="hint">Dimmi la data e cosa studiare: preparo un piano giorno per giorno, a piccoli passi.</p><button class="btn small" data-go="piano">Crea un piano</button>`;
+    }
+    t.classList.remove("hidden");
+    // da riprendere
+    const r = $("#homeRecent");
+    const nb = store.get("notebook", []).slice(0, 4);
+    const ico = { testo: "file", mappa: "map" };
+    r.innerHTML = nb.length
+      ? `<h2>${icon("library")}Da riprendere</h2><ul>${nb.map(x => `<li><button class="p-item" data-open="${x.id}" data-type="${x.type}">${icon(ico[x.type] || "file")}<span>${escapeHtml(x.title)}<small>${x.subject ? escapeHtml(x.subject) + ", " : ""}${escapeHtml(x.date || "")}</small></span></button></li>`).join("")}</ul>
+         <button class="btn small ghost" data-go="quaderno">Apri il quaderno</button>`
+      : `<h2>${icon("library")}Il tuo quaderno</h2><p class="hint">Testi, mappe e flashcard che salvi li ritrovi qui, pronti da riprendere.</p>`;
+    r.classList.remove("hidden");
+  },
+  bind() {
+    $("#homePanels").addEventListener("click", (e) => {
+      const go = e.target.closest("[data-go]");
+      if (go) { if (go.dataset.go === "piano") { showView("ripassa"); ripassa.tab("piano"); } else showView(go.dataset.go); return; }
+      const op = e.target.closest("[data-open]");
+      if (op) openNotebookItem(op.dataset.open, op.dataset.type);
+    });
+    $("#homePanels").addEventListener("change", (e) => {
+      const c = e.target.closest("input[data-plan]");
+      if (c) { planner.toggle(c.dataset.plan, +c.dataset.si, +c.dataset.ii, c.checked); this.render(); }
+    });
+  }
+};
+
+const GUIDE = [
+  ["Come si usa", null, [
+    ["book", "1. Porta il testo", "In Studia fotografa una pagina, carica una foto o un PDF, oppure incolla un testo."],
+    ["volume", "2. Ascoltalo", "Premi il tasto blu: la voce legge e la frase si colora come con un evidenziatore. Tocca una frase per partire da lì."],
+    ["sparkles", "3. Trasformalo", "Sotto il testo scegli cosa ti serve: riassunto, mappa, linea del tempo, flashcard e altro."],
+    ["chat", "4. Mettiti alla prova", "In Ripassa: flashcard, interrogazione a voce e piano verso la verifica."]
+  ]],
+  ["Studia", "Il lettore e gli strumenti sul testo.", [
+    ["play", "Leggi ad alta voce", "Avvia e mette in pausa la lettura. Accanto: ferma e velocità della voce."],
+    ["languages", "Lingua", "La voce si adatta da sola alla lingua del testo. Se sbaglia, scegli qui italiano, inglese, francese, spagnolo o tedesco."],
+    ["ruler", "Righello", "Scurisce la pagina e lascia in luce solo la riga che stai leggendo."],
+    ["scissors", "Scegli parte", "Tocca le frasi che ti servono: gli strumenti lavoreranno solo su quelle. Puoi anche selezionare il testo tenendo premuto."],
+    ["pencil", "Modifica", "Correggi a mano il testo, per esempio se la foto è stata letta male."],
+    ["bookmark", "Salva", "Mette il testo nel quaderno, con la materia."],
+    ["printer", "Stampa", "Stampa il testo con il carattere e le spaziature che hai scelto. Puoi anche salvarlo come PDF."],
+    ["x", "Chiudi", "Chiude il testo per iniziarne un altro."],
+    ["feather", "Semplifica", "Riscrive il testo con frasi brevi e parole chiare, tenendo i termini da sapere."],
+    ["bulb", "Spiegami", "Una spiegazione passo passo, con un esempio e tre domande per capire se hai capito."],
+    ["key", "Parole chiave", "I termini importanti, ognuno con una spiegazione semplice."],
+    ["languages", "Traduci", "Testo straniero: originale e traduzione affiancati. Testo italiano: lo traduce nella lingua che scegli."],
+    ["list", "Riassunto", "I punti principali e cosa ricordare per la verifica."],
+    ["map", "Mappa", "Crea la mappa concettuale e la apre in Mappe, dove puoi modificarla."],
+    ["timeline", "Linea del tempo", "Le date e gli eventi in ordine. Utile per storia e scienze."],
+    ["columns", "Confronta", "Una tabella con somiglianze e differenze (es. Atene e Sparta)."],
+    ["chat", "Interrogami", "Ti porta all'interrogazione simulata su questo testo."],
+    ["cards", "Flashcard", "Carte domanda e risposta per ripassare."],
+    ["type", "Vocaboli", "Solo per i testi stranieri: le parole utili con traduzione e pronuncia."],
+    ["sigma", "Formulario", "Le formule del capitolo su una pagina da stampare."],
+    ["steps", "Esercizio passo passo", "Ti guida un passo alla volta: prova da sola, poi apri il passo dopo."]
+  ]],
+  ["Scrivi", "Per temi, risposte e appunti.", [
+    ["mic", "Microfono", "Tocca e parla. Tocca di nuovo per finire: il testo compare sotto. Puoi dettare anche la punteggiatura («virgola», «punto»)."],
+    ["spell", "Spiegami gli errori", "Trova gli errori e ti spiega la regola con un trucco per ricordarla. Tiene il conto degli errori che fai più spesso."],
+    ["check", "Correggi tutto", "Corregge il testo in un colpo. Con «Annulla correzione» torni indietro."],
+    ["volume", "Rileggi", "Ti legge ad alta voce quello che hai scritto: aiuta a trovare gli errori."]
+  ]],
+  ["Mappe", "Mappe concettuali da costruire o da far preparare.", [
+    ["pencil", "Faccio io la mappa", "Scrivi l'argomento al centro e aggiungi le idee una alla volta."],
+    ["sparkles", "Migliora con l'IA", "Controlla la tua mappa: corregge gli errori e aggiunge ciò che manca. I riquadri aggiunti sono tratteggiati."],
+    ["branch", "Tocca un riquadro", "Compare una barra: Ascolta, Scrivi, Sotto (idea collegata), Accanto (stesso livello), Su, Giù, Togli."],
+    ["undo", "Annulla", "Torna indietro di una modifica alla volta."],
+    ["swap", "Cambia forma", "Rami a destra e sinistra, oppure tutti a destra."],
+    ["bookmark", "Salva, stampa, scarica", "Salva nel quaderno, stampa su un foglio A4 orizzontale o scarica come immagine."]
+  ]],
+  ["Mate", "Strumenti per matematica e fisica.", [
+    ["calc", "Calcolatrice", "Grandi tasti, legge il calcolo e il risultato ad alta voce, ricorda gli ultimi calcoli. Mostra anche la frazione quando c'è."],
+    ["equal", "Equazioni", "Equazioni di 1° e 2° grado, con tutti i passaggi spiegati (anche Δ)."],
+    ["graph", "Grafici", "Disegna fino a tre funzioni. Trascina per spostarti, tocca la curva per leggere un punto."],
+    ["scale", "Unità", "Converte le unità di misura e mostra la scala: quanti gradini, se moltiplicare o dividere, dove va la virgola."],
+    ["sigma", "Formule", "Formulario pronto: geometria, potenze, equazioni, percentuali, piano cartesiano, goniometria, fisica. Si stampa."],
+    ["grid", "Tabelline", "La tavola pitagorica: tocca un numero per sentire l'operazione."],
+    ["camera", "Da foto", "Fotografa un esercizio e risolvetelo insieme, un passo alla volta."]
+  ]],
+  ["Ripassa", "Per prepararti alle verifiche.", [
+    ["cards", "Flashcard", "Gira la carta, poi dimmi se la sapevi. Quelle sbagliate tornano più spesso."],
+    ["chat", "Interrogami", "Una domanda come in classe, tu rispondi a voce. Poi vedi cosa hai detto bene, cosa mancava e una risposta completa."],
+    ["calendar", "Piano", "Inserisci data e argomenti: ottieni un programma giorno per giorno con le attività da spuntare."],
+    ["timer", "Timer", "25 minuti di studio, poi 5 di pausa. Resta visibile in alto anche se cambi sezione."]
+  ]],
+  ["Quaderno e impostazioni", "", [
+    ["library", "Quaderno", "In alto a destra: tutto quello che hai salvato, diviso per materia."],
+    ["tag", "Materia", "Cambia la materia di un elemento del quaderno."],
+    ["sliders", "Impostazioni", "Carattere, grandezza, spaziature, colore della pagina, voce, chiavi e backup."],
+    ["help", "Guida", "Questa pagina. La trovi sempre in alto."]
+  ]]
+];
+const guide = {
+  open(section = 0) {
+    $("#guideSeg").innerHTML = GUIDE.map(([t], i) => `<button data-g="${i}"${i === section ? ' class="on"' : ""}>${t}</button>`).join("");
+    this.show(section);
+    $("#dlgGuide").showModal();
+  },
+  show(i) {
+    const [title, lead, rows] = GUIDE[i];
+    $$("#guideSeg button").forEach(b => b.classList.toggle("on", +b.dataset.g === i));
+    $("#guideBody").innerHTML = (lead ? `<p class="lead">${escapeHtml(lead)}</p>` : "") +
+      rows.map(([ic, n, d]) => `<div class="g-row"><span class="tile">${icon(ic)}</span><div><b>${escapeHtml(n)}</b><span>${escapeHtml(d)}</span></div></div>`).join("");
+  },
+  /** sezione della guida adatta a dove ci si trova */
+  forView() {
+    const v = $(".view.active")?.id.replace("view-", "");
+    return { leggi: 1, detta: 2, mappa: 3, mate: 4, ripassa: 5, quaderno: 6 }[v] ?? 0;
+  }
+};
+
+const WELCOME = [
+  { tiles: ["camera", "volume", "book"], title: "Ciao, questo è Zaino", text: `Il posto dove porti libri e compiti. Fotografi una pagina e Zaino te la <span class="hl">legge ad alta voce</span>, evidenziando la frase che stai ascoltando.` },
+  { tiles: ["list", "map", "timeline"], title: "Lo studio, più leggero", text: `Da ogni testo ottieni in un tocco <span class="hl">riassunti, mappe, linee del tempo</span> e spiegazioni passo passo. Le mappe puoi farle anche tu: l'IA le controlla.` },
+  { tiles: ["chat", "calendar", "calc"], title: "Pronta per le verifiche", text: `Interrogazione simulata a voce, flashcard, piano di studio con timer e strumenti di matematica: <span class="hl">calcolatrice parlante, equazioni con i passaggi, formulario</span>.` },
+  { tiles: ["sliders", "help"], title: "Fallo tuo", text: `Nelle impostazioni scegli carattere, grandezza e colore della pagina. Il tasto <b>?</b> in alto apre la guida in qualsiasi momento.` }
+];
+const welcome = {
+  i: 0,
+  open() { this.i = 0; this.show(); $("#dlgWelcome").showModal(); },
+  show() {
+    const w = WELCOME[this.i];
+    $("#welcomeBody").innerHTML = `<div class="welcome-art">${w.tiles.map((t, k) => `<span class="tile${k === 0 ? " t-pen" : ""}">${icon(t)}</span>`).join("")}</div><h2>${w.title}</h2><p>${w.text}</p>`;
+    $("#welcomeDots").innerHTML = WELCOME.map((_, k) => `<span${k === this.i ? ' class="on"' : ""}></span>`).join("");
+    $("#btnWelcomeNext").textContent = this.i === WELCOME.length - 1 ? "Inizia" : "Avanti";
+  },
+  next() {
+    if (this.i < WELCOME.length - 1) { this.i++; return this.show(); }
+    $("#dlgWelcome").close();
+    store.set("welcomed", true);
+    if (!settings.keyGemini && !settings.keyGroq) {
+      openSettings();
+      toast("Ultimo passo: inserisci le chiavi gratuite di Gemini e Groq.", 6000);
+    }
+  }
+};
+
+/* =========================================================
    13. NAVIGAZIONE E IMPOSTAZIONI (interfaccia)
    ========================================================= */
 function showView(name) {
@@ -2099,6 +2264,8 @@ function showView(name) {
   $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + name));
   $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.view === name));
   if (name === "quaderno") renderNotebook();
+  if (name === "leggi" && !reader.text) home.render();
+  if (name === "mate") requestAnimationFrame(() => graph.draw());
   if (name === "mappa" && mindmap.root) requestAnimationFrame(() => mindmap.draw({ center: true }));
   mindmap.select(name === "mappa" ? mindmap.selected : null);
   scrollTo({ top: 0 });
@@ -2149,8 +2316,9 @@ function bindSettings() {
   // importazione backup
   const imp = document.createElement("label");
   imp.className = "btn small";
-  imp.innerHTML = `⬆️ Carica backup<input type="file" accept="application/json,.json" hidden>`;
-  $("#btnExport").after(imp);
+  imp.style.cursor = "pointer";
+  imp.innerHTML = `${icon("arrow-up")}Carica backup<input type="file" accept="application/json,.json" hidden>`;
+  $("#backupRow").appendChild(imp);
   imp.querySelector("input").addEventListener("change", (e) => { if (e.target.files[0]) importBackup(e.target.files[0]); e.target.value = ""; });
   $("#dlgSettings").addEventListener("close", () => { if (mindmap.root) mindmap.draw(); });
 }
@@ -2199,6 +2367,14 @@ function init() {
   // navigazione
   $$(".tab").forEach(t => t.addEventListener("click", () => showView(t.dataset.view)));
   $("#btnSettings").addEventListener("click", openSettings);
+  $("#btnNotebook").addEventListener("click", () => showView("quaderno"));
+  $("#btnHelp").addEventListener("click", () => guide.open(guide.forView()));
+  $("#btnGuideClose").addEventListener("click", () => $("#dlgGuide").close());
+  $("#guideSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-g]"); if (b) guide.show(+b.dataset.g); });
+  $("#btnWelcomeNext").addEventListener("click", () => welcome.next());
+  $("#btnShowWelcome").addEventListener("click", () => { $("#dlgSettings").close(); welcome.open(); });
+  home.bind();
+  mate.init();
 
   // input testo
   $("#inPhoto").addEventListener("change", (e) => { handleFiles([...e.target.files]); e.target.value = ""; });
@@ -2278,7 +2454,7 @@ function init() {
     const r = await askSave("Salva nel quaderno", $("#resultTitle").textContent, reader.subject);
     if (!r) return;
     const text = lastResult.replace(/\*\*/g, "").replace(/^##\s*/gm, "# ").replace(/^[-*•]\s+/gm, "• ");
-    if (notebookPut({ id: uid(), type: "testo", title: r.title, subject: r.subject, date: todayLabel(), data: text })) toast("Salvato nel quaderno 📚");
+    if (notebookPut({ id: uid(), type: "testo", title: r.title, subject: r.subject, date: todayLabel(), data: text })) toast("Salvato nel quaderno");
   });
   $("#btnResultToReader").addEventListener("click", () => {
     reader.load(lastResult.replace(/\*\*/g, "").replace(/^##\s*/gm, "# ").replace(/^[-*•]\s+/gm, ""));
@@ -2315,7 +2491,7 @@ function init() {
   $("#btnMapNew").addEventListener("click", () => mindmap.newMap());
   $("#btnMapOther").addEventListener("click", async () => {
     if (mindmap.history.length && !mindmap.savedId &&
-        !(await uiConfirm("Chiudere questa mappa? Non è salvata nel quaderno: premi 💾 prima, se vuoi tenerla.", "Chiudi"))) return;
+        !(await uiConfirm("Chiudere questa mappa? Non è salvata nel quaderno: premi Salva prima, se vuoi tenerla.", "Chiudi"))) return;
     mindmap.root = null; mindmap.select(null); mindmap.showCard();
     store.set("currentMap", null);
   });
@@ -2344,7 +2520,7 @@ function init() {
   $("#txtDictation").addEventListener("input", (e) => { store.set("dictation", e.target.value); dictation.undo = null; dictation.resetFixBtn(); });
   $("#btnDictRead").addEventListener("click", () => tts.say($("#txtDictation").value));
   $("#btnCopy").addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText($("#txtDictation").value); toast("Copiato 📋"); }
+    try { await navigator.clipboard.writeText($("#txtDictation").value); toast("Copiato"); }
     catch { $("#txtDictation").select(); toast("Selezionato: ora copia con il menu."); }
   });
   $("#btnDictToReader").addEventListener("click", () => {
@@ -2415,7 +2591,7 @@ function init() {
 
   // ripristino del lavoro in corso
   const cur = store.get("current", "");
-  if (cur) reader.load(cur);
+  if (cur) reader.load(cur); else home.render();
   $("#txtDictation").value = store.get("dictation", "");
   const cm = store.get("currentMap", null);
   if (cm?.root) mindmap.load(cm.root, cm.savedId);
@@ -2424,9 +2600,8 @@ function init() {
   document.fonts?.ready.then(() => { if (mindmap.root) mindmap.draw(); });
 
   // primo avvio: chiedo le chiavi
-  if (!settings.keyGemini && !settings.keyGroq) {
-    setTimeout(() => { openSettings(); toast("Benvenuta! Inserisci le chiavi gratuite per iniziare.", 5000); }, 400);
-  }
+  if (!store.get("welcomed", false)) setTimeout(() => welcome.open(), 300);
+  else if (!settings.keyGemini && !settings.keyGroq) setTimeout(() => { openSettings(); toast("Inserisci le chiavi gratuite di Gemini e Groq per iniziare.", 5000); }, 400);
 
   // funziona anche come app installata
   if ("serviceWorker" in navigator && location.protocol === "https:") {
