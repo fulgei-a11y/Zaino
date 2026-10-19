@@ -117,7 +117,8 @@ function todayLabel() {
    2. IMPOSTAZIONI
    ========================================================= */
 const DEFAULTS = {
-  keyGemini: "", keyGroq: "",
+  keyGemini: "", keyGroq: "", keyClaude: "",
+  modClaude: "claude-sonnet-5-5", modClaudeFast: "claude-haiku-5-5",
   font: "Atkinson", size: 22, letter: 0.05, line: 1.9, theme: "crema", syllables: false,
   voice: "", rate: 0.95,
   modGemini: "gemini-flash-latest",
@@ -223,6 +224,52 @@ async function geminiCall({ prompt, system, images = [], json = false, temperatu
   return text;
 }
 
+/* ---------- Claude (facoltativo, a pagamento a consumo) ---------- */
+// Zaino è usato da una studentessa minorenne: con Claude aggiungo sempre queste regole (indicazioni di Anthropic per i prodotti usati da minori).
+const CLAUDE_SAFETY = `Contesto: chi usa questo strumento è una studentessa minorenne delle superiori, con dislessia. Sei un'intelligenza artificiale che fa da tutor di studio, non una persona.
+Resta sempre nel ruolo di aiuto allo studio. Usa contenuti adatti a un'adolescente. Se emergono temi di disagio, rischio o pericolo, rispondi con delicatezza e suggerisci di parlarne con un adulto di fiducia (genitori, insegnanti) o con un professionista.`;
+const claudeModels = {};
+async function findClaudeModel(kind) {
+  if (claudeModels[kind] !== undefined) return claudeModels[kind];
+  let m = "";
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/models?limit=100", { headers: { "x-api-key": settings.keyClaude, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } });
+    if (r.ok) m = ((await r.json()).data || []).map(x => x.id).find(id => id.includes(kind)) || ""; // l'elenco arriva dal più recente
+  } catch { /* niente */ }
+  return (claudeModels[kind] = m);
+}
+async function claudeCall({ prompt, system, images = [], json = false, temperature = 0.4, model, _retry }) {
+  if (!settings.keyClaude) throw new AIError("Manca la chiave Claude (in Impostazioni).", -1);
+  const content = images.map(img => ({ type: "image", source: { type: "base64", media_type: img.mime, data: img.data } }));
+  content.push({ type: "text", text: prompt + (json ? "\n\nRispondi solo con il JSON valido, senza testo prima o dopo e senza ```." : "") });
+  const body = { model, max_tokens: 8000, temperature, system: CLAUDE_SAFETY + (system ? "\n\n" + system : ""), messages: [{ role: "user", content }] };
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": settings.keyClaude, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify(body)
+    });
+  } catch { throw new AIError(friendlyError("Claude", 0), 0); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const raw = data?.error?.message || "";
+    // nome del modello cambiato: cerco quello attuale della stessa famiglia e riprovo una volta
+    if (res.status === 404 && !_retry) {
+      const kind = /haiku/.test(model) ? "haiku" : "sonnet";
+      const m = await findClaudeModel(kind);
+      if (m && m !== model) return claudeCall({ prompt, system, images, json, temperature, model: m, _retry: true });
+    }
+    const e = new AIError(/credit|balance|billing/i.test(raw) ? "Il credito di Claude è finito: continuo con i servizi gratuiti." : friendlyError("Claude", res.status, raw), res.status);
+    e.raw = raw;
+    e.wait = /credit|balance|billing/i.test(raw) ? 6 * 3600 : waitSeconds(res.status, data?.error, res.headers.get("retry-after"));
+    throw e;
+  }
+  const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+  if (!text) throw new AIError("Claude non ha risposto. Riprova.", 1);
+  return text;
+}
+
 async function groqChat({ prompt, system, images = [], json = false, temperature = 0.4, model }) {
   if (!settings.keyGroq) throw new AIError("Manca la chiave Groq (in Impostazioni).", -1);
   const messages = [];
@@ -296,15 +343,23 @@ async function findGeminiPro() {
 /** Chiede all'IA provando in ordine: (Gemini Pro per i compiti importanti) → Gemini → Gemini Flash-Lite → Groq.
     Un servizio che ha appena segnalato il limite viene saltato finché non si riposa. */
 async function ask(opts) {
-  const hasG = !!settings.keyGemini, hasQ = !!settings.keyGroq;
-  if (!hasG && !hasQ) {
+  const hasG = !!settings.keyGemini, hasQ = !!settings.keyGroq, hasC = !!settings.keyClaude;
+  if (!hasG && !hasQ && !hasC) {
     openSettings();
     throw new AIError("Per iniziare inserisci almeno una chiave gratuita (Gemini o Groq).", -1);
   }
   const withImages = !!opts.images?.length;
   const main = settings.modGemini || DEFAULTS.modGemini;
   const steps = [];
-  if (hasG && opts.quality && !withImages) {
+  // compiti importanti (schede, ricontrollo, quiz, esercizi): prima Claude, se c'è la chiave
+  if (hasC && (opts.quality || opts.claude)) {
+    const cm = settings.modClaude || DEFAULTS.modClaude;
+    steps.push({ key: "claude:" + cm, name: "Claude", run: () => {
+      busy(true, "Uso Claude, il modello più preciso…");
+      return claudeCall({ ...opts, model: cm });
+    } });
+  }
+  if (hasG && opts.quality && !withImages && !hasC) {
     steps.push({ key: "gemini:pro", name: "Gemini Pro", pro: true, run: async () => {
       const m = await findGeminiPro();
       if (!m) throw new AIError("Nessun modello Pro disponibile.", 404);
@@ -330,6 +385,11 @@ async function ask(opts) {
       // riserva: se il modello principale rifiuta (testo troppo lungo, limite), provo il modello più leggero
       if (DEFAULTS.modGroqBackup !== gm) steps.push({ key: "groq:" + DEFAULTS.modGroqBackup, name: "Groq (riserva)", run: () => groqChat({ ...opts, model: DEFAULTS.modGroqBackup }), quiet404: true });
     }
+  }
+  // ultima riserva: Claude veloce (costa pochissimo), se i servizi gratuiti non rispondono
+  if (hasC) {
+    const fm = settings.modClaudeFast || DEFAULTS.modClaudeFast;
+    steps.push({ key: "claude:" + fm, name: "Claude (riserva)", run: () => claudeCall({ ...opts, model: fm }) });
   }
   // prima quelli riposati; se sono tutti in pausa, li provo comunque
   const ready = steps.filter(s => cooldown.ok(s.key));
@@ -1179,7 +1239,7 @@ async function askChecked(act, text, opts) {
   if (!settings.check || !CHECK_WHAT[act] || text.length < 300 || text.length > 30000) return first;
   busy(true, "Ricontrollo sul testo che sia tutto giusto…");
   try {
-    const fixed = await ask({ prompt: PROMPTS.controlla(text, first, CHECK_WHAT[act], !!opts.json), system: opts.system, json: !!opts.json, temperature: 0 });
+    const fixed = await ask({ prompt: PROMPTS.controlla(text, first, CHECK_WHAT[act], !!opts.json), system: opts.system, json: !!opts.json, temperature: 0, claude: true });
     if (opts.json) {
       const a = parseJSON(first), b = parseJSON(fixed);
       const ok = Object.keys(a).every(k => k in b && (!Array.isArray(a[k]) || (Array.isArray(b[k]) && (b[k].length > 0 || a[k].length === 0))));
@@ -2616,6 +2676,7 @@ function showView(name) {
 function openSettings() {
   $("#keyGemini").value = settings.keyGemini;
   $("#keyGroq").value = settings.keyGroq;
+  $("#keyClaude").value = settings.keyClaude;
   $("#setFont").value = settings.font;
   $("#setSize").value = settings.size;
   $("#setLetter").value = settings.letter;
@@ -2634,7 +2695,7 @@ function openSettings() {
 
 function bindSettings() {
   const map = {
-    keyGemini: ["#keyGemini", v => v.trim()], keyGroq: ["#keyGroq", v => v.trim()],
+    keyGemini: ["#keyGemini", v => v.trim()], keyGroq: ["#keyGroq", v => v.trim()], keyClaude: ["#keyClaude", v => v.trim()],
     font: ["#setFont"], size: ["#setSize", Number], letter: ["#setLetter", Number], line: ["#setLine", Number],
     theme: ["#setTheme"], voice: ["#setVoice"],
     modGemini: ["#modGemini", v => v.trim() || DEFAULTS.modGemini],
@@ -2696,7 +2757,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "14";
+const APP_VERSION = "15";
 
 /* =========================================================
    TESTO DA UN SITO WEB

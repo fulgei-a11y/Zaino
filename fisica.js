@@ -519,7 +519,7 @@ const probl = {
       try {
         busy(true, "Leggo il problema…");
         const img = await imageToBase64(file);
-        this.show(parseJSON(await ask({ prompt: PROMPTS.fisica("(Il problema è nella foto.)"), images: [img], json: true, temperature: 0.2 })));
+        this.show(parseJSON(await ask({ prompt: PROMPTS.fisica("(Il problema è nella foto.)"), images: [img], json: true, temperature: 0.2, claude: true })));
       } catch (err) { toast(err.message || "Non sono riuscito a leggere il problema. Riprova con una foto più vicina.", 6000); }
       finally { busy(false); }
     });
@@ -528,7 +528,7 @@ const probl = {
       if (!t) return toast("Scrivi prima il testo del problema.");
       try {
         busy(true, "Studio il problema…");
-        this.show(parseJSON(await ask({ prompt: PROMPTS.fisica(t), json: true, temperature: 0.2 })));
+        this.show(parseJSON(await ask({ prompt: PROMPTS.fisica(t), json: true, temperature: 0.2, claude: true })));
       } catch (err) { toast(err.message || "Non sono riuscito a risolverlo. Riprova.", 6000); }
       finally { busy(false); }
     });

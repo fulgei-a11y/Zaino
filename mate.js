@@ -192,7 +192,7 @@ const mate = {
       try {
         busy(true, "Leggo l'esercizio…");
         const img = await imageToBase64(f);
-        this.showExercise(parseJSON(await ask({ prompt: PROMPTS.esercizio("(L'esercizio è nella foto.)"), images: [img], json: true, temperature: 0.2 })));
+        this.showExercise(parseJSON(await ask({ prompt: PROMPTS.esercizio("(L'esercizio è nella foto.)"), images: [img], json: true, temperature: 0.2, claude: true })));
       } catch (err) { toast(err.message || "Non sono riuscito a leggere l'esercizio. Riprova con una foto più vicina.", 6000); }
       finally { busy(false); }
     });
@@ -201,7 +201,7 @@ const mate = {
       if (!t) return toast("Scrivi prima l'esercizio.");
       try {
         busy(true, "Studio l'esercizio…");
-        this.showExercise(parseJSON(await ask({ prompt: PROMPTS.esercizio(t), system: SYSTEM_TUTOR, json: true, temperature: 0.2 })));
+        this.showExercise(parseJSON(await ask({ prompt: PROMPTS.esercizio(t), system: SYSTEM_TUTOR, json: true, temperature: 0.2, claude: true })));
       } catch (err) { toast(err.message || "Non sono riuscito a risolverlo. Riprova.", 6000); }
       finally { busy(false); }
     });
