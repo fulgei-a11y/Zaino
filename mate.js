@@ -178,7 +178,7 @@ const mate = {
   tab(name) {
     $$("#mateSeg button").forEach(b => b.classList.toggle("on", b.dataset.mt === name));
     $$(".mate-pane").forEach(p => p.classList.toggle("hidden", p.dataset.mpane !== name));
-    const init = { calc: () => calc.init(), eq: () => eqs.init(), graph: () => graph.init(), units: () => units.init(), formule: () => formule.init(), tab: () => pyth.init() }[name];
+    const init = { calc: () => calc.init(), eq: () => eqs.init(), graph: () => graph.init(), units: () => units.init(), formule: () => formule.init(), tab: () => pyth.init(), stat: () => stat.init() }[name];
     if (init && !this.inited[name]) { init(); this.inited[name] = true; }
     if (name === "graph") graph.draw();
   },
@@ -729,5 +729,70 @@ const pyth = {
       });
       tts.say(`${NUM_IT[r]} per ${NUM_IT[c]}, fa ${r * c}`, null, "it");
     });
+  }
+};
+
+/* =========================================================
+   STATISTICA: media, mediana, moda, campo, varianza, scarto, con i passaggi
+   ========================================================= */
+const stat = {
+  init() {
+    $("#btnStat").addEventListener("click", () => this.run());
+    $("#statData").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this.run(); } });
+    $("#btnStatEx").addEventListener("click", () => { $("#statData").value = "6 7,5 8 6 5,5 9 7 6"; this.run(); });
+    $("#btnStatClear").addEventListener("click", () => { $("#statData").value = ""; $("#statOut").innerHTML = ""; });
+    $("#statOut").addEventListener("click", (e) => { const b = e.target.closest("[data-say]"); if (b) tts.say(b.dataset.say, null, "it"); });
+  },
+  parse(t) {
+    // "7,5" è un numero decimale; i dati si separano con spazi, ";" oppure ", " (virgola seguita da spazio)
+    return t.replace(/;/g, " ").replace(/,(\s)/g, " ").split(/\s+/).filter(Boolean)
+      .map(x => Number(x.replace(",", "."))).filter(x => Number.isFinite(x));
+  },
+  run() {
+    const xs = this.parse($("#statData").value);
+    const out = $("#statOut");
+    if (xs.length < 2) { out.innerHTML = `<div class="card"><p class="hint">Servono almeno due numeri.</p></div>`; return; }
+    const f = (v) => fmtNum(Math.round(v * 1e4) / 1e4, 6);
+    const n = xs.length, sum = xs.reduce((a, b) => a + b, 0), mean = sum / n;
+    const sorted = [...xs].sort((a, b) => a - b);
+    const mid = Math.floor(n / 2);
+    const median = n % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    const freq = new Map(); sorted.forEach(x => freq.set(x, (freq.get(x) || 0) + 1));
+    const maxF = Math.max(...freq.values());
+    const modes = maxF > 1 ? [...freq].filter(([, c]) => c === maxF).map(([v]) => v) : [];
+    const min = sorted[0], max = sorted[n - 1];
+    const dev = xs.map(x => (x - mean) ** 2), varp = dev.reduce((a, b) => a + b, 0) / n, sd = Math.sqrt(varp);
+    const show = (arr) => arr.length > 14 ? arr.slice(0, 12).map(f).join(" + ") + " + …" : arr.map(f).join(" + ");
+    const sortedTxt = sorted.map((x, i) => {
+      const hit = n % 2 ? i === mid : (i === mid - 1 || i === mid);
+      return hit ? `<mark>${f(x)}</mark>` : f(x);
+    }).join(" · ");
+    const row = (name, val, how, say) => `<div class="st-row"><div class="st-k">${name}</div><div class="st-v">${val}</div>
+      <button class="icon-btn" data-say="${escapeHtml(say)}" aria-label="Ascolta">${icon("volume")}</button><div class="st-how">${how}</div></div>`;
+    // grafico: frequenza di ogni valore
+    const bars = [...freq];
+    const W = 100 / bars.length;
+    // posizione della media fra le colonne (le colonne sono in ordine, non in scala)
+    let meanPos = 50;
+    for (let i = 0; i < bars.length; i++) {
+      const v = bars[i][0], nx = bars[i + 1]?.[0];
+      if (mean === v || nx === undefined) { meanPos = (i + .5) * W; break; }
+      if (mean > v && mean < nx) { meanPos = (i + .5 + (mean - v) / (nx - v)) * W; break; }
+    }
+    const chart = `<div class="st-chart" role="img" aria-label="Grafico delle frequenze">${bars.map(([v, c]) => `
+      <div class="st-col" style="width:${W}%"><span class="st-c">${c}</span><div class="st-bar${modes.includes(v) ? " mode" : ""}" style="height:${c / maxF * 100}%"></div><span class="st-x">${f(v)}</span></div>`).join("")}
+      <div class="st-mean" style="left:${meanPos}%"><span>media ${f(mean)}</span></div></div>`;
+    out.innerHTML = `<div class="card">
+      <h2>Risultati <small class="hint">(${n} dati)</small></h2>
+      <div class="st-grid">
+        ${row("Media", f(mean), `Somma tutti i dati e dividi per quanti sono:<br>(${show(xs)}) ÷ ${n} = ${f(sum)} ÷ ${n} = <b>${f(mean)}</b>`, `La media è ${f(mean)}`)}
+        ${row("Mediana", f(median), `Metti i dati in ordine e prendi quello ${n % 2 ? "centrale" : "a metà fra i due centrali"}:<br>${sortedTxt}${n % 2 ? "" : `<br>(${f(sorted[mid - 1])} + ${f(sorted[mid])}) ÷ 2 = <b>${f(median)}</b>`}`, `La mediana è ${f(median)}`)}
+        ${row("Moda", modes.length ? modes.map(f).join(" e ") : "nessuna", modes.length ? `Il valore che compare più volte (${maxF} volte).` : "Ogni valore compare una volta sola: non c'è una moda.", modes.length ? `La moda è ${modes.map(f).join(" e ")}` : "Non c'è moda")}
+        ${row("Campo di variazione", f(max - min), `Il più grande meno il più piccolo: ${f(max)} − ${f(min)} = <b>${f(max - min)}</b>`, `Il campo di variazione è ${f(max - min)}`)}
+        ${row("Varianza", f(varp), `Per ogni dato: (dato − media)², poi fai la media di questi quadrati:<br>(${show(dev)}) ÷ ${n} = <b>${f(varp)}</b>`, `La varianza è ${f(varp)}`)}
+        ${row("Scarto quadratico medio", f(sd), `È la radice quadrata della varianza: √${f(varp)} = <b>${f(sd)}</b>. Dice quanto i dati sono lontani, in media, dalla media.`, `Lo scarto quadratico medio è ${f(sd)}`)}
+      </div>
+    </div>
+    <div class="card"><h2>Frequenze</h2><p class="hint">Quante volte compare ogni valore. La barra più scura è la moda.</p>${chart}</div>`;
   }
 };

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow">
-<meta name="zaino-version" content="11">
+<meta name="zaino-version" content="12">
 <meta name="theme-color" content="#f5f6fa">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Zaino">
@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@300;400;500;600;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=11">
+<link rel="stylesheet" href="styles.css?v=12">
 </head>
 <body>
 
@@ -90,6 +90,9 @@
     <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 12 10 5 10-5M2 17l10 5 10-5"/></symbol>
     <symbol id="i-column" viewBox="0 0 24 24"><path d="M4 21h16M6 21V9M10 21V9M14 21V9M18 21V9M3 9h18L12 3z"/></symbol>
     <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 21a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.6A5 5 0 0 1 21.5 20"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1.2"/><circle cx="17.5" cy="10.5" r="1.2"/><circle cx="8.5" cy="7.5" r="1.2"/><circle cx="6.5" cy="12.5" r="1.2"/><path d="M12 2a10 10 0 0 0 0 20c1 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7h2A5.5 5.5 0 0 0 22 11c0-5-4.5-9-10-9z"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
   </defs>
 </svg>
@@ -290,6 +293,7 @@
       <div class="map-tools" id="mapTools">
         <button class="tool primary-tool" id="btnMapImprove"><svg class="i"><use href="#i-sparkles"/></svg><span>Migliora</span></button>
         <button class="tool" id="btnMapUndo" disabled><svg class="i"><use href="#i-undo"/></svg><span>Annulla</span></button>
+        <button class="tool" id="btnMapMove"><svg class="i"><use href="#i-hand"/></svg><span>Sposta</span></button>
         <button class="tool" id="btnZoomOut"><svg class="i"><use href="#i-zoom-out"/></svg><span>Riduci</span></button>
         <button class="tool" id="btnZoomIn"><svg class="i"><use href="#i-zoom-in"/></svg><span>Ingrandisci</span></button>
         <button class="tool" id="btnMapLayout"><svg class="i"><use href="#i-swap"/></svg><span>Forma</span></button>
@@ -300,7 +304,7 @@
         <button class="tool" id="btnMapOther"><svg class="i"><use href="#i-file-plus"/></svg><span>Nuova</span></button>
       </div>
       <div id="mapWrap" class="map-wrap"><div class="empty">La mappa comparirà qui.</div></div>
-      <p class="map-legend">Tocca un riquadro per modificarlo, toccalo di nuovo per ascoltarlo.<span class="hidden" id="mapLegend"> I riquadri tratteggiati li ha aggiunti l'IA: tienili solo se ti convincono.</span></p>
+      <p class="map-legend">Tocca un riquadro per modificarlo, toccalo di nuovo per ascoltarlo. Con <b>Sposta</b> trascini i riquadri; con <b>Collega</b> unisci due idee di rami diversi.<span class="hidden" id="mapLegend"> I riquadri tratteggiati li ha aggiunti l'IA: tienili solo se ti convincono.</span></p>
     </div>
   </section>
 
@@ -312,6 +316,7 @@
       <button data-mt="graph"><svg class="i"><use href="#i-graph"/></svg>Grafici</button>
       <button data-mt="units"><svg class="i"><use href="#i-scale"/></svg>Unità</button>
       <button data-mt="formule"><svg class="i"><use href="#i-sigma"/></svg>Formule</button>
+      <button data-mt="stat"><svg class="i"><use href="#i-activity"/></svg>Statistica</button>
       <button data-mt="tab"><svg class="i"><use href="#i-grid"/></svg>Tabelline</button>
       <button data-mt="foto"><svg class="i"><use href="#i-camera"/></svg>Da foto</button>
     </div>
@@ -404,6 +409,16 @@
         <p class="hint">Tocca un numero: senti l'operazione e vedi la riga e la colonna.</p>
         <div class="pyth" id="pyth"></div>
       </div>
+    </div>
+
+    <div class="mate-pane hidden" data-mpane="stat">
+      <div class="card">
+        <h2>Statistica</h2>
+        <p class="hint">Scrivi i dati separati da spazi, virgole o punto e virgola (per esempio i voti: 6 7,5 8 6 9). Ottieni media, mediana, moda e varianza con tutti i passaggi.</p>
+        <textarea id="statData" rows="2" placeholder="6 7,5 8 6 9" aria-label="Dati"></textarea>
+        <div class="btn-row"><button class="btn primary" id="btnStat"><svg class="i"><use href="#i-equal"/></svg>Calcola</button><button class="btn" id="btnStatEx">Esempio: voti</button><button class="btn ghost" id="btnStatClear"><svg class="i"><use href="#i-trash"/></svg>Svuota</button></div>
+      </div>
+      <div id="statOut"></div>
     </div>
 
     <!-- esercizio da foto -->
@@ -784,6 +799,9 @@
   <button data-nb="edit"><svg class="i"><use href="#i-pencil"/></svg>Scrivi</button>
   <button data-nb="child"><svg class="i"><use href="#i-branch"/></svg>Sotto</button>
   <button data-nb="sibling"><svg class="i"><use href="#i-sibling"/></svg>Accanto</button>
+  <button data-nb="link"><svg class="i"><use href="#i-link"/></svg>Collega</button>
+  <button data-nb="label"><svg class="i"><use href="#i-tag"/></svg>Parola</button>
+  <button data-nb="color"><svg class="i"><use href="#i-palette"/></svg>Colore</button>
   <button data-nb="up"><svg class="i"><use href="#i-up"/></svg>Su</button>
   <button data-nb="down"><svg class="i"><use href="#i-down"/></svg>Giù</button>
   <button data-nb="del"><svg class="i"><use href="#i-trash"/></svg>Togli</button>
@@ -798,10 +816,10 @@
 <style id="printPage"></style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
-<script src="mate.js?v=11" defer></script>
-<script src="fisica.js?v=11" defer></script>
-<script src="schede.js?v=11" defer></script>
-<script src="autori.js?v=11" defer></script>
-<script src="app.js?v=11" defer></script>
+<script src="mate.js?v=12" defer></script>
+<script src="fisica.js?v=12" defer></script>
+<script src="schede.js?v=12" defer></script>
+<script src="autori.js?v=12" defer></script>
+<script src="app.js?v=12" defer></script>
 </body>
 </html>

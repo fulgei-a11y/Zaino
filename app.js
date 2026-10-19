@@ -58,6 +58,7 @@ function uiDialog({ title = "", message = "", input = null, subject = null, butt
       el.type = "button";
       el.className = "btn" + (b.primary ? " primary" : "") + (b.danger ? " bad" : "");
       el.textContent = b.label;
+      if (b.swatch) { el.style.background = b.swatch[0]; el.style.borderColor = b.swatch[1]; el.style.color = "#1c2440"; }
       el.addEventListener("click", () => { result = b.value; d.close(); });
       box.appendChild(el);
     }
@@ -1191,6 +1192,8 @@ const mindmap = {
   selected: null,
 
   load(root, savedId = null) {
+    if (this.moving) this.toggleMove();
+    this.linking = null; $("#mapWrap").classList.remove("linking");
     this.root = root;
     this.savedId = savedId;
     this.zoom = null;
@@ -1293,10 +1296,119 @@ const mindmap = {
       case "del": {
         if (!parent) return toast("Il centro della mappa non si può togliere.");
         if (node.children.length && !(await uiConfirm(`Togliere «${node.text}» e i riquadri collegati?`, "Togli", true))) return;
-        this.change(() => sibs.splice(i, 1));
+        this.change(() => { sibs.splice(i, 1); this.cleanLinks(); });
         return this.select(null);
       }
+      case "link": {
+        this.select(null);              // nascondo la barra: non deve coprire i riquadri
+        this.linking = id;
+        $("#mapWrap").classList.add("linking");
+        $(`.map-node[data-id="${id}"]`)?.classList.add("sel");
+        return toast("Ora tocca il riquadro da collegare. Tocca uno spazio vuoto per annullare.", 5000);
+      }
+      case "label": {
+        if (!parent) return toast("Il centro non ha una linea in entrata: scegli un altro riquadro.");
+        const t = await uiPrompt(`Parola sulla linea che arriva a «${node.text}»`, node.label || "", "Es. causa, produce, è formato da, si divide in. Lascia vuoto per toglierla.");
+        if (t === null) return;
+        return this.change(() => { node.label = t || undefined; });
+      }
+      case "color": {
+        const names = ["Arancio", "Verde", "Blu", "Rosa", "Giallo", "Viola", "Azzurro"];
+        const c = await uiDialog({ title: `Colore di «${node.text}»`, message: node.children.length ? "Il colore vale anche per le idee collegate sotto." : "",
+          buttons: [...names.map((nm, k) => ({ label: nm, value: String(k), swatch: BRANCH_COLORS[k] })), { label: "Automatico", value: "auto" }] });
+        if (c === null) return;
+        return this.change(() => { node.color = c === "auto" ? undefined : +c; });
+      }
     }
+  },
+
+  /** Toglie i collegamenti che puntano a riquadri che non ci sono più. */
+  cleanLinks() {
+    if (!this.root.links) return;
+    const ids = new Set();
+    const walk = (n) => { ids.add(n.id); n.children.forEach(walk); };
+    walk(this.root);
+    this.root.links = this.root.links.filter(l => ids.has(l.a) && ids.has(l.b));
+  },
+
+  /** Secondo tocco del «Collega»: crea la freccia con la parola di collegamento. */
+  async finishLink(targetId) {
+    const from = this.linking;
+    this.linking = null;
+    $("#mapWrap").classList.remove("linking");
+    if (!targetId || targetId === from) return;
+    const A = this.find(from)?.node, B = this.find(targetId)?.node;
+    if (!A || !B) return;
+    const t = await uiPrompt(`Collegamento da «${A.text}» a «${B.text}»`, "", "Scrivi la parola di collegamento (es. causa, influenza, è un esempio di). Puoi anche lasciarla vuota.");
+    if (t === null) return;
+    this.change(() => { (this.root.links ||= []).push({ a: from, b: targetId, label: t || "" }); });
+    toast("Collegamento creato. Toccalo per cambiarlo o toglierlo.");
+  },
+
+  async editLink(i) {
+    const l = this.root.links?.[i];
+    if (!l) return;
+    const A = this.find(l.a)?.node, B = this.find(l.b)?.node;
+    const r = await uiDialog({ title: `Collegamento da «${A?.text}» a «${B?.text}»`, input: l.label || "",
+      buttons: [{ label: "Togli collegamento", value: "del", danger: true }, { label: "Annulla", value: null }, { label: "Salva", value: "ok", primary: true }] });
+    if (!r || r.choice === null) return;
+    if (r.choice === "del") this.change(() => this.root.links.splice(i, 1));
+    else this.change(() => { l.label = r.text; });
+  },
+
+  /** Modalità «Sposta»: si trascinano i riquadri; lasciati sopra un altro, ne diventano le idee collegate. */
+  toggleMove() {
+    this.moving = !this.moving;
+    $("#mapWrap").classList.toggle("moving", this.moving);
+    const b = $("#btnMapMove");
+    b.classList.toggle("on", this.moving);
+    b.innerHTML = this.moving ? `${icon("check")}<span>Fatto</span>` : `${icon("hand")}<span>Sposta</span>`;
+    if (this.moving) { this.select(null); toast("Trascina i riquadri. Lasciane uno sopra un altro per spostarlo in quel ramo.", 5000); }
+  },
+
+  /** Trascinamento in modalità «Sposta» */
+  dragStart(e, g) {
+    const id = g.dataset.id;
+    if (id === this.root.id) { toast("Il centro resta fermo: sposta gli altri riquadri."); return null; }
+    const f = this.find(id);
+    const ids = new Set();
+    const walk = (n) => { ids.add(n.id); n.children.forEach(walk); };
+    walk(f.node);
+    const groups = [...$$("#mapWrap .map-node")].filter(x => ids.has(x.dataset.id));
+    groups.forEach(x => { x.style.pointerEvents = "none"; x.classList.add("dragging"); });
+    return { id, ids, groups, x0: e.clientX, y0: e.clientY, target: null };
+  },
+  dragMove(e, d) {
+    const z = this.zoom || 1;
+    const dx = (e.clientX - d.x0) / z, dy = (e.clientY - d.y0) / z;
+    d.groups.forEach(x => x.setAttribute("transform", `translate(${dx},${dy})`));
+    const under = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".map-node");
+    const tid = under && !d.ids.has(under.dataset.id) ? under.dataset.id : null;
+    if (tid !== d.target) {
+      $$("#mapWrap .map-node.drop").forEach(x => x.classList.remove("drop"));
+      if (tid) under.classList.add("drop");
+      d.target = tid;
+    }
+    // vicino al bordo, la mappa scorre da sola
+    const w = $("#mapWrap"), r = w.getBoundingClientRect();
+    if (e.clientX > r.right - 30) w.scrollLeft += 12; else if (e.clientX < r.left + 30) w.scrollLeft -= 12;
+    if (e.clientY > r.bottom - 30) w.scrollTop += 12; else if (e.clientY < r.top + 30) w.scrollTop -= 12;
+    d.dx = dx; d.dy = dy;
+  },
+  dragEnd(d) {
+    const f = this.find(d.id);
+    if (!f) return;
+    if (d.target) {
+      const T = this.find(d.target).node;
+      this.change(() => {
+        f.parent.children.splice(f.parent.children.indexOf(f.node), 1);
+        f.node.off = undefined;
+        T.children.push(f.node);
+      });
+      toast(`«${f.node.text}» ora è sotto «${T.text}»`);
+    } else if (Math.hypot(d.dx || 0, d.dy || 0) > 4) {
+      this.change(() => { f.node.off = { x: (f.node.off?.x || 0) + d.dx, y: (f.node.off?.y || 0) + d.dy }; });
+    } else this.draw();
   },
 
   /** Chiede all'IA di migliorare la mappa, rispettando il lavoro già fatto. */
@@ -1327,7 +1439,7 @@ const mindmap = {
 
   computeLayout() {
     const meas = this.measure();
-    const H_GAP = 46, V_GAP = 14, PAD_X = 14, PAD_Y = 10, MAXW = 190;
+    const H_GAP = 64, V_GAP = 18, PAD_X = 14, PAD_Y = 10, MAXW = 190;
     const sizeFor = (d) => d === 0 ? 22 : d === 1 ? 18 : 16;
     const prep = (n, depth, color) => {
       const size = sizeFor(depth), bold = depth <= 1;
@@ -1344,8 +1456,9 @@ const mindmap = {
       n._lines = lines; n._size = size; n._bold = bold; n._depth = depth;
       n._w = Math.ceil(tw + PAD_X * 2);
       n._h = Math.ceil(lines.length * size * 1.3 + PAD_Y * 2);
+      if (depth > 0 && n.color != null && BRANCH_COLORS[n.color]) color = BRANCH_COLORS[n.color];
       n._color = color;
-      n.children.forEach((c, i) => prep(c, depth + 1, depth === 0 ? BRANCH_COLORS[i % BRANCH_COLORS.length] : color));
+      n.children.forEach((c, i) => prep(c, depth + 1, depth === 0 ? BRANCH_COLORS[(c.color ?? i) % BRANCH_COLORS.length] : color));
       n._sub = n.children.length
         ? Math.max(n._h, n.children.reduce((s, c) => s + c._sub, 0) + V_GAP * (n.children.length - 1))
         : n._h;
@@ -1380,36 +1493,66 @@ const mindmap = {
     y = (H - hL) / 2;
     for (const c of left) { place(c, -H_GAP, y, -1); y += c._sub + V_GAP; }
 
-    // raccolgo i nodi e calcolo i confini
+    // spostamenti fatti a mano: valgono per il riquadro e per tutto il suo ramo
     const all = [];
-    const walk = (n, parent) => { all.push({ n, parent }); n.children.forEach(c => walk(c, n)); };
-    walk(r, null);
+    const walk = (n, parent, ox, oy) => {
+      const x = ox + (n.off?.x || 0), y = oy + (n.off?.y || 0);
+      n._x += x; n._y += y;
+      all.push({ n, parent });
+      n.children.forEach(c => walk(c, n, x, y));
+    };
+    walk(r, null, 0, 0);
+    // confini (con margine per le parole sulle frecce)
+    const M = 34;
     const minX = Math.min(...all.map(a => a.n._x)), maxX = Math.max(...all.map(a => a.n._x + a.n._w));
-    const M = 20;
-    all.forEach(a => { a.n._x += -minX + M; a.n._y += M; });
+    const minY = Math.min(...all.map(a => a.n._y)), maxY = Math.max(...all.map(a => a.n._y + a.n._h));
+    all.forEach(a => { a.n._x += -minX + M; a.n._y += -minY + M; });
     this.nodes = all;
-    return { width: maxX - minX + M * 2, height: H + M * 2 };
+    this.byId = Object.fromEntries(all.map(a => [a.n.id, a.n]));
+    return { width: maxX - minX + M * 2, height: maxY - minY + M * 2 };
   },
 
-  edgePath(p, c) {
-    let x1, x2;
-    if (c._dir > 0) { x1 = p._x + p._w; x2 = c._x; }
-    else { x1 = p._x; x2 = c._x + c._w; }
-    const y1 = p._y + p._h / 2, y2 = c._y + c._h / 2;
-    const mx = (x1 + x2) / 2;
-    return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+  /** Linea tra due riquadri: dal lato giusto, in orizzontale o in verticale. */
+  geom(a, b) {
+    const acx = a._x + a._w / 2, acy = a._y + a._h / 2, bcx = b._x + b._w / 2, bcy = b._y + b._h / 2;
+    const dx = bcx - acx, dy = bcy - acy;
+    let x1, y1, x2, y2, d;
+    if (Math.abs(dx) > (a._w + b._w) / 2 * 0.75 || Math.abs(dx) * 1.2 > Math.abs(dy)) {
+      x1 = dx > 0 ? a._x + a._w : a._x; x2 = dx > 0 ? b._x : b._x + b._w; y1 = acy; y2 = bcy;
+      const mx = (x1 + x2) / 2;
+      d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+    } else {
+      y1 = dy > 0 ? a._y + a._h : a._y; y2 = dy > 0 ? b._y : b._y + b._h; x1 = acx; x2 = bcx;
+      const my = (y1 + y2) / 2;
+      d = `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`;
+    }
+    return { d, x1, y1, x2, y2, mx: (x1 + x2) / 2, my: (y1 + y2) / 2 };
+  },
+
+  edgePath(p, c) { return this.geom(p, c).d; },
+
+  /** Etichetta (parola di collegamento) in mezzo a una linea */
+  labelSvg(x, y, text, color, attrs, print) {
+    const w = Math.ceil(this.measure()(text, 13, false) + 14), h = 22;
+    const bg = print ? "#ffffff" : "var(--sheet)", ink = print ? "#1c2440" : "var(--ink)";
+    return `<g class="map-label" ${attrs}><rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="11" fill="${bg}" stroke="${color}" stroke-width="1.5"/>
+      <text x="${x}" y="${y + 4.5}" text-anchor="middle" font-family="Atkinson Hyperlegible, Verdana, sans-serif" font-size="13" font-style="italic" fill="${ink}">${escapeHtml(text)}</text></g>`;
   },
 
   /** Riquadri e collegamenti in SVG. Per la stampa: colori chiari fissi e niente selezione. */
   svgParts({ print = false } = {}) {
     const dark = !print && settings.theme === "scuro";
     const ACC = print ? "#1c2440" : "var(--ink)", ACC_INK = print ? "#ffffff" : "var(--app)";
-    let edges = "", boxes = "";
+    let edges = "", boxes = "", labels = "";
     for (const { n, parent } of this.nodes) {
       const fill = n._depth === 0 ? ACC : (dark ? n._color[1] : n._color[0]);
       const stroke = n._depth === 0 ? ACC : n._color[1];
       const ink = n._depth === 0 ? ACC_INK : (dark ? "#fff" : "#2b2a27");
-      if (parent) edges += `<path d="${this.edgePath(parent, n)}" fill="none" stroke="${stroke}" stroke-width="${n._depth === 1 ? 4 : 2.5}" stroke-linecap="round"/>`;
+      if (parent) {
+        const gm = this.geom(parent, n);
+        edges += `<path d="${gm.d}" fill="none" stroke="${stroke}" stroke-width="${n._depth === 1 ? 4 : 2.5}" stroke-linecap="round"/>`;
+        if (n.label) labels += this.labelSvg(gm.mx, gm.my, n.label, stroke, `data-elabel="${n.id}"`, print);
+      }
       const tx = n._x + n._w / 2;
       const ty0 = n._y + 10 + n._size;
       const tspans = n._lines.map((l, i) => `<tspan x="${tx}" y="${ty0 + i * n._size * 1.3 - n._size * 0.15}">${escapeHtml(l)}</tspan>`).join("");
@@ -1420,7 +1563,18 @@ const mindmap = {
         <text text-anchor="middle" font-family="Atkinson Hyperlegible, Verdana, sans-serif" font-size="${n._size}" font-weight="${n._bold ? 700 : 400}" fill="${ink}">${tspans}</text>
       </g>`;
     }
-    return { edges, boxes };
+    // collegamenti trasversali: frecce tratteggiate con la parola di collegamento
+    const LC = print ? "#5b6482" : (dark ? "#a9b0c7" : "#5b6482");
+    (this.root.links || []).forEach((l, i) => {
+      const a = this.byId?.[l.a], b = this.byId?.[l.b];
+      if (!a || !b) return;
+      const gm = this.geom(a, b);
+      edges += `<path d="${gm.d}" fill="none" stroke="${LC}" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#mapArrow)" data-link="${i}"/>`;
+      edges += `<path d="${gm.d}" fill="none" stroke="transparent" stroke-width="16" data-link="${i}" class="map-hit"/>`;
+      if (l.label) labels += this.labelSvg(gm.mx, gm.my, l.label, LC, `data-link="${i}"`, print);
+    });
+    const defs = `<defs><marker id="mapArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${LC}"/></marker></defs>`;
+    return { edges: defs + edges, boxes: boxes + labels };
   },
 
   draw({ center = false } = {}) {
@@ -1467,7 +1621,18 @@ const mindmap = {
     if (node) tts.say(node.text, () => g?.classList.remove("speaking"));
   },
 
-  toggleLayout() {
+  async toggleLayout() {
+    const moved = JSON.stringify(cleanMap(this.root)).includes('"off":');
+    if (moved) {
+      const c = await uiDialog({ title: "Forma della mappa", message: "Hai spostato a mano alcuni riquadri.",
+        buttons: [{ label: "Annulla", value: null }, { label: "Rimetti tutto in ordine", value: "reset" }, { label: "Cambia forma", value: "shape", primary: true }] });
+      if (!c) return;
+      if (c === "reset") {
+        const walk = (n) => { delete n.off; n.children.forEach(walk); };
+        this.zoom = null;
+        return this.change(() => walk(this.root));
+      }
+    }
     this.layout = this.layout === "bilanciata" ? "albero" : "bilanciata";
     this.zoom = null;
     this.draw({ center: true });
@@ -1484,15 +1649,29 @@ const mindmap = {
     const ctx = c.getContext("2d");
     ctx.scale(S, S);
     ctx.fillStyle = "#fffdf7"; ctx.fillRect(0, 0, width, height);
+    const curve = (gm) => {
+      ctx.beginPath(); ctx.moveTo(gm.x1, gm.y1);
+      if (gm.d.includes(`C${gm.mx},`)) ctx.bezierCurveTo(gm.mx, gm.y1, gm.mx, gm.y2, gm.x2, gm.y2);
+      else ctx.bezierCurveTo(gm.x1, gm.my, gm.x2, gm.my, gm.x2, gm.y2);
+    };
+    const pendingLabels = [];
     for (const { n, parent } of this.nodes) {
       if (!parent) continue;
-      const [x1, y1, x2, y2] = n._dir > 0
-        ? [parent._x + parent._w, parent._y + parent._h / 2, n._x, n._y + n._h / 2]
-        : [parent._x, parent._y + parent._h / 2, n._x + n._w, n._y + n._h / 2];
-      const mx = (x1 + x2) / 2;
-      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.bezierCurveTo(mx, y1, mx, y2, x2, y2);
-      ctx.strokeStyle = n._color[1]; ctx.lineWidth = n._depth === 1 ? 4 : 2.5; ctx.lineCap = "round"; ctx.stroke();
+      const gm = this.geom(parent, n);
+      curve(gm); ctx.strokeStyle = n._color[1]; ctx.lineWidth = n._depth === 1 ? 4 : 2.5; ctx.lineCap = "round"; ctx.stroke();
+      if (n.label) pendingLabels.push([gm.mx, gm.my, n.label, n._color[1]]);
     }
+    (this.root.links || []).forEach(l => {
+      const A = this.byId[l.a], B = this.byId[l.b]; if (!A || !B) return;
+      const gm = this.geom(A, B);
+      ctx.setLineDash([7, 5]); curve(gm); ctx.strokeStyle = "#5b6482"; ctx.lineWidth = 2.2; ctx.stroke(); ctx.setLineDash([]);
+      const ang = Math.atan2(gm.y2 - (gm.d.includes(`C${gm.mx},`) ? gm.y2 : gm.my), gm.x2 - (gm.d.includes(`C${gm.mx},`) ? gm.mx : gm.x2));
+      ctx.beginPath(); ctx.moveTo(gm.x2, gm.y2);
+      ctx.lineTo(gm.x2 - 10 * Math.cos(ang - 0.45), gm.y2 - 10 * Math.sin(ang - 0.45));
+      ctx.lineTo(gm.x2 - 10 * Math.cos(ang + 0.45), gm.y2 - 10 * Math.sin(ang + 0.45));
+      ctx.fillStyle = "#5b6482"; ctx.fill();
+      if (l.label) pendingLabels.push([gm.mx, gm.my, l.label, "#5b6482"]);
+    });
     for (const { n } of this.nodes) {
       const fill = n._depth === 0 ? "#1c2440" : n._color[0];
       const stroke = n._depth === 0 ? "#1c2440" : n._color[1];
@@ -1503,6 +1682,13 @@ const mindmap = {
       ctx.font = `${n._bold ? 700 : 400} ${n._size}px "Atkinson Hyperlegible", Verdana, sans-serif`;
       ctx.textAlign = "center";
       n._lines.forEach((l, i) => ctx.fillText(l, n._x + n._w / 2, n._y + 10 + n._size + i * n._size * 1.3 - n._size * 0.15));
+    }
+    for (const [x, y, t, col] of pendingLabels) {
+      ctx.font = `italic 13px "Atkinson Hyperlegible", Verdana, sans-serif`;
+      const w = ctx.measureText(t).width + 14;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - w / 2, y - 11, w, 22, 11) : ctx.rect(x - w / 2, y - 11, w, 22);
+      ctx.fillStyle = "#ffffff"; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = col; ctx.stroke();
+      ctx.fillStyle = "#1c2440"; ctx.textAlign = "center"; ctx.fillText(t, x, y + 4.5);
     }
     c.toBlob(b => download(`mappa-${slug(this.root.text)}.png`, b), "image/png");
   },
@@ -2228,7 +2414,11 @@ const GUIDE = [
   ["Mappe", "Mappe concettuali da costruire o da far preparare.", [
     ["pencil", "Faccio io la mappa", "Scrivi l'argomento al centro e aggiungi le idee una alla volta."],
     ["sparkles", "Migliora con l'IA", "Controlla la tua mappa: corregge gli errori e aggiunge ciò che manca. I riquadri aggiunti sono tratteggiati."],
-    ["branch", "Tocca un riquadro", "Compare una barra: Ascolta, Scrivi, Sotto (idea collegata), Accanto (stesso livello), Su, Giù, Togli."],
+    ["branch", "Tocca un riquadro", "Compare una barra: Ascolta, Scrivi, Sotto (idea collegata), Accanto (stesso livello), Collega, Parola, Colore, Su, Giù, Togli."],
+    ["hand", "Sposta", "Premi Sposta e trascina i riquadri dove vuoi: il ramo li segue. Se lasci un riquadro sopra un altro, diventa una sua idea collegata. Premi Fatto quando hai finito."],
+    ["link", "Collega", "Unisce due idee anche di rami diversi con una freccia tratteggiata e una parola di collegamento (causa, influenza, è un esempio di…). Tocca la freccia per cambiarla o toglierla."],
+    ["tag", "Parola", "Scrive una parola di collegamento sulla linea che arriva al riquadro, come nelle mappe concettuali fatte a scuola."],
+    ["palette", "Colore", "Cambia il colore del riquadro e delle idee sotto di lui."],
     ["undo", "Annulla", "Torna indietro di una modifica alla volta."],
     ["swap", "Cambia forma", "Rami a destra e sinistra, oppure tutti a destra."],
     ["mic", "Detta invece di scrivere", "In ogni finestra in cui scrivi (riquadri della mappa, titoli, nomi) c'è il microfono: tocca, parla e tocca di nuovo."],
@@ -2242,16 +2432,21 @@ const GUIDE = [
     ["graph", "Grafici", "Disegna fino a tre funzioni. Trascina per spostarti, tocca la curva per leggere un punto."],
     ["scale", "Unità", "Converte le unità di misura e mostra la scala: quanti gradini, se moltiplicare o dividere, dove va la virgola."],
     ["sigma", "Formule", "Formulario pronto: geometria, potenze, equazioni, percentuali, piano cartesiano, goniometria, fisica. Si stampa."],
+    ["activity", "Statistica", "Scrivi una serie di numeri (per esempio i voti): media, mediana, moda, campo, varianza e scarto con tutti i passaggi e un grafico delle frequenze."],
     ["grid", "Tabelline", "La tavola pitagorica: tocca un numero per sentire l'operazione."],
     ["camera", "Da foto", "Fotografa un esercizio e risolvetelo insieme, un passo alla volta."]
   ]],
   ["Filosofia e Scienze umane", "Gli autori, le idee e i collegamenti. Si aprono da Materie, in basso.", [
     ["timeline", "Autori", "Gli autori in ordine di tempo, divisi per periodo (filosofia) o per disciplina (pedagogia, psicologia, sociologia, antropologia). Puoi cercare per nome."],
     ["file", "Scheda autore", "Tocca un nome: contesto, vita, il pensiero in punti, un esempio, le parole chiave, le opere, i collegamenti, una frase celebre e le domande da interrogazione. Viene salvata: la seconda volta si apre subito."],
+    ["timeline", "Linea del tempo", "In Autori tocca «Linea del tempo»: ogni vita è una barra. Le barre che si sovrappongono sono autori contemporanei."],
     ["map", "Dalla scheda", "Con un tocco ne fai una mappa, le flashcard o un'interrogazione simulata, oppure la salvi e la stampi."],
+    ["check", "Quiz", "Dalla scheda: 6 domande a scelta multipla, una alla volta, con la spiegazione dopo ogni risposta."],
+    ["layers", "Correnti", "Gli autori raggruppati per scuola di pensiero, con l'idea in una frase. «Spiegami questa corrente» per approfondire."],
     ["columns", "Confronta", "Scegli due autori e ottieni una tabella con somiglianze e differenze."],
     ["chat", "Chiedi all'autore", "Fai domande a Kant, Socrate, Piaget o Montessori: rispondono in prima persona, in modo semplice. È una simulazione, quindi controlla sempre sul libro."],
-    ["bulb", "Concetti", "Una parola o un'idea che non ti è chiara, spiegata con un esempio e con la differenza dai concetti simili."]
+    ["bulb", "Concetti", "Una parola o un'idea che non ti è chiara, spiegata con un esempio e con la differenza dai concetti simili."],
+    ["key", "Glossario", "Si riempie da solo con le parole chiave delle schede che apri. Puoi cercare una parola."]
   ]],
   ["Fisica", "La materia più temuta, un passo alla volta.", [
     ["sigma", "Formule", "Scegli una formula e cosa devi trovare: Zaino scrive la formula inversa, converte le unità (km/h, minuti, grammi…) e fa la sostituzione passo per passo. Ogni grandezza ha il suo colore."],
@@ -2420,7 +2615,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "11";
+const APP_VERSION = "12";
 
 function init() {
   if (!versionGuard()) return;
@@ -2541,13 +2736,25 @@ function init() {
   // mappa
   // tocco = seleziona il riquadro (se il dito non ha trascinato la mappa)
   const mw = $("#mapWrap");
-  let down = null;
-  mw.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY }; });
-  mw.addEventListener("pointercancel", () => { down = null; });
+  let down = null, drag = null;
+  mw.addEventListener("pointerdown", (e) => {
+    down = { x: e.clientX, y: e.clientY };
+    const g = e.target.closest(".map-node");
+    if (mindmap.moving && g) { drag = mindmap.dragStart(e, g); if (drag) mw.setPointerCapture(e.pointerId); }
+  });
+  mw.addEventListener("pointermove", (e) => { if (drag) mindmap.dragMove(e, drag); });
+  mw.addEventListener("pointercancel", () => { down = null; if (drag) { drag = null; mindmap.draw(); } });
   mw.addEventListener("pointerup", (e) => {
+    if (drag) { const d = drag; drag = null; down = null; return mindmap.dragEnd(d); }
     if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) { down = null; return; }
     down = null;
+    if (mindmap.moving) return;
     const g = e.target.closest(".map-node");
+    if (mindmap.linking) return mindmap.finishLink(g?.dataset.id || null);
+    const link = e.target.closest("[data-link]");
+    if (link) return mindmap.editLink(+link.dataset.link);
+    const el = e.target.closest("[data-elabel]");
+    if (el) { mindmap.select(el.dataset.elabel); return mindmap.nodeAction("label"); }
     if (!g) return mindmap.select(null);
     if (mindmap.selected === g.dataset.id) mindmap.speakNode(g.dataset.id); // secondo tocco: ascolta
     else mindmap.select(g.dataset.id);
@@ -2560,6 +2767,7 @@ function init() {
     if (e.key === "Enter") mindmap.speakNode(g.dataset.id);
     if (e.key === "F2") mindmap.nodeAction("edit");
   });
+  $("#btnMapMove").addEventListener("click", () => mindmap.toggleMove());
   $("#nodeBar").addEventListener("click", (e) => {
     const b = e.target.closest("[data-nb]");
     if (b) mindmap.nodeAction(b.dataset.nb);

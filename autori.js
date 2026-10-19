@@ -130,6 +130,48 @@ const UMANE = [
   ["geertz", "Clifford Geertz", 1926, 2006, "antropologia", "L'antropologia interpretativa"]
 ];
 
+/* Correnti e scuole: [nome, periodo, idea in una frase, autori] */
+const FILO_CORRENTI = [
+  ["I primi filosofi (naturalisti)", "VI sec. a.C.", "Cercano l'archè: il principio da cui nasce tutto.", ["talete", "anassimandro", "anassimene", "pitagora", "eraclito"]],
+  ["Gli Eleati", "V sec. a.C.", "L'essere è uno, eterno e immobile: il cambiamento è un'illusione.", ["parmenide", "zenone-elea"]],
+  ["I fisici pluralisti", "V sec. a.C.", "Spiegano il cambiamento con più elementi che si uniscono e si separano.", ["empedocle", "anassagora", "democrito"]],
+  ["I Sofisti", "V sec. a.C.", "Insegnano l'arte di parlare: la verità dipende dall'uomo.", ["protagora", "gorgia"]],
+  ["I grandi classici", "V-IV sec. a.C.", "Dal dialogo socratico alle idee di Platone alla sostanza di Aristotele.", ["socrate", "platone", "aristotele"]],
+  ["Le scuole ellenistiche", "IV-III sec. a.C.", "La filosofia come via per vivere sereni.", ["epicuro", "zenone-cizio"]],
+  ["Neoplatonismo", "III sec.", "Tutto deriva dall'Uno e all'Uno ritorna.", ["plotino"]],
+  ["Patristica e Scolastica", "IV-XIV sec.", "Accordare la fede cristiana con la ragione.", ["agostino", "anselmo", "tommaso", "ockham"]],
+  ["Rinascimento e rivoluzione scientifica", "XV-XVII sec.", "L'uomo al centro; la natura si studia con esperimenti e matematica.", ["machiavelli", "bruno", "bacone", "galilei"]],
+  ["Razionalismo", "XVII sec.", "La conoscenza vera viene dalla ragione.", ["cartesio", "spinoza", "leibniz"]],
+  ["Empirismo", "XVII-XVIII sec.", "La conoscenza viene dall'esperienza dei sensi.", ["locke", "berkeley", "hume"]],
+  ["Pensiero politico moderno", "XVI-XVIII sec.", "Come nasce lo Stato e che limiti ha il potere.", ["machiavelli", "hobbes", "locke", "montesquieu", "rousseau"]],
+  ["Illuminismo", "XVIII sec.", "Avere il coraggio di usare la propria ragione.", ["voltaire", "montesquieu", "rousseau", "kant"]],
+  ["Criticismo", "fine XVIII sec.", "Prima di conoscere, bisogna capire i limiti della ragione.", ["kant"]],
+  ["Idealismo tedesco", "inizio XIX sec.", "La realtà è opera dello spirito o dell'Io.", ["fichte", "schelling", "hegel"]],
+  ["Critici di Hegel", "XIX sec.", "Al centro non lo spirito, ma l'individuo, la volontà, l'uomo concreto.", ["schopenhauer", "kierkegaard", "feuerbach", "marx"]],
+  ["Positivismo", "XIX sec.", "Solo la scienza dà conoscenze certe e porta progresso.", ["comte", "mill"]],
+  ["Maestri del sospetto", "XIX-XX sec.", "Dietro ciò che pensiamo ci sono forze nascoste: economia, volontà, inconscio.", ["marx", "nietzsche", "freud"]],
+  ["Fenomenologia ed esistenzialismo", "XX sec.", "Partire dall'esperienza vissuta e dall'esistenza concreta.", ["husserl", "heidegger", "sartre", "beauvoir"]],
+  ["Filosofia della scienza e del linguaggio", "XX sec.", "Che cosa rende scientifica una teoria? Che cosa si può dire?", ["wittgenstein", "popper"]],
+  ["Etica e politica del Novecento", "XX sec.", "Il male, la libertà, la responsabilità verso il futuro.", ["arendt", "jonas", "beauvoir"]]
+];
+const UMANE_CORRENTI = [
+  ["Pedagogia moderna: le origini", "XVII-XIX sec.", "L'educazione segue la natura del bambino.", ["comenio", "locke-ped", "rousseau-ped", "pestalozzi", "frobel", "aporti"]],
+  ["Attivismo pedagogico", "inizio XX sec.", "Il bambino impara facendo, al centro c'è il suo interesse.", ["dewey", "claparede", "freinet", "montessori", "agazzi"]],
+  ["Pedagogia critica", "seconda metà XX sec.", "La scuola deve liberare e includere chi è svantaggiato.", ["freire", "milani"]],
+  ["Psicologia scientifica e funzionalismo", "fine XIX sec.", "La mente si studia con il metodo sperimentale.", ["wundt", "james"]],
+  ["Comportamentismo", "XX sec.", "Si studia solo il comportamento osservabile: stimolo e risposta.", ["pavlov", "watson", "skinner", "bandura"]],
+  ["Psicoanalisi", "XX sec.", "L'inconscio e le prime relazioni guidano la vita psichica.", ["freud-psi", "erikson", "bowlby"]],
+  ["Gestalt", "XX sec.", "Percepiamo forme intere, non parti separate.", ["wertheimer"]],
+  ["Cognitivismo e costruttivismo", "XX sec.", "Il bambino costruisce la conoscenza, da solo e con gli altri.", ["piaget", "vygotskij", "bruner", "gardner"]],
+  ["Sociologia classica", "XIX-XX sec.", "Nasce la scienza della società.", ["comte-soc", "marx-soc", "durkheim", "weber", "simmel"]],
+  ["Funzionalismo sociologico", "XX sec.", "Ogni parte della società ha una funzione per l'insieme.", ["durkheim", "parsons", "merton"]],
+  ["Interazionismo e società contemporanea", "XX sec.", "La società nasce dalle interazioni quotidiane; oggi è liquida.", ["goffman", "bauman"]],
+  ["Evoluzionismo culturale", "XIX sec.", "Le culture passano per stadi, dal semplice al complesso.", ["morgan", "tylor"]],
+  ["Relativismo e particolarismo", "XX sec.", "Ogni cultura va capita dal suo interno.", ["boas", "mead"]],
+  ["Funzionalismo e strutturalismo antropologico", "XX sec.", "Le istituzioni rispondono a bisogni; dietro le culture ci sono strutture comuni.", ["malinowski", "mauss", "levistrauss"]],
+  ["Antropologia interpretativa e italiana", "XX sec.", "La cultura come testo da interpretare; la crisi della presenza.", ["geertz", "demartino"]]
+];
+
 const yearTxt = (y) => y == null ? "vivente" : y < 0 ? `${-y} a.C.` : String(y);
 const lifeTxt = (a, b) => b == null ? `nato nel ${yearTxt(a)}` : (a < 0 ? `ca. ${-a}–${-b} a.C.` : `${a}–${b}`);
 
@@ -165,6 +207,12 @@ Regole:
 ${storia ? "Conversazione finora:\n" + storia + "\n" : ""}
 Domanda della studentessa: ${domanda}
 Rispondi solo con il testo della risposta.`,
+  quiz: (nome, scheda) => `Prepara un quiz a scelta multipla su ${nome} per una studentessa delle superiori con dislessia.
+Rispondi SOLO con JSON: {"domande": [{"domanda": "...", "opzioni": ["...", "...", "...", "..."], "giusta": 0, "spiegazione": "perché è giusta, in una frase"}]}
+Regole: 6 domande sui concetti più importanti (non solo date); 4 opzioni brevi (massimo 12 parole), una sola giusta, le altre plausibili ma chiaramente sbagliate;
+"giusta" è l'indice (0-3) dell'opzione corretta, varia la posizione; frasi semplici, niente doppie negazioni.
+Basati su questa scheda:
+${scheda}`,
   concetto: (concetto, materia) => `Spiega il concetto "${concetto}" (${materia}) a una studentessa di quarta superiore con dislessia.
 Formato:
 ## In una frase
@@ -182,9 +230,9 @@ Parole chiave in **grassetto**. Frasi brevi.`
    3. LA SEZIONE (una per materia, stesso funzionamento)
    ========================================================= */
 const SUBJECTS = {
-  filo: { title: "Filosofia", materia: "filosofia", intro: "I filosofi in ordine di tempo. Tocca un nome per aprire la sua scheda: vita, pensiero, parole chiave, collegamenti.",
+  filo: { title: "Filosofia", materia: "filosofia", correnti: FILO_CORRENTI, lineDefault: "moderna", intro: "I filosofi in ordine di tempo. Tocca un nome per aprire la sua scheda: vita, pensiero, parole chiave, collegamenti.",
     list: FILOSOFI, groups: FILO_PERIODS, groupLabel: "Periodo" },
-  umane: { title: "Scienze umane", materia: "scienze umane", intro: "Pedagogia, psicologia, sociologia e antropologia: gli autori principali, le loro idee e i collegamenti.",
+  umane: { title: "Scienze umane", materia: "scienze umane", correnti: UMANE_CORRENTI, lineDefault: "", intro: "Pedagogia, psicologia, sociologia e antropologia: gli autori principali, le loro idee e i collegamenti.",
     list: UMANE, groups: UMANE_AREAS, groupLabel: "Disciplina" }
 };
 
@@ -209,18 +257,37 @@ const autori = {
       <div class="intro"><h1>${S.title}</h1><p>${S.intro}</p></div>
       <div class="seg scroll" data-sub="${key}">
         <button data-pane="autori" class="on">${icon("timeline")}Autori</button>
+        <button data-pane="correnti">${icon("layers")}Correnti</button>
         <button data-pane="confronta">${icon("columns")}Confronta</button>
         <button data-pane="chiedi">${icon("chat")}Chiedi all'autore</button>
         <button data-pane="concetto">${icon("bulb")}Concetti</button>
+        <button data-pane="glossario">${icon("key")}Glossario</button>
       </div>
       <div class="au-pane" data-p="autori">
         <div class="card">
+          <div class="au-view-switch"><button class="chip on" data-v="list">Elenco</button><button class="chip" data-v="line">Linea del tempo</button></div>
           <input type="search" class="au-search" placeholder="Cerca un autore" aria-label="Cerca un autore">
           <div class="chips au-groups">${[["", "Tutti"], ...S.groups.map(g => [g.id, g.short || g.name])].map(([v, l]) => `<button class="chip${v ? "" : " on"}" data-g="${v}">${escapeHtml(l)}</button>`).join("")}</div>
           <div class="au-list"></div>
         </div>
       </div>
-      <div class="au-pane hidden" data-p="scheda"><div class="card au-card"></div></div>
+      <div class="au-pane hidden" data-p="scheda"><div class="card au-card"></div><div class="card au-quiz hidden"></div></div>
+      <div class="au-pane hidden" data-p="correnti">
+        <div class="card">
+          <h2>Correnti e scuole</h2>
+          <p class="hint">Gli autori raggruppati per modo di pensare. Tocca un nome per aprire la sua scheda.</p>
+          <div class="au-correnti"></div>
+        </div>
+        <div class="card hidden au-corr-out"></div>
+      </div>
+      <div class="au-pane hidden" data-p="glossario">
+        <div class="card">
+          <h2>Glossario</h2>
+          <p class="hint">Raccoglie da solo le parole chiave delle schede che hai aperto. Più schede apri, più cresce.</p>
+          <input type="search" class="au-gsearch" placeholder="Cerca una parola" aria-label="Cerca una parola">
+          <div class="au-glossary"></div>
+        </div>
+      </div>
       <div class="au-pane hidden" data-p="confronta">
         <div class="card">
           <h2>Confronta due autori</h2>
@@ -279,6 +346,25 @@ const autori = {
       rec ||= makeRecorder(root.querySelector(".au-mic"), root.querySelector(".au-mic-st"), (t) => { const q = root.querySelector(".au-q"); q.value = (q.value.trim() + " " + t).trim(); }, "");
       rec.toggle();
     });
+    root.querySelector(".au-view-switch").addEventListener("click", (e) => {
+      const c = e.target.closest("[data-v]"); if (!c) return;
+      this.state[key].view = c.dataset.v;
+      root.querySelectorAll(".au-view-switch .chip").forEach(x => x.classList.toggle("on", x === c));
+      if (c.dataset.v === "line" && !this.state[key].group && S.lineDefault) {
+        this.state[key].group = S.lineDefault;
+        root.querySelectorAll(".au-groups .chip").forEach(x => x.classList.toggle("on", x.dataset.g === S.lineDefault));
+      }
+      this.renderList(key);
+    });
+    root.querySelector(".au-correnti").addEventListener("click", (e) => {
+      const a = e.target.closest("[data-a]"); if (a) return this.openCard(key, a.dataset.a);
+      const c = e.target.closest("[data-corr]"); if (c) return this.explainCorrente(key, +c.dataset.corr);
+    });
+    root.querySelector(".au-corr-out").addEventListener("click", (e) => this.resultAction(e, root.querySelector(".au-corr-out")));
+    root.querySelector(".au-gsearch").addEventListener("input", () => this.renderGlossary(key));
+    root.querySelector(".au-glossary").addEventListener("click", (e) => { const a = e.target.closest("[data-a]"); if (a) this.openCard(key, a.dataset.a); });
+    root.querySelector(".au-quiz").addEventListener("click", (e) => this.quizClick(key, e));
+    this.renderCorrenti(key);
     root.querySelector(".au-explain").addEventListener("click", () => this.explain(key));
     root.querySelector(".au-concept").addEventListener("keydown", (e) => { if (e.key === "Enter") this.explain(key); });
     root.querySelector(".au-concept-out").addEventListener("click", (e) => this.resultAction(e, root.querySelector(".au-concept-out")));
@@ -288,6 +374,7 @@ const autori = {
 
   pane(key, name) {
     const root = $(`#view-${key}`);
+    if (name === "glossario") this.renderGlossary(key);
     root.querySelectorAll(".seg [data-pane]").forEach(b => b.classList.toggle("on", b.dataset.pane === name || (name === "scheda" && b.dataset.pane === "autori")));
     root.querySelectorAll(".au-pane").forEach(p => p.classList.toggle("hidden", p.dataset.p !== name));
   },
@@ -296,6 +383,7 @@ const autori = {
   renderList(key) {
     const S = SUBJECTS[key], st = this.state[key];
     const box = $(`#view-${key} .au-list`);
+    if (st.view === "line") return this.renderLine(key, box);
     const cached = (id) => !!store.get("autore:" + id, null);
     const html = S.groups.filter(g => !st.group || g.id === st.group).map(g => {
       const items = S.list.filter(a => a[4] === g.id && (!st.q || a[1].toLowerCase().includes(st.q) || a[5].toLowerCase().includes(st.q))).sort((a, b) => a[2] - b[2]);
@@ -309,6 +397,135 @@ const autori = {
       </section>`;
     }).join("");
     box.innerHTML = html || `<p class="hint">Nessun autore trovato. Prova con un altro nome, oppure chiedi una spiegazione nella sezione Concetti.</p>`;
+  },
+
+  /** Linea del tempo visiva: la vita di ogni autore è una barra; si vede chi era contemporaneo di chi. */
+  renderLine(key, box) {
+    const S = SUBJECTS[key], st = this.state[key];
+    const items = S.list.filter(a => (!st.group || a[4] === st.group) && (!st.q || a[1].toLowerCase().includes(st.q))).sort((a, b) => a[2] - b[2]);
+    if (!items.length) { box.innerHTML = `<p class="hint">Nessun autore trovato.</p>`; return; }
+    const now = new Date().getFullYear();
+    const from = Math.min(...items.map(a => a[2])), to = Math.max(...items.map(a => a[3] ?? now));
+    const span = Math.max(to - from, 20);
+    const pad = span * 0.03, lo = from - pad, hi = to + pad;
+    const pct = (y) => ((y - lo) / (hi - lo) * 100).toFixed(2) + "%";
+    // tacche ogni 10, 25, 50, 100… anni
+    const steps = [10, 25, 50, 100, 200, 250, 500];
+    const step = steps.find(x => span / x <= 6) || 500;
+    const ticks = [];
+    for (let y = Math.ceil(lo / step) * step; y <= hi; y += step) ticks.push(y);
+    const color = (a) => (S.groups.find(g => g.id === a[4]) || {}).c || "sky";
+    box.innerHTML = `<div class="au-line">
+      <div class="al-axis">${ticks.map(y => `<span style="left:${pct(y)}">${y < 0 ? -y + " a.C." : y}</span>`).join("")}</div>
+      ${items.map(a => `<button class="al-row" data-a="${a[0]}">
+        <span class="al-name">${escapeHtml(a[1])}</span>
+        <span class="al-track">${ticks.map(y => `<i style="left:${pct(y)}"></i>`).join("")}
+          <span class="al-bar g-${color(a)}" style="left:${pct(a[2])};width:calc(${pct(a[3] ?? now)} - ${pct(a[2])})"></span></span>
+      </button>`).join("")}
+    </div>
+    <p class="hint">${st.group ? "" : "Suggerimento: scegli un periodo per vedere meglio le barre. "}Le barre che si sovrappongono sono autori vissuti nello stesso tempo.</p>`;
+  },
+
+  renderCorrenti(key) {
+    const S = SUBJECTS[key];
+    $(`#view-${key} .au-correnti`).innerHTML = S.correnti.map(([nome, per, idea, ids], i) => `
+      <section class="au-corr">
+        <header><h3>${escapeHtml(nome)}</h3><small>${escapeHtml(per)}</small></header>
+        <p>${escapeHtml(idea)}</p>
+        <div class="chips">${ids.map(id => { const a = this.find(key, id); return a ? `<button class="chip" data-a="${id}">${escapeHtml(a.name)}</button>` : ""; }).join("")}</div>
+        <button class="btn small ghost" data-corr="${i}">${icon("bulb")}Spiegami questa corrente</button>
+      </section>`).join("");
+  },
+
+  async explainCorrente(key, i) {
+    const [nome, per, , ids] = SUBJECTS[key].correnti[i];
+    const autori = ids.map(id => this.find(key, id)?.name).filter(Boolean).join(", ");
+    const out = $(`#view-${key} .au-corr-out`);
+    try {
+      busy(true, "Preparo la spiegazione…");
+      const md = await ask({ prompt: AUTORE_PROMPTS.concetto(`la corrente «${nome}» (${per}; autori: ${autori})`, SUBJECTS[key].materia), system: SYSTEM_TUTOR, temperature: 0.3 });
+      out.innerHTML = `<h2>${escapeHtml(nome)}</h2><div class="result">${mdToHtml(md)}</div>
+        <div class="btn-row"><button class="btn" data-r="read">${icon("volume")}Ascolta</button><button class="btn" data-r="map">${icon("map")}Mappa</button><button class="btn" data-r="cards">${icon("cards")}Flashcard</button><button class="btn" data-r="print">${icon("printer")}Stampa</button></div>`;
+      out.dataset.md = md; out.dataset.title = nome;
+      out.classList.remove("hidden");
+      out.scrollIntoView({ behavior: "smooth" });
+    } catch (e) { toast(e.message || "Non sono riuscito a spiegarla. Riprova.", 6000); }
+    finally { busy(false); }
+  },
+
+  /** Glossario: le parole chiave di tutte le schede già aperte di questa materia */
+  renderGlossary(key) {
+    const S = SUBJECTS[key];
+    const q = $(`#view-${key} .au-gsearch`).value.trim().toLowerCase();
+    const words = [];
+    S.list.forEach(a => {
+      const d = store.get("autore:" + a[0], null);
+      (d?.parole || []).forEach(w => w?.parola && words.push({ w: w.parola, m: w.significato || "", a: a[0], n: a[1] }));
+    });
+    const shown = words.filter(x => !q || x.w.toLowerCase().includes(q) || x.m.toLowerCase().includes(q)).sort((x, y) => x.w.localeCompare(y.w, "it"));
+    $(`#view-${key} .au-glossary`).innerHTML = !words.length
+      ? `<p class="hint">Il glossario è ancora vuoto: apri la scheda di un autore e le sue parole chiave compariranno qui.</p>`
+      : shown.length ? `<dl class="au-words au-gl">${shown.map(x => `<dt>${escapeHtml(x.w)}</dt><dd>${escapeHtml(x.m)} <button class="linklike" data-a="${x.a}">${escapeHtml(x.n)}</button></dd>`).join("")}</dl>`
+      : `<p class="hint">Nessuna parola trovata.</p>`;
+  },
+
+  /* ---------- quiz a scelta multipla sull'autore ---------- */
+  async startQuiz(key, fresh = false) {
+    const a = this.find(key, this.state[key].current);
+    let qz = fresh ? null : store.get("quiz:" + a.id, null);
+    if (!qz) {
+      try {
+        busy(true, "Preparo il quiz…");
+        qz = parseJSON(await ask({ prompt: AUTORE_PROMPTS.quiz(a.name, this.cardText(key)), json: true, temperature: 0.4 }));
+        qz.domande = (qz.domande || []).filter(d => d.domanda && Array.isArray(d.opzioni) && d.opzioni.length >= 2 && d.giusta >= 0 && d.giusta < d.opzioni.length);
+        if (!qz.domande.length) throw new Error("Non sono riuscito a preparare il quiz. Riprova.");
+        store.set("quiz:" + a.id, qz);
+      } catch (e) { busy(false); return toast(e.message || "Non sono riuscito a preparare il quiz. Riprova.", 6000); }
+      busy(false);
+    }
+    this.state[key].quiz = { qz, i: 0, ok: 0, answered: false };
+    this.renderQuiz(key);
+    const box = $(`#view-${key} .au-quiz`);
+    box.classList.remove("hidden");
+    box.scrollIntoView({ behavior: "smooth" });
+  },
+  renderQuiz(key) {
+    const st = this.state[key].quiz, box = $(`#view-${key} .au-quiz`);
+    const a = this.find(key, this.state[key].current);
+    const n = st.qz.domande.length;
+    if (st.i >= n) {
+      const msg = st.ok === n ? "Perfetto!" : st.ok >= n * 0.6 ? "Bene!" : "Ripassa la scheda e riprova.";
+      box.innerHTML = `<h2>Quiz su ${escapeHtml(a.name)}</h2><div class="qz-end"><b>${st.ok} su ${n}</b><p>${msg}</p></div>
+        <div class="btn-row"><button class="btn primary" data-qz="again">${icon("repeat")}Rifai</button><button class="btn" data-qz="new">${icon("sparkles")}Domande nuove</button></div>`;
+      return;
+    }
+    const d = st.qz.domande[st.i];
+    box.innerHTML = `<div class="qz-top"><h2>Quiz su ${escapeHtml(a.name)}</h2><span>${st.i + 1} di ${n}</span></div>
+      <div class="progress"><div style="width:${st.i / n * 100}%"></div></div>
+      <div class="qz-q">${escapeHtml(d.domanda)} <button class="icon-btn" data-qz="say" aria-label="Ascolta">${icon("volume")}</button></div>
+      <div class="qz-opts">${d.opzioni.map((o, k) => `<button class="qz-opt" data-opt="${k}"><span>${"ABCD"[k]}</span>${escapeHtml(o)}</button>`).join("")}</div>
+      <div class="qz-exp hidden"></div>
+      <div class="btn-row hidden qz-next"><button class="btn primary" data-qz="next">Avanti</button></div>`;
+  },
+  quizClick(key, e) {
+    const st = this.state[key].quiz;
+    const o = e.target.closest("[data-opt]"), c = e.target.closest("[data-qz]");
+    const box = $(`#view-${key} .au-quiz`);
+    if (o && !st.answered) {
+      const d = st.qz.domande[st.i], k = +o.dataset.opt;
+      st.answered = true;
+      if (k === d.giusta) st.ok++;
+      box.querySelectorAll(".qz-opt").forEach((b, j) => { b.disabled = true; if (j === d.giusta) b.classList.add("ok"); else if (j === k) b.classList.add("no"); });
+      const ex = box.querySelector(".qz-exp");
+      ex.innerHTML = `<b>${k === d.giusta ? "Giusto!" : "Non è questa."}</b> ${escapeHtml(d.spiegazione || "")}`;
+      ex.classList.remove("hidden"); box.querySelector(".qz-next").classList.remove("hidden");
+      return;
+    }
+    if (!c) return;
+    if (c.dataset.qz === "say") { const d = st.qz.domande[st.i]; return tts.say(d.domanda + ". " + d.opzioni.map((x, j) => "ABCD"[j] + ": " + x).join(". "), null, "it"); }
+    if (c.dataset.qz === "next") { st.i++; st.answered = false; return this.renderQuiz(key); }
+    if (c.dataset.qz === "again") return this.startQuiz(key);
+    if (c.dataset.qz === "new") return this.startQuiz(key, true);
   },
 
   /* ---------- scheda autore ---------- */
@@ -339,6 +556,7 @@ const autori = {
         <button class="tool" data-act="read">${icon("volume")}<span>Ascolta</span></button>
         <button class="tool" data-act="mappa">${icon("map")}<span>Mappa</span></button>
         <button class="tool" data-act="flashcard">${icon("cards")}<span>Flashcard</span></button>
+        <button class="tool" data-act="quiz">${icon("check")}<span>Quiz</span></button>
         <button class="tool" data-act="interroga">${icon("chat")}<span>Interrogami</span></button>
         <button class="tool" data-act="chiedi">${icon("help")}<span>Fagli domande</span></button>
         <button class="tool" data-act="save">${icon("bookmark")}<span>Salva</span></button>
@@ -357,6 +575,7 @@ const autori = {
         ${L(data.domande).length ? `<h3>Domande da interrogazione</h3><ol>${L(data.domande).map(q => `<li>${escapeHtml(q)}</li>`).join("")}</ol>` : ""}
         <p class="hint au-note">Scheda preparata dall'IA: confrontala con il libro e con gli appunti. <button class="linklike" data-act="regen">Rifalla</button></p>
       </div>`;
+    $(`#view-${key} .au-quiz`).classList.add("hidden");
     this.pane(key, "scheda");
     card.scrollIntoView({ behavior: "smooth", block: "start" });
   },
@@ -382,7 +601,8 @@ const autori = {
     const text = this.cardText(key);
     const act = b.dataset.act;
     if (act === "read") return tts.say(text.replace(/^#+\s*/gm, ""), null, "it");
-    if (act === "regen") return this.openCard(key, a.id, true);
+    if (act === "regen") { store.set("quiz:" + a.id, null); return this.openCard(key, a.id, true); }
+    if (act === "quiz") return this.startQuiz(key);
     if (act === "mappa" || act === "flashcard" || act === "interroga") {
       reader.subject = SUBJECTS[key].title;
       if (act === "interroga") { showView("ripassa"); ripassa.tab("interroga"); return quiz.setSource(text, a.name); }
