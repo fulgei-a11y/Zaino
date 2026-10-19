@@ -42,7 +42,11 @@ body[data-theme="scuro"] {
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; }
+html, body { margin: 0; max-width: 100%; overflow-x: hidden; }
+/* niente zoom involontario col doppio tocco sui pulsanti */
+button, .btn, .action, .tab, label.btn, select, input { touch-action: manipulation; }
+/* le parole lunghe vanno a capo invece di allargare la pagina */
+.reader, .result, .flashcard .face, textarea, .notebook .t { overflow-wrap: break-word; word-break: normal; }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -58,7 +62,7 @@ h2 { font-family: Lexend, sans-serif; font-size: 1.15rem; font-weight: 600; marg
 
 /* ---------- Barra in alto ---------- */
 .topbar {
-  position: sticky; top: 0; z-index: 10;
+  position: relative; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
   padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
   background: var(--bg);
@@ -120,7 +124,8 @@ input:focus, textarea:focus, select:focus, .btn:focus-visible { outline: 3px sol
 .reader-card { position: relative; }
 .reader-toolbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-  position: sticky; top: 64px; z-index: 5;
+  position: sticky; top: 0; z-index: 5;
+  margin-top: -16px; padding-top: 12px; border-radius: var(--radius) var(--radius) 0 0;
   background: var(--surface); padding-bottom: 10px; margin-bottom: 6px;
   border-bottom: 1px solid var(--line);
 }
@@ -169,8 +174,9 @@ input:focus, textarea:focus, select:focus, .btn:focus-visible { outline: 3px sol
 /* ---------- Mappa ---------- */
 .map-card { padding: 8px; }
 .map-wrap { overflow: auto; min-height: 320px; max-height: 70vh; border-radius: 12px; background: var(--bg); touch-action: pan-x pan-y; }
-.map-wrap svg { display: block; }
-.map-wrap .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+.map-wrap { display: flex; }
+.map-wrap svg { display: block; margin: auto; flex: 0 0 auto; }
+.map-wrap .empty { margin: auto; padding: 40px 20px; text-align: center; color: var(--muted); }
 .map-node { cursor: pointer; }
 .map-node rect { transition: filter .15s; }
 .map-node.speaking rect { filter: brightness(.88); stroke-width: 4; }
@@ -245,7 +251,7 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 
 /* ---------- Avvisi ---------- */
 .toast {
-  position: fixed; left: 50%; bottom: calc(var(--tabbar-h) + 20px); transform: translateX(-50%) translateY(20px);
+  position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-20px);
   background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 12px;
   opacity: 0; pointer-events: none; transition: all .25s; z-index: 50; max-width: 90vw; text-align: center;
 }
@@ -258,9 +264,40 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 .spinner { width: 54px; height: 54px; border: 6px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------- Mappa: creazione e strumenti ---------- */
+.map-new { display: flex; flex-direction: column; gap: 10px; }
+.map-new input { min-width: 0; }
+.map-tools { display: flex; gap: 6px; padding: 4px 4px 10px; overflow-x: auto; scrollbar-width: none; }
+.map-tools .btn { flex: 0 0 auto; min-width: 44px; }
+.map-card .map-wrap { height: 62vh; max-height: none; }
+.map-legend { padding: 6px 8px 0; }
+.map-node.sel rect { stroke-width: 5; filter: drop-shadow(0 0 6px rgba(0,0,0,.25)); }
+.node-bar {
+  position: fixed; left: 8px; right: 8px; z-index: 30;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 8px);
+  display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px;
+  background: var(--surface); border: 2px solid var(--accent); border-radius: 16px;
+  padding: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.18);
+  max-width: 720px; margin: 0 auto;
+}
+.node-bar button {
+  font: inherit; font-size: .78rem; color: var(--ink); background: var(--bg);
+  border: 0; border-radius: 10px; padding: 6px 2px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 52px;
+}
+.node-bar button span { font-size: 1.25rem; }
+body.map-editing { padding-bottom: calc(var(--tabbar-h) + 150px); }
+
+/* ---------- Finestra domande ---------- */
+.ask-box { padding: 18px; }
+.ask-box textarea { font-size: 1.1rem; margin: 6px 0 12px; }
+.ask-btns { justify-content: flex-end; margin-top: 10px; }
+.ask-btns .btn { flex: 1 1 auto; }
+dialog { overflow: auto; }
+
 @media (max-width: 480px) {
   .grid-actions { grid-template-columns: repeat(2, 1fr); }
-  .reader-toolbar { top: 58px; }
+  .node-bar { grid-template-columns: repeat(4, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

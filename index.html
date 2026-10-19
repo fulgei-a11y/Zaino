@@ -81,25 +81,30 @@
 
   <!-- ============ MAPPA ============ -->
   <section class="view" id="view-mappa" aria-label="Mappa">
-    <div class="card">
-      <div class="row between wrap gap">
-        <h2>Mappa concettuale</h2>
-        <div class="row gap wrap">
-          <button class="btn small" id="btnZoomOut" aria-label="Rimpicciolisci">➖</button>
-          <button class="btn small" id="btnZoomIn" aria-label="Ingrandisci">➕</button>
-          <button class="btn small" id="btnMapLayout">↔️ Forma</button>
-          <button class="btn small" id="btnMapPng">⬇️ Immagine</button>
-          <button class="btn small" id="btnMapSave">💾 Salva</button>
+    <div class="card" id="mapCreate">
+      <h2>Nuova mappa concettuale</h2>
+      <div class="map-new">
+        <button class="btn big primary" id="btnMapNew">✍️ Faccio io la mappa</button>
+        <div class="row gap">
+          <input type="text" id="mapTopic" placeholder="…oppure scrivi un argomento">
+          <button class="btn" id="btnMapTopic">🪄 Crea</button>
         </div>
       </div>
-      <p class="hint" id="mapHint">Crea una mappa dalla scheda <b>Leggi</b> (pulsante 🗺️ Mappa) oppure scrivi l'argomento qui sotto.</p>
-      <div class="row gap">
-        <input type="text" id="mapTopic" placeholder="Es. La Rivoluzione francese">
-        <button class="btn primary" id="btnMapTopic">Crea</button>
-      </div>
+      <p class="hint" id="mapHint">Puoi anche crearla da un testo nella scheda <b>Leggi</b> (pulsante 🗺️ Mappa).</p>
     </div>
-    <div class="card map-card">
-      <div id="mapWrap" class="map-wrap"><div class="empty">La mappa comparirà qui.<br>Tocca un riquadro per ascoltarlo, tienilo premuto per modificarlo.</div></div>
+    <div class="card map-card hidden" id="mapCard">
+      <div class="map-tools" id="mapTools">
+        <button class="btn small primary" id="btnMapImprove">🪄 Migliora</button>
+        <button class="btn small" id="btnMapUndo" disabled aria-label="Annulla">↩️</button>
+        <button class="btn small" id="btnZoomOut" aria-label="Rimpicciolisci">➖</button>
+        <button class="btn small" id="btnZoomIn" aria-label="Ingrandisci">➕</button>
+        <button class="btn small" id="btnMapLayout" aria-label="Cambia forma">↔️</button>
+        <button class="btn small" id="btnMapSave" aria-label="Salva nel quaderno">💾</button>
+        <button class="btn small" id="btnMapPng" aria-label="Scarica immagine">⬇️</button>
+        <button class="btn small" id="btnMapOther" aria-label="Nuova mappa">🆕</button>
+      </div>
+      <div id="mapWrap" class="map-wrap"><div class="empty">La mappa comparirà qui.<br>Tocca un riquadro per ascoltarlo o modificarlo.</div></div>
+      <p class="hint map-legend hidden" id="mapLegend">✨ I riquadri con il bordo tratteggiato li ha aggiunti l'IA: controllali e tienili solo se ti convincono.</p>
     </div>
   </section>
 
@@ -233,6 +238,28 @@
     </div>
   </form>
 </dialog>
+
+<!-- ============ FINESTRA DOMANDE (sostituisce prompt/confirm del browser) ============ -->
+<dialog id="dlgAsk">
+  <form method="dialog" class="ask-box">
+    <h2 id="askTitle"></h2>
+    <p id="askMsg" class="hint"></p>
+    <textarea id="askInput" rows="3" class="hidden"></textarea>
+    <div id="askBtns" class="row gap wrap ask-btns"></div>
+  </form>
+</dialog>
+
+<!-- ============ BARRA DEL RIQUADRO SELEZIONATO (mappa) ============ -->
+<div id="nodeBar" class="node-bar hidden" role="toolbar" aria-label="Riquadro selezionato">
+  <button data-nb="say"><span>🔊</span>Ascolta</button>
+  <button data-nb="edit"><span>✏️</span>Scrivi</button>
+  <button data-nb="child"><span>↘️</span>Sotto</button>
+  <button data-nb="sibling"><span>⬇️</span>Accanto</button>
+  <button data-nb="up"><span>🔼</span>Su</button>
+  <button data-nb="down"><span>🔽</span>Giù</button>
+  <button data-nb="del"><span>🗑️</span>Togli</button>
+  <button data-nb="close" aria-label="Chiudi"><span>✖️</span>Chiudi</button>
+</div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Sto lavorando…</div></div>

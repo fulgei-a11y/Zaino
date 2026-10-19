@@ -33,6 +33,40 @@ function busy(on, text = "Sto lavorando…") {
   $("#busyText").textContent = text;
   $("#busy").classList.toggle("hidden", !on);
 }
+/* Finestre dell'app al posto di prompt()/confirm() del browser,
+   che sul telefono fanno saltare l'impaginazione. */
+function uiDialog({ title = "", message = "", input = null, buttons }) {
+  return new Promise((resolve) => {
+    const d = $("#dlgAsk");
+    $("#askTitle").textContent = title;
+    $("#askMsg").textContent = message;
+    $("#askMsg").classList.toggle("hidden", !message);
+    const ta = $("#askInput");
+    ta.classList.toggle("hidden", input === null);
+    ta.value = input ?? "";
+    const box = $("#askBtns");
+    box.innerHTML = "";
+    let result = null;
+    for (const b of buttons) {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "btn" + (b.primary ? " primary" : "") + (b.danger ? " bad" : "");
+      el.textContent = b.label;
+      el.addEventListener("click", () => { result = b.value; d.close(); });
+      box.appendChild(el);
+    }
+    ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); box.querySelector(".primary")?.click(); } };
+    d.onclose = () => resolve(input === null ? result : (result === null ? null : { choice: result, text: ta.value.trim() }));
+    d.showModal();
+    if (input !== null) setTimeout(() => { ta.focus(); ta.select(); }, 50);
+  });
+}
+const uiConfirm = (message, okLabel = "Sì", danger = false) =>
+  uiDialog({ title: message, buttons: [{ label: "No", value: false }, { label: okLabel, value: true, primary: !danger, danger }] }).then(v => v === true);
+const uiPrompt = (title, value = "", message = "") =>
+  uiDialog({ title, message, input: value, buttons: [{ label: "Annulla", value: null }, { label: "OK", value: "ok", primary: true }] })
+    .then(r => (r && r.choice === "ok") ? r.text : null);
+
 function download(filename, blobOrText, type = "text/plain") {
   const blob = blobOrText instanceof Blob ? blobOrText : new Blob([blobOrText], { type });
   const a = document.createElement("a");
@@ -264,6 +298,18 @@ ${t}`,
 Rispondi SOLO con JSON in questo formato:
 {"titolo": "argomento centrale", "rami": [{"testo": "concetto", "figli": [{"testo": "dettaglio", "figli": []}]}]}
 Regole: da 4 a 7 rami principali; massimo 3 livelli; ogni riquadro al massimo 6 parole; includi date, nomi e termini importanti; contenuti corretti e verificabili.`,
+  migliora: (json) => `Questa è una mappa concettuale fatta da una studentessa. Aiutala a migliorarla, rispettando il suo lavoro.
+Regole:
+- MANTIENI la sua struttura e le sue parole: non cancellare i suoi riquadri e non riscriverli, salvo per correggere errori di ortografia o di contenuto evidenti;
+- AGGIUNGI solo i concetti importanti che mancano (date, nomi, termini, collegamenti), al punto giusto della mappa;
+- metti "nuovo": true SOLO sui riquadri che aggiungi tu, e su quelli in cui correggi un errore;
+- ogni riquadro al massimo 6 parole; massimo 3 livelli sotto il titolo; non aggiungere più di 10 riquadri in tutto;
+- se un riquadro è troppo lungo puoi accorciarlo (e segnarlo con "nuovo": true).
+Rispondi SOLO con JSON in questo formato:
+{"titolo": "...", "rami": [{"testo": "...", "nuovo": false, "figli": [{"testo": "...", "nuovo": true, "figli": []}]}]}
+
+MAPPA ATTUALE (il primo "testo" è il titolo al centro):
+${json}`,
   flashcard: (t) => `Crea flashcard per ripassare questo testo in vista di una verifica.
 Rispondi SOLO con JSON: {"titolo": "argomento breve", "carte": [{"domanda": "...", "risposta": "..."}]}
 Regole:
@@ -595,7 +641,15 @@ async function pdfToText(file) {
 async function handleFiles(files) {
   if (!files?.length) return;
   let append = false;
-  if (reader.text) append = confirm("Vuoi AGGIUNGERE queste pagine al testo che hai già?\n\nOK = aggiungi in fondo\nAnnulla = sostituisci il testo");
+  if (reader.text) {
+    const c = await uiDialog({
+      title: "Hai già un testo aperto",
+      message: "Vuoi aggiungere queste pagine in fondo o iniziare un testo nuovo?",
+      buttons: [{ label: "Annulla", value: null }, { label: "📄 Nuovo testo", value: "new" }, { label: "➕ Aggiungi", value: "add", primary: true }]
+    });
+    if (!c) return;
+    append = c === "add";
+  }
   try {
     const pieces = [];
     let k = 0;
@@ -692,10 +746,14 @@ const BRANCH_COLORS = [
   ["#fde2c8", "#c9762e"], ["#d6ecd2", "#4f8a45"], ["#d8e6f6", "#3f6fa8"],
   ["#f3d6e4", "#a54a78"], ["#fff0b8", "#a8861a"], ["#dcd6f3", "#6551a8"], ["#cdeeee", "#2f7f80"]
 ];
+/** Copia della mappa senza le misure di disegno (campi che iniziano con "_"). */
+const cleanMap = (root) => root && JSON.parse(JSON.stringify(root, (k, v) => k.startsWith("_") ? undefined : v));
+
 function normalizeMap(d) {
   const fix = (n, depth) => ({
     id: uid(),
     text: String(n.testo || n.text || n.titolo || "").trim() || "…",
+    ai: !!(n.nuovo || n.ai),
     children: depth < 4 ? (n.figli || n.children || n.rami || []).map(c => fix(c, depth + 1)) : []
   });
   const root = fix({ testo: d.titolo || d.title || "Argomento", figli: d.rami || d.figli || d.children || [] }, 0);
@@ -709,13 +767,134 @@ const mindmap = {
   nodes: [],              // nodi con posizione, per disegnare e per l'immagine
   pressTimer: null,
 
+  history: [],            // copie precedenti per "Annulla"
+  selected: null,
+
   load(root, savedId = null) {
     this.root = root;
     this.savedId = savedId;
     this.zoom = null;
-    $("#mapHint").classList.add("hidden");
-    store.set("currentMap", { root, savedId });
+    this.history = [];
+    this.select(null);
+    this.persist();
+    this.draw({ center: true });
+  },
+
+  showCard() {
+    const has = !!this.root;
+    $("#mapCard").classList.toggle("hidden", !has);
+    $("#mapCreate").classList.toggle("hidden", has);
+  },
+
+  persist() {
+    this.showCard();
+    store.set("currentMap", { root: cleanMap(this.root), savedId: this.savedId });
+    $("#btnMapUndo").disabled = !this.history.length;
+    const hasAi = JSON.stringify(this.root || {}).includes('"ai":true');
+    $("#mapLegend").classList.toggle("hidden", !hasAi);
+  },
+
+  /** Applica una modifica alla mappa, ricordando la versione precedente per "Annulla". */
+  change(fn) {
+    this.history.push(JSON.stringify(cleanMap(this.root)));
+    if (this.history.length > 40) this.history.shift();
+    fn();
+    this.persist();
     this.draw();
+  },
+
+  undo() {
+    const prev = this.history.pop();
+    if (!prev) return;
+    this.zoom = null;
+    this.root = JSON.parse(prev);
+    if (this.selected && !this.find(this.selected)) this.select(null);
+    this.persist();
+    this.draw();
+    toast("Modifica annullata");
+  },
+
+  select(id) {
+    this.selected = id;
+    $$(".map-node.sel").forEach(e => e.classList.remove("sel"));
+    if (id) $(`.map-node[data-id="${id}"]`)?.classList.add("sel");
+    const on = !!id && $("#view-mappa").classList.contains("active");
+    $("#nodeBar").classList.toggle("hidden", !on);
+    document.body.classList.toggle("map-editing", on);
+  },
+
+  async newMap() {
+    if (this.root && this.history.length && !this.savedId) {
+      if (!(await uiConfirm("Iniziare una mappa nuova? Quella aperta non è salvata nel quaderno.", "Sì, nuova"))) return;
+    }
+    const t = await uiPrompt("Qual è l'argomento al centro della mappa?", "", "Poi tocca il riquadro e usa «Sotto» per aggiungere le idee.");
+    if (!t) return;
+    this.load({ id: uid(), text: t, ai: false, children: [] });
+    setTimeout(() => this.select(this.root.id), 50);
+  },
+
+  async nodeAction(act) {
+    const id = this.selected;
+    const f = id && this.find(id);
+    if (!f) return this.select(null);
+    const { node, parent } = f;
+    const sibs = parent?.children;
+    const i = sibs ? sibs.indexOf(node) : -1;
+    switch (act) {
+      case "say": return this.speakNode(id);
+      case "close": return this.select(null);
+      case "edit": {
+        const t = await uiPrompt("Cambia il testo del riquadro", node.text);
+        if (t && t !== node.text) this.change(() => { node.text = t; node.ai = false; });
+        else if (t && node.ai) this.change(() => { node.ai = false; }); // confermato: diventa suo
+        return;
+      }
+      case "child": {
+        const t = await uiPrompt(`Nuova idea collegata a «${node.text}»`);
+        if (!t) return;
+        const nn = { id: uid(), text: t, ai: false, children: [] };
+        this.change(() => node.children.push(nn));
+        return this.select(nn.id);
+      }
+      case "sibling": {
+        if (!parent) return toast("Il centro non può avere riquadri accanto: usa «Sotto».");
+        const t = await uiPrompt("Nuova idea allo stesso livello");
+        if (!t) return;
+        const nn = { id: uid(), text: t, ai: false, children: [] };
+        this.change(() => sibs.splice(i + 1, 0, nn));
+        return this.select(nn.id);
+      }
+      case "up": case "down": {
+        if (!parent) return;
+        const j = act === "up" ? i - 1 : i + 1;
+        if (j < 0 || j >= sibs.length) return;
+        return this.change(() => { [sibs[i], sibs[j]] = [sibs[j], sibs[i]]; });
+      }
+      case "del": {
+        if (!parent) return toast("Il centro della mappa non si può togliere.");
+        if (node.children.length && !(await uiConfirm(`Togliere «${node.text}» e i riquadri collegati?`, "Togli", true))) return;
+        this.change(() => sibs.splice(i, 1));
+        return this.select(null);
+      }
+    }
+  },
+
+  /** Chiede all'IA di migliorare la mappa, rispettando il lavoro già fatto. */
+  async improve() {
+    if (!this.root) return toast("Prima crea una mappa.");
+    const plain = (n) => ({ testo: n.text, figli: n.children.map(plain) });
+    try {
+      busy(true, "L'IA sta guardando la tua mappa…");
+      const out = parseJSON(await ask({ prompt: PROMPTS.migliora(JSON.stringify(plain(this.root))), system: SYSTEM_TUTOR, json: true }));
+      const fresh = normalizeMap(out);
+      if (!fresh.children.length) throw new Error("L'IA non ha restituito una mappa valida. Riprova.");
+      this.select(null);
+      this.zoom = null; // la mappa è cambiata molto: la rimetto tutta nello schermo
+      this.change(() => { this.root = fresh; });
+      const added = JSON.stringify(fresh).split('"ai":true').length - 1;
+      toast(added ? `Fatto! ${added} riquadri nuovi hanno il bordo tratteggiato. ↩️ Annulla per tornare indietro.` : "Fatto! ↩️ Annulla per tornare indietro.", 6000);
+    } catch (e) { toast(e.message || "Non sono riuscito a migliorare la mappa. Riprova.", 6000); }
+    finally { busy(false); }
   },
 
   measure() {
@@ -801,9 +980,15 @@ const mindmap = {
     return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
   },
 
-  draw() {
+  draw({ center = false } = {}) {
     const wrap = $("#mapWrap");
     if (!this.root) return;
+    // posizione sullo schermo del riquadro selezionato, prima di ridisegnare
+    let anchor = null;
+    const selNode = this.selected && this.find(this.selected)?.node;
+    if (selNode && selNode._x != null && this.zoom) {
+      anchor = { node: selNode, sx: (selNode._x + selNode._w / 2) * this.zoom - wrap.scrollLeft, sy: (selNode._y + selNode._h / 2) * this.zoom - wrap.scrollTop };
+    }
     const { width, height } = this.computeLayout();
     this.size = { width, height };
     const dark = settings.theme === "scuro";
@@ -816,19 +1001,22 @@ const mindmap = {
       const tx = n._x + n._w / 2;
       const ty0 = n._y + 10 + n._size;
       const tspans = n._lines.map((l, i) => `<tspan x="${tx}" y="${ty0 + i * n._size * 1.3 - n._size * 0.15}">${escapeHtml(l)}</tspan>`).join("");
-      boxes += `<g class="map-node" data-id="${n.id}" role="button" tabindex="0">
-        <rect x="${n._x}" y="${n._y}" width="${n._w}" height="${n._h}" rx="12" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
+      const dash = n.ai ? ` stroke-dasharray="8 5"` : "";
+      boxes += `<g class="map-node${n.id === this.selected ? " sel" : ""}" data-id="${n.id}" role="button" tabindex="0">
+        <rect x="${n._x}" y="${n._y}" width="${n._w}" height="${n._h}" rx="12" fill="${fill}" stroke="${stroke}" stroke-width="${n.ai ? 3 : 2}"${dash}/>
         <text text-anchor="middle" font-family="Atkinson Hyperlegible, Verdana, sans-serif" font-size="${n._size}" font-weight="${n._bold ? 700 : 400}" fill="${ink}">${tspans}</text>
       </g>`;
     }
     // zoom: all'inizio la mappa entra nello schermo (senza diventare illeggibile)
-    if (this.zoom == null) this.zoom = Math.max(0.55, Math.min(1, (wrap.clientWidth || 360) / width));
+    if (this.zoom == null) { this.zoom = Math.max(0.55, Math.min(1, (wrap.clientWidth || 360) / width)); center = true; }
     const z = this.zoom;
     wrap.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="${width * z}" height="${height * z}" viewBox="0 0 ${width} ${height}">${edges}${boxes}</svg>`;
-    // centro la vista sulla radice
-    const r = this.root;
-    wrap.scrollLeft = (r._x + r._w / 2) * z - wrap.clientWidth / 2;
-    wrap.scrollTop = (r._y + r._h / 2) * z - wrap.clientHeight / 2;
+    // il riquadro su cui si lavora resta fermo sullo schermo; altrimenti centro sulla radice
+    const focus = (!center && this.selected && this.find(this.selected)?.node) || this.root;
+    const keep = !center && anchor && focus === anchor.node;
+    const fx = (focus._x + focus._w / 2) * z, fy = (focus._y + focus._h / 2) * z;
+    wrap.scrollLeft = keep ? fx - anchor.sx : fx - wrap.clientWidth / 2;
+    wrap.scrollTop = keep ? fy - anchor.sy : fy - wrap.clientHeight / 2;
   },
 
   zoomBy(f) {
@@ -851,32 +1039,10 @@ const mindmap = {
     if (node) tts.say(node.text, () => g?.classList.remove("speaking"));
   },
 
-  editNode(id) {
-    const f = this.find(id);
-    if (!f) return;
-    const choice = prompt(
-      `«${f.node.text}»\n\nScrivi il nuovo testo per modificarlo.\nInizia con + per aggiungere un riquadro collegato (es. "+ nuova idea").\nScrivi - per eliminarlo.`,
-      f.node.text
-    );
-    if (choice === null) return;
-    const v = choice.trim();
-    if (v === "-") {
-      if (!f.parent) return toast("Non puoi eliminare il centro della mappa.");
-      f.parent.children = f.parent.children.filter(c => c !== f.node);
-    } else if (v.startsWith("+")) {
-      const t = v.slice(1).trim();
-      if (t) f.node.children.push({ id: uid(), text: t, children: [] });
-    } else if (v) {
-      f.node.text = v;
-    }
-    store.set("currentMap", { root: this.root, savedId: this.savedId });
-    this.draw();
-  },
-
   toggleLayout() {
     this.layout = this.layout === "bilanciata" ? "albero" : "bilanciata";
     this.zoom = null;
-    this.draw();
+    this.draw({ center: true });
   },
 
   /** Disegna la mappa su una tela per salvarla come immagine (usa lo stesso carattere dello schermo). */
@@ -903,7 +1069,8 @@ const mindmap = {
       const fill = n._depth === 0 ? "#2f6f6a" : n._color[0];
       const stroke = n._depth === 0 ? "#2f6f6a" : n._color[1];
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(n._x, n._y, n._w, n._h, 12) : ctx.rect(n._x, n._y, n._w, n._h);
-      ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.stroke();
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.setLineDash(n.ai ? [8, 5] : []); ctx.lineWidth = n.ai ? 3 : 2; ctx.strokeStyle = stroke; ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = n._depth === 0 ? "#ffffff" : "#2b2a27";
       ctx.font = `${n._bold ? 700 : 400} ${n._size}px "Atkinson Hyperlegible", Verdana, sans-serif`;
       ctx.textAlign = "center";
@@ -915,7 +1082,7 @@ const mindmap = {
   save() {
     if (!this.root) return toast("Prima crea una mappa.");
     const nb = store.get("notebook", []);
-    const item = { id: this.savedId || uid(), type: "mappa", title: this.root.text, date: todayLabel(), data: this.root };
+    const item = { id: this.savedId || uid(), type: "mappa", title: this.root.text, date: todayLabel(), data: cleanMap(this.root) };
     const i = nb.findIndex(x => x.id === item.id);
     if (i >= 0) nb[i] = item; else nb.unshift(item);
     if (store.set("notebook", nb)) { this.savedId = item.id; toast("Mappa salvata nel quaderno 📚"); }
@@ -1071,8 +1238,8 @@ const flash = {
     tts.say(this.flipped ? c.a : c.q);
   },
 
-  remove() {
-    if (!this.deck || !confirm(`Eliminare il mazzo «${this.deck.title}»?`)) return;
+  async remove() {
+    if (!this.deck || !(await uiConfirm(`Eliminare il mazzo «${this.deck.title}»?`, "Elimina", true))) return;
     store.set("decks", store.get("decks", []).filter(d => d.id !== this.deck.id));
     this.refreshDecks();
   }
@@ -1081,11 +1248,11 @@ const flash = {
 /* =========================================================
    12. QUADERNO
    ========================================================= */
-function saveCurrentText() {
+async function saveCurrentText() {
   if (!reader.text) return;
   const firstLine = reader.text.split("\n").find(l => l.trim()) || "Testo";
   const suggested = firstLine.replace(/^#+\s*/, "").slice(0, 60);
-  const title = prompt("Dai un nome a questo testo:", suggested);
+  const title = await uiPrompt("Dai un nome a questo testo", suggested);
   if (title === null) return;
   const nb = store.get("notebook", []);
   nb.unshift({ id: uid(), type: "testo", title: title.trim() || suggested, date: todayLabel(), data: reader.text });
@@ -1118,8 +1285,8 @@ function openNotebookItem(id, type) {
   if (type === "mappa") { mindmap.load(it.data, it.id); showView("mappa"); }
 }
 
-function deleteNotebookItem(id, type) {
-  if (!confirm("Eliminare questo elemento?")) return;
+async function deleteNotebookItem(id, type) {
+  if (!(await uiConfirm("Eliminare questo elemento dal quaderno?", "Elimina", true))) return;
   if (type === "flashcard") store.set("decks", store.get("decks", []).filter(d => d.id !== id));
   else store.set("notebook", store.get("notebook", []).filter(x => x.id !== id));
   renderNotebook();
@@ -1154,7 +1321,8 @@ function showView(name) {
   $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + name));
   $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.view === name));
   if (name === "quaderno") renderNotebook();
-  if (name === "mappa" && mindmap.root) requestAnimationFrame(() => mindmap.draw());
+  if (name === "mappa" && mindmap.root) requestAnimationFrame(() => mindmap.draw({ center: true }));
+  mindmap.select(name === "mappa" ? mindmap.selected : null);
   scrollTo({ top: 0 });
 }
 
@@ -1298,30 +1466,40 @@ function init() {
   });
 
   // mappa
+  // tocco = seleziona il riquadro (se il dito non ha trascinato la mappa)
   const mw = $("#mapWrap");
-  let pressed = null, longDone = false;
-  mw.addEventListener("pointerdown", (e) => {
-    const g = e.target.closest(".map-node");
-    if (!g) return;
-    pressed = g.dataset.id; longDone = false;
-    mindmap.pressTimer = setTimeout(() => { longDone = true; mindmap.editNode(pressed); }, 600);
-  });
-  const cancelPress = () => clearTimeout(mindmap.pressTimer);
+  let down = null;
+  mw.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY }; });
+  mw.addEventListener("pointercancel", () => { down = null; });
   mw.addEventListener("pointerup", (e) => {
-    cancelPress();
+    if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) { down = null; return; }
+    down = null;
     const g = e.target.closest(".map-node");
-    if (g && !longDone && g.dataset.id === pressed) mindmap.speakNode(g.dataset.id);
-    pressed = null;
+    if (!g) return mindmap.select(null);
+    if (mindmap.selected === g.dataset.id) mindmap.speakNode(g.dataset.id); // secondo tocco: ascolta
+    else mindmap.select(g.dataset.id);
   });
-  mw.addEventListener("pointercancel", cancelPress);
-  mw.addEventListener("scroll", cancelPress, { passive: true });
   mw.addEventListener("contextmenu", (e) => e.preventDefault());
   mw.addEventListener("keydown", (e) => {
     const g = e.target.closest(".map-node");
     if (!g) return;
+    mindmap.select(g.dataset.id);
     if (e.key === "Enter") mindmap.speakNode(g.dataset.id);
-    if (e.key === "F2" || e.key === "e") mindmap.editNode(g.dataset.id);
+    if (e.key === "F2") mindmap.nodeAction("edit");
   });
+  $("#nodeBar").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-nb]");
+    if (b) mindmap.nodeAction(b.dataset.nb);
+  });
+  $("#btnMapNew").addEventListener("click", () => mindmap.newMap());
+  $("#btnMapOther").addEventListener("click", async () => {
+    if (mindmap.history.length && !mindmap.savedId &&
+        !(await uiConfirm("Chiudere questa mappa? Non è salvata nel quaderno: premi 💾 prima, se vuoi tenerla.", "Chiudi"))) return;
+    mindmap.root = null; mindmap.select(null); mindmap.showCard();
+    store.set("currentMap", null);
+  });
+  $("#btnMapUndo").addEventListener("click", () => mindmap.undo());
+  $("#btnMapImprove").addEventListener("click", () => mindmap.improve());
   $("#btnMapLayout").addEventListener("click", () => mindmap.toggleLayout());
   $("#btnZoomIn").addEventListener("click", () => mindmap.zoomBy(1.25));
   $("#btnZoomOut").addEventListener("click", () => mindmap.zoomBy(0.8));
@@ -1353,8 +1531,8 @@ function init() {
     if (!t) return;
     reader.load(t); showView("leggi");
   });
-  $("#btnDictClear").addEventListener("click", () => {
-    if ($("#txtDictation").value && !confirm("Cancellare tutto il testo dettato?")) return;
+  $("#btnDictClear").addEventListener("click", async () => {
+    if ($("#txtDictation").value && !(await uiConfirm("Cancellare tutto il testo dettato?", "Cancella", true))) return;
     $("#txtDictation").value = ""; store.set("dictation", ""); dictation.resetFixBtn();
   });
 
