@@ -1065,3 +1065,8 @@ input[type="search"] { font: inherit; font-size: 1rem; color: var(--ink); backgr
 .img-hit img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
 .img-hit small { font-size: .72rem; padding: 4px 6px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sl-img { float: right; max-width: 34cqw; max-height: 42cqh; margin: 0 0 2cqh 3cqw; border-radius: 1.6cqw; object-fit: contain; }
+.au-schools { margin-top: 6px; align-items: center; }
+.au-schools-l { font-size: .85rem; color: var(--muted, #5b6275); margin-right: 2px; }
+.chip.small { font-size: .82rem; padding: 4px 10px; min-height: 32px; }
+.au-schools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+.au-schools .chip { flex: none; }

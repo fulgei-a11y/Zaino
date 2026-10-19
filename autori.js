@@ -96,20 +96,56 @@ const UMANE = [
   ["freinet", "Célestin Freinet", 1896, 1966, "pedagogia", "La tipografia a scuola, il testo libero"],
   ["freire", "Paulo Freire", 1921, 1997, "pedagogia", "La pedagogia degli oppressi"],
   ["milani", "Don Lorenzo Milani", 1923, 1967, "pedagogia", "Lettera a una professoressa: la scuola di Barbiana"],
-  ["wundt", "Wilhelm Wundt", 1832, 1920, "psicologia", "Il primo laboratorio di psicologia"],
+["wundt", "Wilhelm Wundt", 1832, 1920, "psicologia", "Il primo laboratorio di psicologia"],
   ["james", "William James", 1842, 1910, "psicologia", "Il funzionalismo e il flusso di coscienza"],
   ["pavlov", "Ivan Pavlov", 1849, 1936, "psicologia", "Il condizionamento classico"],
+  ["ebbinghaus", "Hermann Ebbinghaus", 1850, 1909, "psicologia", "La memoria e la curva dell'oblio"],
   ["freud-psi", "Sigmund Freud", 1856, 1939, "psicologia", "La psicoanalisi e l'inconscio"],
+  ["titchener", "Edward B. Titchener", 1867, 1927, "psicologia", "Lo strutturalismo e l'introspezione"],
+  ["adler", "Alfred Adler", 1870, 1937, "psicologia", "Il senso di inferiorità e la psicologia individuale"],
+  ["thorndike", "Edward Thorndike", 1874, 1949, "psicologia", "Prove ed errori e la legge dell'effetto"],
+  ["jung", "Carl Gustav Jung", 1875, 1961, "psicologia", "L'inconscio collettivo e gli archetipi"],
   ["watson", "John B. Watson", 1878, 1958, "psicologia", "Il comportamentismo"],
+  ["wallon", "Henri Wallon", 1879, 1962, "psicologia", "Emozioni, movimento e sviluppo della persona"],
   ["wertheimer", "Max Wertheimer", 1880, 1943, "psicologia", "La Gestalt: il tutto è più delle parti"],
+  ["klein", "Melanie Klein", 1882, 1960, "psicologia", "Il mondo interno del bambino e il gioco"],
+  ["tolman", "Edward C. Tolman", 1886, 1959, "psicologia", "Le mappe cognitive"],
+  ["koffka", "Kurt Koffka", 1886, 1941, "psicologia", "Le leggi della percezione"],
+  ["spitz", "René Spitz", 1887, 1974, "psicologia", "Gli organizzatori psichici e l'ospitalismo"],
+  ["kohler", "Wolfgang Köhler", 1887, 1967, "psicologia", "L'insight: capire all'improvviso"],
+  ["lewin", "Kurt Lewin", 1890, 1947, "psicologia", "La teoria del campo e la dinamica di gruppo"],
+  ["annafreud", "Anna Freud", 1895, 1982, "psicologia", "I meccanismi di difesa e la psicoanalisi infantile"],
+  ["winnicott", "Donald Winnicott", 1896, 1971, "psicologia", "La madre sufficientemente buona e l'oggetto transizionale"],
+  ["heider", "Fritz Heider", 1896, 1988, "psicologia", "L'attribuzione: come spieghiamo il comportamento"],
   ["piaget", "Jean Piaget", 1896, 1980, "psicologia", "Gli stadi dello sviluppo cognitivo"],
   ["vygotskij", "Lev Vygotskij", 1896, 1934, "psicologia", "La zona di sviluppo prossimale"],
+  ["allport", "Gordon Allport", 1897, 1967, "psicologia", "La natura del pregiudizio"],
+  ["rogers", "Carl Rogers", 1902, 1987, "psicologia", "L'ascolto empatico e la terapia centrata sul cliente"],
   ["erikson", "Erik Erikson", 1902, 1994, "psicologia", "Gli stadi psicosociali"],
+  ["lorenz", "Konrad Lorenz", 1903, 1989, "psicologia", "L'imprinting"],
   ["skinner", "B. F. Skinner", 1904, 1990, "psicologia", "Il condizionamento operante"],
+  ["harlow", "Harry Harlow", 1905, 1981, "psicologia", "Il bisogno di contatto: gli esperimenti con le scimmie"],
+  ["sherif", "Muzafer Sherif", 1906, 1988, "psicologia", "Le norme di gruppo e il conflitto tra gruppi"],
   ["bowlby", "John Bowlby", 1907, 1990, "psicologia", "La teoria dell'attaccamento"],
+  ["asch", "Solomon Asch", 1907, 1996, "psicologia", "Il conformismo"],
+  ["maslow", "Abraham Maslow", 1908, 1970, "psicologia", "La piramide dei bisogni"],
+  ["ainsworth", "Mary Ainsworth", 1913, 1999, "psicologia", "La Strange Situation e gli stili di attaccamento"],
   ["bruner", "Jerome Bruner", 1915, 2016, "psicologia", "Lo scaffolding e la cultura dell'educazione"],
+  ["bronfenbrenner", "Urie Bronfenbrenner", 1917, 2005, "psicologia", "Il modello ecologico dello sviluppo"],
+  ["tajfel", "Henri Tajfel", 1919, 1982, "psicologia", "L'identità sociale"],
+  ["festinger", "Leon Festinger", 1919, 1989, "psicologia", "La dissonanza cognitiva"],
+  ["miller", "George A. Miller", 1920, 2012, "psicologia", "Il magico numero sette: la memoria a breve termine"],
+  ["watzlawick", "Paul Watzlawick", 1921, 2007, "psicologia", "Gli assiomi della comunicazione"],
   ["bandura", "Albert Bandura", 1925, 2021, "psicologia", "L'apprendimento per osservazione"],
+  ["kohlberg", "Lawrence Kohlberg", 1927, 1987, "psicologia", "Gli stadi dello sviluppo morale"],
+  ["chomsky", "Noam Chomsky", 1928, null, "psicologia", "Il linguaggio innato e la grammatica universale"],
+  ["neisser", "Ulric Neisser", 1928, 2012, "psicologia", "Il cognitivismo: la mente che elabora informazioni"],
+  ["zimbardo", "Philip Zimbardo", 1933, 2024, "psicologia", "L'esperimento della prigione di Stanford"],
+  ["rosenthal", "Robert Rosenthal", 1933, 2024, "psicologia", "L'effetto Pigmalione"],
+  ["milgram", "Stanley Milgram", 1933, 1984, "psicologia", "L'obbedienza all'autorità"],
+  ["seligman", "Martin Seligman", 1942, null, "psicologia", "L'impotenza appresa e la psicologia positiva"],
   ["gardner", "Howard Gardner", 1943, null, "psicologia", "Le intelligenze multiple"],
+  ["goleman", "Daniel Goleman", 1946, null, "psicologia", "L'intelligenza emotiva"],
   ["comte-soc", "Auguste Comte", 1798, 1857, "sociologia", "Il fondatore della sociologia"],
   ["marx-soc", "Karl Marx", 1818, 1883, "sociologia", "Le classi sociali e il conflitto"],
   ["durkheim", "Émile Durkheim", 1858, 1917, "sociologia", "I fatti sociali, l'anomia, il suicidio"],
@@ -158,11 +194,18 @@ const UMANE_CORRENTI = [
   ["Pedagogia moderna: le origini", "XVII-XIX sec.", "L'educazione segue la natura del bambino.", ["comenio", "locke-ped", "rousseau-ped", "pestalozzi", "frobel", "aporti"]],
   ["Attivismo pedagogico", "inizio XX sec.", "Il bambino impara facendo, al centro c'è il suo interesse.", ["dewey", "claparede", "freinet", "montessori", "agazzi"]],
   ["Pedagogia critica", "seconda metà XX sec.", "La scuola deve liberare e includere chi è svantaggiato.", ["freire", "milani"]],
-  ["Psicologia scientifica e funzionalismo", "fine XIX sec.", "La mente si studia con il metodo sperimentale.", ["wundt", "james"]],
-  ["Comportamentismo", "XX sec.", "Si studia solo il comportamento osservabile: stimolo e risposta.", ["pavlov", "watson", "skinner", "bandura"]],
-  ["Psicoanalisi", "XX sec.", "L'inconscio e le prime relazioni guidano la vita psichica.", ["freud-psi", "erikson", "bowlby"]],
-  ["Gestalt", "XX sec.", "Percepiamo forme intere, non parti separate.", ["wertheimer"]],
-  ["Cognitivismo e costruttivismo", "XX sec.", "Il bambino costruisce la conoscenza, da solo e con gli altri.", ["piaget", "vygotskij", "bruner", "gardner"]],
+  ["Le origini: strutturalismo e funzionalismo", "fine XIX sec.", "La mente si studia con il metodo sperimentale: i suoi elementi o le sue funzioni.", ["wundt", "ebbinghaus", "titchener", "james"], "Origini"],
+  ["Comportamentismo", "XX sec.", "Si studia solo il comportamento osservabile: stimolo, risposta, rinforzo.", ["pavlov", "thorndike", "watson", "tolman", "skinner", "bandura"], "Comportamentismo"],
+  ["Gestalt", "XX sec.", "Percepiamo forme intere, non parti separate; si impara anche per intuizione improvvisa.", ["wertheimer", "koffka", "kohler", "lewin"], "Gestalt"],
+  ["Psicoanalisi e scuole dopo Freud", "XX sec.", "L'inconscio guida la vita psichica; gli allievi di Freud ne cambiano alcune idee.", ["freud-psi", "adler", "jung", "erikson"], "Psicoanalisi"],
+  ["Psicoanalisi dell'infanzia", "XX sec.", "Le prime relazioni del bambino con chi lo cura formano la sua personalità.", ["annafreud", "klein", "spitz", "winnicott"], "Psicoanalisi infantile"],
+  ["Etologia e attaccamento", "XX sec.", "Il legame con chi si prende cura di noi è un bisogno di base, come il cibo.", ["lorenz", "harlow", "bowlby", "ainsworth"], "Attaccamento"],
+  ["Cognitivismo e costruttivismo", "XX sec.", "La mente elabora informazioni; il bambino costruisce la conoscenza, da solo e con gli altri.", ["piaget", "vygotskij", "bruner", "miller", "neisser", "chomsky", "gardner"], "Cognitivismo"],
+  ["Sviluppo: emozioni, morale, ambiente", "XX sec.", "Si cresce per tappe, dentro relazioni e ambienti che si influenzano a vicenda.", ["wallon", "erikson", "kohlberg", "bronfenbrenner"], "Sviluppo"],
+  ["Psicologia umanistica", "metà XX sec.", "Al centro la persona, i suoi bisogni e la sua spinta a realizzarsi.", ["maslow", "rogers"], "Umanistica"],
+  ["Psicologia sociale", "XX sec.", "Come gli altri, i gruppi e le situazioni cambiano ciò che pensiamo e facciamo.", ["lewin", "allport", "heider", "sherif", "asch", "festinger", "tajfel", "milgram", "zimbardo", "rosenthal"], "Sociale"],
+  ["Comunicazione", "seconda metà XX sec.", "Ogni comportamento comunica: non si può non comunicare.", ["watzlawick"], "Comunicazione"],
+  ["Emozioni e benessere", "fine XX sec.", "Anche le emozioni e l'ottimismo si possono capire e allenare.", ["goleman", "seligman", "gardner"], "Emozioni"],
   ["Sociologia classica", "XIX-XX sec.", "Nasce la scienza della società.", ["comte-soc", "marx-soc", "durkheim", "weber", "simmel"]],
   ["Funzionalismo sociologico", "XX sec.", "Ogni parte della società ha una funzione per l'insieme.", ["durkheim", "parsons", "merton"]],
   ["Interazionismo e società contemporanea", "XX sec.", "La società nasce dalle interazioni quotidiane; oggi è liquida.", ["goffman", "bauman"]],
@@ -273,6 +316,7 @@ const autori = {
           <div class="au-view-switch"><button class="chip on" data-v="list">Elenco</button><button class="chip" data-v="line">Linea del tempo</button></div>
           <input type="search" class="au-search" placeholder="Cerca un autore" aria-label="Cerca un autore">
           <div class="chips au-groups">${[["", "Tutti"], ...S.groups.map(g => [g.id, g.short || g.name])].map(([v, l]) => `<button class="chip${v ? "" : " on"}" data-g="${v}">${escapeHtml(l)}</button>`).join("")}</div>
+          <div class="chips au-schools hidden" aria-label="Scuola"></div>
           <div class="au-list"></div>
         </div>
       </div>
@@ -333,7 +377,15 @@ const autori = {
     root.querySelector(".au-groups").addEventListener("click", (e) => {
       const c = e.target.closest("[data-g]"); if (!c) return;
       this.state[key].group = c.dataset.g;
+      this.state[key].school = "";
       root.querySelectorAll(".au-groups .chip").forEach(x => x.classList.toggle("on", x === c));
+      this.renderSchools(key);
+      this.renderList(key);
+    });
+    root.querySelector(".au-schools").addEventListener("click", (e) => {
+      const c = e.target.closest("[data-s]"); if (!c) return;
+      this.state[key].school = c.dataset.s;
+      root.querySelectorAll(".au-schools .chip").forEach(x => x.classList.toggle("on", x === c));
       this.renderList(key);
     });
     root.querySelector(".au-list").addEventListener("click", (e) => { const b = e.target.closest("[data-a]"); if (b) this.openCard(key, b.dataset.a); });
@@ -385,13 +437,25 @@ const autori = {
   },
 
   /** elenco in ordine di tempo, diviso per periodo o disciplina */
+  /** Con un'area numerosa (es. Psicologia) compare un secondo filtro: la scuola di pensiero. */
+  renderSchools(key) {
+    const S = SUBJECTS[key], st = this.state[key];
+    const box = $(`#view-${key} .au-schools`);
+    const inArea = new Set(S.list.filter(a => a[4] === st.group).map(a => a[0]));
+    const schools = st.group && inArea.size > 15 ? S.correnti.map((c, i) => [i, c[4] || c[0], c[3].filter(id => inArea.has(id)).length]).filter(x => x[2] > 0) : [];
+    box.classList.toggle("hidden", !schools.length);
+    box.innerHTML = schools.length ? `<span class="au-schools-l">Scuola:</span>` + [["", "Tutte"], ...schools.map(([i, n]) => [String(i), n])]
+      .map(([v, l]) => `<button class="chip small${v === (st.school || "") ? " on" : ""}" data-s="${v}">${escapeHtml(l)}</button>`).join("") : "";
+  },
+
   renderList(key) {
     const S = SUBJECTS[key], st = this.state[key];
+    const inSchool = st.school !== "" && st.school != null && S.correnti[+st.school] ? new Set(S.correnti[+st.school][3]) : null;
     const box = $(`#view-${key} .au-list`);
     if (st.view === "line") return this.renderLine(key, box);
     const cached = (id) => !!store.get("autore:" + id, null);
     const html = S.groups.filter(g => !st.group || g.id === st.group).map(g => {
-      const items = S.list.filter(a => a[4] === g.id && (!st.q || a[1].toLowerCase().includes(st.q) || a[5].toLowerCase().includes(st.q))).sort((a, b) => a[2] - b[2]);
+      const items = S.list.filter(a => a[4] === g.id && (!inSchool || inSchool.has(a[0])) && (!st.q || a[1].toLowerCase().includes(st.q) || a[5].toLowerCase().includes(st.q))).sort((a, b) => a[2] - b[2]);
       if (!items.length) return "";
       return `<section class="au-group g-${g.c}">
         <header><h3>${escapeHtml(g.name)}</h3><small>${g.from != null ? `${yearTxt(g.from)} – ${g.to > 1990 ? "oggi" : yearTxt(g.to)} · ` : ""}${escapeHtml(g.desc)}${g.school ? ` · <b>${g.school}</b>` : ""}</small></header>
@@ -407,7 +471,8 @@ const autori = {
   /** Linea del tempo visiva: la vita di ogni autore è una barra; si vede chi era contemporaneo di chi. */
   renderLine(key, box) {
     const S = SUBJECTS[key], st = this.state[key];
-    const items = S.list.filter(a => (!st.group || a[4] === st.group) && (!st.q || a[1].toLowerCase().includes(st.q))).sort((a, b) => a[2] - b[2]);
+    const inSchool = st.school !== "" && st.school != null && S.correnti[+st.school] ? new Set(S.correnti[+st.school][3]) : null;
+    const items = S.list.filter(a => (!st.group || a[4] === st.group) && (!inSchool || inSchool.has(a[0])) && (!st.q || a[1].toLowerCase().includes(st.q))).sort((a, b) => a[2] - b[2]);
     if (!items.length) { box.innerHTML = `<p class="hint">Nessun autore trovato.</p>`; return; }
     const now = new Date().getFullYear();
     const from = Math.min(...items.map(a => a[2])), to = Math.max(...items.map(a => a[3] ?? now));
