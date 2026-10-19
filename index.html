@@ -274,15 +274,16 @@
     </div>
     <div class="card map-card hidden" id="mapCard">
       <div class="map-tools" id="mapTools">
-        <button class="btn small primary" id="btnMapImprove"><svg class="i"><use href="#i-sparkles"/></svg>Migliora con l'IA</button>
-        <button class="icon-btn" id="btnMapUndo" disabled aria-label="Annulla" title="Annulla"><svg class="i"><use href="#i-undo"/></svg></button>
-        <button class="icon-btn" id="btnZoomOut" aria-label="Rimpicciolisci" title="Rimpicciolisci"><svg class="i"><use href="#i-zoom-out"/></svg></button>
-        <button class="icon-btn" id="btnZoomIn" aria-label="Ingrandisci" title="Ingrandisci"><svg class="i"><use href="#i-zoom-in"/></svg></button>
-        <button class="icon-btn" id="btnMapLayout" aria-label="Cambia forma" title="Cambia forma"><svg class="i"><use href="#i-swap"/></svg></button>
-        <button class="icon-btn" id="btnMapSave" aria-label="Salva nel quaderno" title="Salva nel quaderno"><svg class="i"><use href="#i-bookmark"/></svg></button>
-        <button class="icon-btn" id="btnMapPrint" aria-label="Stampa" title="Stampa"><svg class="i"><use href="#i-printer"/></svg></button>
-        <button class="icon-btn" id="btnMapPng" aria-label="Scarica immagine" title="Scarica immagine"><svg class="i"><use href="#i-download"/></svg></button>
-        <button class="icon-btn" id="btnMapOther" aria-label="Nuova mappa" title="Nuova mappa"><svg class="i"><use href="#i-file-plus"/></svg></button>
+        <button class="tool primary-tool" id="btnMapImprove"><svg class="i"><use href="#i-sparkles"/></svg><span>Migliora</span></button>
+        <button class="tool" id="btnMapUndo" disabled><svg class="i"><use href="#i-undo"/></svg><span>Annulla</span></button>
+        <button class="tool" id="btnZoomOut"><svg class="i"><use href="#i-zoom-out"/></svg><span>Riduci</span></button>
+        <button class="tool" id="btnZoomIn"><svg class="i"><use href="#i-zoom-in"/></svg><span>Ingrandisci</span></button>
+        <button class="tool" id="btnMapLayout"><svg class="i"><use href="#i-swap"/></svg><span>Forma</span></button>
+        <button class="tool" id="btnMapSlides"><svg class="i"><use href="#i-present"/></svg><span>Schede</span></button>
+        <button class="tool" id="btnMapPrint"><svg class="i"><use href="#i-printer"/></svg><span>Stampa</span></button>
+        <button class="tool" id="btnMapSave"><svg class="i"><use href="#i-bookmark"/></svg><span>Salva</span></button>
+        <button class="tool" id="btnMapPng"><svg class="i"><use href="#i-download"/></svg><span>Immagine</span></button>
+        <button class="tool" id="btnMapOther"><svg class="i"><use href="#i-file-plus"/></svg><span>Nuova</span></button>
       </div>
       <div id="mapWrap" class="map-wrap"><div class="empty">La mappa comparirà qui.</div></div>
       <p class="map-legend">Tocca un riquadro per modificarlo, toccalo di nuovo per ascoltarlo.<span class="hidden" id="mapLegend"> I riquadri tratteggiati li ha aggiunti l'IA: tienili solo se ti convincono.</span></p>
@@ -730,12 +731,34 @@
   </div>
 </dialog>
 
+<!-- ============ SCHEDE DI STUDIO ============ -->
+<dialog id="dlgSlides" class="slides-dlg">
+  <div class="slides-top">
+    <button class="icon-btn" id="slideClose" aria-label="Chiudi"><svg class="i"><use href="#i-x"/></svg></button>
+    <span id="slideCount"></span>
+    <div class="slides-actions">
+      <button class="tool" id="slideNotesBtn"></button>
+      <button class="tool" id="slidePrint"><svg class="i"><use href="#i-printer"/></svg><span>Stampa tutte</span></button>
+    </div>
+  </div>
+  <div class="slide-stage" id="slideStage"></div>
+  <div class="slides-nav">
+    <button class="btn" id="slidePrev"><svg class="i"><use href="#i-back"/></svg>Indietro</button>
+    <button class="icon-btn" id="slideRead" aria-label="Ascolta la scheda"><svg class="i"><use href="#i-volume"/></svg></button>
+    <button class="btn primary" id="slideNext">Avanti<svg class="i" style="transform:rotate(180deg)"><use href="#i-back"/></svg></button>
+  </div>
+</dialog>
+
 <!-- ============ FINESTRA DOMANDE ============ -->
 <dialog id="dlgAsk">
   <form method="dialog" class="ask-box">
     <h2 id="askTitle"></h2>
     <p id="askMsg" class="hint"></p>
-    <textarea id="askInput" rows="3" class="hidden"></textarea>
+    <div class="ask-input hidden" id="askInputWrap">
+      <textarea id="askInput" rows="3"></textarea>
+      <button type="button" class="ask-mic" id="askMic" aria-label="Detta"><svg class="i"><use href="#i-mic"/></svg></button>
+    </div>
+    <div class="mic-status ask-mic-status hidden" id="askMicStatus"></div>
     <label class="field hidden" id="askSubjWrap">Materia <input type="text" id="askSubject" list="subjectsList" placeholder="Es. Storia (facoltativa)"></label>
     <div id="askBtns" class="ask-btns"></div>
   </form>
@@ -763,6 +786,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="mate.js" defer></script>
 <script src="fisica.js" defer></script>
+<script src="schede.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>

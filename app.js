@@ -44,7 +44,8 @@ function uiDialog({ title = "", message = "", input = null, subject = null, butt
     $("#askMsg").textContent = message;
     $("#askMsg").classList.toggle("hidden", !message);
     const ta = $("#askInput");
-    ta.classList.toggle("hidden", input === null);
+    $("#askInputWrap").classList.toggle("hidden", input === null);
+    $("#askMicStatus").classList.add("hidden");
     ta.value = input ?? "";
     $("#askSubjWrap").classList.toggle("hidden", subject === null);
     $("#askSubject").value = subject ?? "";
@@ -61,13 +62,25 @@ function uiDialog({ title = "", message = "", input = null, subject = null, butt
       box.appendChild(el);
     }
     ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); box.querySelector(".primary")?.click(); } };
-    d.onclose = () => resolve(input === null ? result : (result === null ? null : { choice: result, text: ta.value.trim(), subject: $("#askSubject").value.trim() }));
+    d.onclose = () => { askRec?.cancel(); resolve(input === null ? result : (result === null ? null : { choice: result, text: ta.value.trim(), subject: $("#askSubject").value.trim() })); };
     d.showModal();
     if (input !== null) setTimeout(() => { ta.focus(); ta.select(); }, 50);
   });
 }
 const uiConfirm = (message, okLabel = "Sì", danger = false) =>
   uiDialog({ title: message, buttons: [{ label: "No", value: false }, { label: okLabel, value: true, primary: !danger, danger }] }).then(v => v === true);
+/* microfono della finestra di scrittura: detta invece di scrivere */
+let askRec = null;
+function askMicToggle() {
+  $("#askMicStatus").classList.remove("hidden");
+  askRec ||= makeRecorder($("#askMic"), $("#askMicStatus"), (text) => {
+    const ta = $("#askInput");
+    ta.value = (ta.value.trim() ? ta.value.trim() + " " : "") + text.replace(/[.。]$/, "");
+    ta.focus();
+  }, "Fatto. Puoi correggere a mano o dettare ancora.");
+  askRec.toggle();
+}
+
 /** Chiede nome e materia prima di salvare nel quaderno. */
 const askSave = (title, value = "", subject = "") =>
   uiDialog({ title, input: value, subject, buttons: [{ label: "Annulla", value: null }, { label: "Salva", value: "ok", primary: true }] })
@@ -499,6 +512,15 @@ Se non ci sono errori, "errori" è una lista vuota.
 
 TESTO:
 ${t}`,
+  schede: (json) => `Questa è una mappa concettuale di una studentessa. Per ogni ramo principale scrivi una scheda di ripasso.
+Rispondi SOLO con JSON:
+{"introduzione": "2 frasi: di cosa parla l'argomento e perché è importante",
+ "schede": [{"ramo": "testo ESATTO del ramo", "spiegazione": "2-3 frasi brevi e semplici che collegano i concetti del ramo", "ricorda": "una frase chiave da ricordare"}],
+ "domande": ["3-5 domande da interrogazione su tutta la mappa"]}
+Usa solo informazioni corrette; frasi di massimo 20 parole; nessun elenco dentro le frasi.
+
+MAPPA:
+${json}`,
   fisica: (t) => `Sei un insegnante di fisica paziente. Aiuta una studentessa delle superiori con dislessia e discalculia a risolvere questo problema DA SOLA, un passo alla volta.
 Rispondi SOLO con JSON:
 {"riassunto": "cosa chiede il problema, in una frase semplice",
@@ -1381,7 +1403,7 @@ const mindmap = {
   /** Riquadri e collegamenti in SVG. Per la stampa: colori chiari fissi e niente selezione. */
   svgParts({ print = false } = {}) {
     const dark = !print && settings.theme === "scuro";
-    const ACC = print ? "#2f6f6a" : "var(--accent)", ACC_INK = print ? "#ffffff" : "var(--accent-ink)";
+    const ACC = print ? "#1c2440" : "var(--ink)", ACC_INK = print ? "#ffffff" : "var(--app)";
     let edges = "", boxes = "";
     for (const { n, parent } of this.nodes) {
       const fill = n._depth === 0 ? ACC : (dark ? n._color[1] : n._color[0]);
@@ -1472,8 +1494,8 @@ const mindmap = {
       ctx.strokeStyle = n._color[1]; ctx.lineWidth = n._depth === 1 ? 4 : 2.5; ctx.lineCap = "round"; ctx.stroke();
     }
     for (const { n } of this.nodes) {
-      const fill = n._depth === 0 ? "#2f6f6a" : n._color[0];
-      const stroke = n._depth === 0 ? "#2f6f6a" : n._color[1];
+      const fill = n._depth === 0 ? "#1c2440" : n._color[0];
+      const stroke = n._depth === 0 ? "#1c2440" : n._color[1];
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(n._x, n._y, n._w, n._h, 12) : ctx.rect(n._x, n._y, n._w, n._h);
       ctx.fillStyle = fill; ctx.fill();
       ctx.setLineDash(n.ai ? [8, 5] : []); ctx.lineWidth = n.ai ? 3 : 2; ctx.strokeStyle = stroke; ctx.stroke(); ctx.setLineDash([]);
@@ -1530,11 +1552,14 @@ function makeRecorder(btn, statusEl, onText, idleMsg) {
       if (sec >= 600) r.rec.stop(); // massimo 10 minuti per registrazione
     }, 300);
   };
+  /** ferma senza trascrivere (es. la finestra è stata chiusa) */
+  r.cancel = () => { if (r.rec && r.rec.state === "recording") { r.cancelled = true; r.rec.stop(); } };
   r.finish = async () => {
     clearInterval(r.timer);
     r.stream?.getTracks().forEach(t => t.stop());
     btn.classList.remove("rec");
     btn.setAttribute("aria-label", "Avvia registrazione");
+    if (r.cancelled) { r.cancelled = false; statusEl.textContent = idleMsg; return; }
     const blob = new Blob(r.chunks, { type: r.rec.mimeType || "audio/webm" });
     if (blob.size < 1200) { statusEl.textContent = "Registrazione troppo corta. Riprova."; return; }
     statusEl.textContent = "Sto scrivendo…";
@@ -2082,10 +2107,10 @@ async function importBackup(file) {
    12b. STAMPA (mappe, testi, riassunti, flashcard)
    ========================================================= */
 const printer = {
-  run(html, { title = "Zaino", landscape = false } = {}) {
+  run(html, { title = "Zaino", landscape = false, head = true } = {}) {
     const area = $("#printArea");
-    area.innerHTML = `<div class="print-head"><b>${escapeHtml(title)}</b><span>${todayLabel()}</span></div>` + html;
-    $("#printPage").textContent = `@page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 12mm; }`;
+    area.innerHTML = (head ? `<div class="print-head"><b>${escapeHtml(title)}</b><span>${todayLabel()}</span></div>` : "") + html;
+    $("#printPage").textContent = `@page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: ${head ? 12 : 8}mm; }`;
     const oldTitle = document.title;
     document.title = title; // diventa il nome del PDF se si sceglie "Salva come PDF"
     const done = () => { document.title = oldTitle; removeEventListener("afterprint", done); };
@@ -2206,7 +2231,10 @@ const GUIDE = [
     ["branch", "Tocca un riquadro", "Compare una barra: Ascolta, Scrivi, Sotto (idea collegata), Accanto (stesso livello), Su, Giù, Togli."],
     ["undo", "Annulla", "Torna indietro di una modifica alla volta."],
     ["swap", "Cambia forma", "Rami a destra e sinistra, oppure tutti a destra."],
-    ["bookmark", "Salva, stampa, scarica", "Salva nel quaderno, stampa su un foglio A4 orizzontale o scarica come immagine."]
+    ["mic", "Detta invece di scrivere", "In ogni finestra in cui scrivi (riquadri della mappa, titoli, nomi) c'è il microfono: tocca, parla e tocca di nuovo."],
+    ["present", "Schede", "Trasforma la mappa in schede di studio: una per ramo, da sfogliare, ascoltare e stampare. L'IA può aggiungere a ogni scheda una spiegazione breve e la frase da ricordare."],
+    ["printer", "Stampa", "Stampa la mappa intera su un foglio A4 orizzontale."],
+    ["bookmark", "Salva e immagine", "Salva la mappa nel quaderno o scaricala come immagine."]
   ]],
   ["Mate", "Strumenti per matematica e fisica.", [
     ["calc", "Calcolatrice", "Grandi tasti, legge il calcolo e il risultato ad alta voce, ricorda gli ultimi calcoli. Mostra anche la frazione quando c'è."],
@@ -2393,6 +2421,7 @@ function init() {
   // navigazione
   $$(".tab").forEach(t => t.addEventListener("click", () => showView(t.dataset.view)));
   $("#btnSettings").addEventListener("click", openSettings);
+  $("#askMic").addEventListener("click", askMicToggle);
   $("#btnNotebook").addEventListener("click", () => showView("quaderno"));
   $("#btnHelp").addEventListener("click", () => guide.open(guide.forView()));
   $("#btnGuideClose").addEventListener("click", () => $("#dlgGuide").close());
@@ -2402,6 +2431,7 @@ function init() {
   home.bind();
   mate.init();
   fisica.init();
+  slides.bind();
 
   // input testo
   $("#inPhoto").addEventListener("change", (e) => { handleFiles([...e.target.files]); e.target.value = ""; });

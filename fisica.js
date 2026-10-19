@@ -38,16 +38,26 @@ const QTY = {
   resistiv: [["Ω·m", 1]],
   mom: [["kg·m/s", 1]],
   imp: [["N·s", 1]],
-  mol: [["mol", 1]]
+  mol: [["mol", 1]],
+  capac: [["F", 1], ["μF", 1e-6], ["nF", 1e-9], ["pF", 1e-12]],
+  efield: [["N/C", 1], ["kN/C", 1000]],
+  intensity: [["W/m²", 1]],
+  entropy: [["J/K", 1]],
+  db: [["dB", 1]],
+  bfield: [["T", 1], ["mT", 1e-3], ["μT", 1e-6]]
 };
 const CONSTS = {
   g: [9.81, "m/s²", "accelerazione di gravità"],
   G: [6.674e-11, "N·m²/kg²", "costante di gravitazione universale"],
   R: [8.314, "J/(mol·K)", "costante dei gas"],
-  "kₑ": [8.99e9, "N·m²/C²", "costante di Coulomb"]
+  "kₑ": [8.99e9, "N·m²/C²", "costante di Coulomb"],
+  c: [3e8, "m/s", "velocità della luce nel vuoto"],
+  "ε₀": [8.854e-12, "C²/(N·m²)", "costante dielettrica del vuoto"],
+  "μ₀": [4 * Math.PI * 1e-7, "T·m/A", "permeabilità magnetica del vuoto"],
+  "I₀": [1e-12, "W/m²", "soglia di udibilità"]
 };
 const { g: [G_ACC], G: [G_UNIV], R: [R_GAS] } = CONSTS;
-const K_E = CONSTS["kₑ"][0];
+const K_E = CONSTS["kₑ"][0], C_LUCE = CONSTS.c[0], EPS0 = CONSTS["ε₀"][0], MU0 = CONSTS["μ₀"][0], I0 = CONSTS["I₀"][0];
 const RAD = Math.PI / 180;
 
 /* =========================================================
@@ -55,7 +65,7 @@ const RAD = Math.PI / 180;
    show: la formula con {simboli}; vars: simbolo → [etichetta, nome, tipo];
    solve: per ogni incognita → [formula inversa con {simboli}, funzione sui valori SI]
    ========================================================= */
-const PHYS_TOPICS = ["Moto", "Forze", "Energia", "Fluidi", "Calore", "Onde", "Elettricità"];
+const PHYS_TOPICS = ["Moto", "Forze", "Energia", "Fluidi", "Calore", "Termodinamica", "Oscillazioni e onde", "Ottica", "Elettrostatica", "Circuiti", "Magnetismo"];
 const PHYS = [
   // ---------- MOTO ----------
   { t: "Moto", name: "Velocità media", show: "{v} = {s} / {t}",
@@ -157,31 +167,164 @@ const PHYS = [
     solve: { p: ["{n} · R · {T} / {V}", x => x.n * R_GAS * x.T / x.V], V: ["{n} · R · {T} / {p}", x => x.n * R_GAS * x.T / x.p],
       n: ["{p} · {V} / (R · {T})", x => x.p * x.V / (R_GAS * x.T)], T: ["{p} · {V} / ({n} · R)", x => x.p * x.V / (x.n * R_GAS)] }, consts: ["R"] },
   // ---------- ONDE ----------
-  { t: "Onde", name: "Velocità di un'onda", show: "{v} = {wl} · {f}",
+  { t: "Oscillazioni e onde", name: "Velocità di un'onda", show: "{v} = {wl} · {f}",
     vars: { v: ["v", "velocità dell'onda", "speed"], wl: ["λ", "lunghezza d'onda", "len"], f: ["f", "frequenza", "freq"] },
     solve: { v: ["{wl} · {f}", x => x.wl * x.f], wl: ["{v} / {f}", x => x.v / x.f], f: ["{v} / {wl}", x => x.v / x.wl] } },
-  { t: "Onde", name: "Frequenza e periodo", show: "{f} = 1 / {T}",
+  { t: "Oscillazioni e onde", name: "Frequenza e periodo", show: "{f} = 1 / {T}",
     vars: { f: ["f", "frequenza", "freq"], T: ["T", "periodo", "period"] },
     solve: { f: ["1 / {T}", x => 1 / x.T], T: ["1 / {f}", x => 1 / x.f] } },
   // ---------- ELETTRICITÀ ----------
-  { t: "Elettricità", name: "Prima legge di Ohm", show: "{V} = {R} · {I}",
+  { t: "Circuiti", name: "Prima legge di Ohm", show: "{V} = {R} · {I}",
     vars: { V: ["V", "tensione", "volt"], R: ["R", "resistenza", "ohm"], I: ["I", "intensità di corrente", "current"] },
     solve: { V: ["{R} · {I}", x => x.R * x.I], R: ["{V} / {I}", x => x.V / x.I], I: ["{V} / {R}", x => x.V / x.R] } },
-  { t: "Elettricità", name: "Potenza elettrica", show: "{P} = {V} · {I}",
+  { t: "Circuiti", name: "Potenza elettrica", show: "{P} = {V} · {I}",
     vars: { P: ["P", "potenza", "power"], V: ["V", "tensione", "volt"], I: ["I", "intensità di corrente", "current"] },
     solve: { P: ["{V} · {I}", x => x.V * x.I], V: ["{P} / {I}", x => x.P / x.I], I: ["{P} / {V}", x => x.P / x.V] } },
-  { t: "Elettricità", name: "Carica e corrente", show: "{q} = {I} · {t}",
+  { t: "Circuiti", name: "Carica e corrente", show: "{q} = {I} · {t}",
     vars: { q: ["q", "carica elettrica", "charge"], I: ["I", "intensità di corrente", "current"], t: ["t", "tempo", "time"] },
     solve: { q: ["{I} · {t}", x => x.I * x.t], I: ["{q} / {t}", x => x.q / x.t], t: ["{q} / {I}", x => x.q / x.I] } },
-  { t: "Elettricità", name: "Legge di Coulomb", show: "{F} = kₑ · {q1} · {q2} / {d}²",
+  { t: "Elettrostatica", name: "Legge di Coulomb", show: "{F} = kₑ · {q1} · {q2} / {d}²",
     vars: { F: ["F", "forza elettrica", "force"], q1: ["q₁", "prima carica", "charge"], q2: ["q₂", "seconda carica", "charge"], d: ["d", "distanza", "len"] },
     solve: { F: ["kₑ · {q1} · {q2} / {d}²", x => K_E * x.q1 * x.q2 / x.d ** 2], q1: ["{F} · {d}² / (kₑ · {q2})", x => x.F * x.d ** 2 / (K_E * x.q2)],
       q2: ["{F} · {d}² / (kₑ · {q1})", x => x.F * x.d ** 2 / (K_E * x.q1)], d: ["√(kₑ · {q1} · {q2} / {F})", x => Math.sqrt(K_E * x.q1 * x.q2 / x.F)] }, consts: ["kₑ"] },
-  { t: "Elettricità", name: "Seconda legge di Ohm", show: "{R} = {rho} · {L} / {S}",
+  { t: "Circuiti", name: "Seconda legge di Ohm", show: "{R} = {rho} · {L} / {S}",
     vars: { R: ["R", "resistenza", "ohm"], rho: ["ρ", "resistività del materiale", "resistiv"], L: ["L", "lunghezza del filo", "len"], S: ["S", "sezione del filo", "area"] },
     solve: { R: ["{rho} · {L} / {S}", x => x.rho * x.L / x.S], rho: ["{R} · {S} / {L}", x => x.R * x.S / x.L],
-      L: ["{R} · {S} / {rho}", x => x.R * x.S / x.rho], S: ["{rho} · {L} / {R}", x => x.rho * x.L / x.R] } }
+      L: ["{R} · {S} / {rho}", x => x.R * x.S / x.rho], S: ["{rho} · {L} / {R}", x => x.rho * x.L / x.R] } },
+  // ---------- TERMODINAMICA ----------
+  { t: "Termodinamica", name: "Primo principio", show: "{dU} = {Q} − {L}",
+    vars: { dU: ["ΔU", "variazione di energia interna", "energy"], Q: ["Q", "calore assorbito dal sistema", "energy"], L: ["L", "lavoro fatto dal sistema", "energy"] },
+    solve: { dU: ["{Q} − {L}", x => x.Q - x.L], Q: ["{dU} + {L}", x => x.dU + x.L], L: ["{Q} − {dU}", x => x.Q - x.dU] } },
+  { t: "Termodinamica", name: "Lavoro a pressione costante (isobara)", show: "{L} = {p} · {dV}",
+    vars: { L: ["L", "lavoro", "energy"], p: ["p", "pressione", "pressure"], dV: ["ΔV", "variazione di volume", "volume"] },
+    solve: { L: ["{p} · {dV}", x => x.p * x.dV], p: ["{L} / {dV}", x => x.L / x.dV], dV: ["{L} / {p}", x => x.L / x.p] } },
+  { t: "Termodinamica", name: "Lavoro a temperatura costante (isoterma)", show: "{L} = {n} · R · {T} · ln({Vf} / {Vi})",
+    vars: { L: ["L", "lavoro", "energy"], n: ["n", "numero di moli", "mol"], T: ["T", "temperatura (kelvin)", "tempK"], Vf: ["V_f", "volume finale", "volume"], Vi: ["V_i", "volume iniziale", "volume"] },
+    solve: { L: ["{n} · R · {T} · ln({Vf} / {Vi})", x => x.n * R_GAS * x.T * Math.log(x.Vf / x.Vi)],
+      n: ["{L} / (R · {T} · ln({Vf} / {Vi}))", x => x.L / (R_GAS * x.T * Math.log(x.Vf / x.Vi))],
+      T: ["{L} / ({n} · R · ln({Vf} / {Vi}))", x => x.L / (x.n * R_GAS * Math.log(x.Vf / x.Vi))],
+      Vf: ["{Vi} · e^({L} / ({n} · R · {T}))", x => x.Vi * Math.exp(x.L / (x.n * R_GAS * x.T))],
+      Vi: ["{Vf} / e^({L} / ({n} · R · {T}))", x => x.Vf / Math.exp(x.L / (x.n * R_GAS * x.T))] }, consts: ["R"] },
+  { t: "Termodinamica", name: "Energia interna di un gas monoatomico", show: "{dU} = 3/2 · {n} · R · {dT}",
+    vars: { dU: ["ΔU", "variazione di energia interna", "energy"], n: ["n", "numero di moli", "mol"], dT: ["ΔT", "variazione di temperatura", "dtemp"] },
+    solve: { dU: ["3/2 · {n} · R · {dT}", x => 1.5 * x.n * R_GAS * x.dT], n: ["2 · {dU} / (3 · R · {dT})", x => 2 * x.dU / (3 * R_GAS * x.dT)], dT: ["2 · {dU} / (3 · {n} · R)", x => 2 * x.dU / (3 * x.n * R_GAS)] }, consts: ["R"] },
+  { t: "Termodinamica", name: "Trasformazione isoterma (Boyle)", show: "{p1} · {V1} = {p2} · {V2}",
+    vars: { p1: ["p₁", "pressione iniziale", "pressure"], V1: ["V₁", "volume iniziale", "volume"], p2: ["p₂", "pressione finale", "pressure"], V2: ["V₂", "volume finale", "volume"] },
+    solve: { p1: ["{p2} · {V2} / {V1}", x => x.p2 * x.V2 / x.V1], V1: ["{p2} · {V2} / {p1}", x => x.p2 * x.V2 / x.p1], p2: ["{p1} · {V1} / {V2}", x => x.p1 * x.V1 / x.V2], V2: ["{p1} · {V1} / {p2}", x => x.p1 * x.V1 / x.p2] } },
+  { t: "Termodinamica", name: "Trasformazione isobara (Gay-Lussac)", show: "{V1} / {T1} = {V2} / {T2}",
+    vars: { V1: ["V₁", "volume iniziale", "volume"], T1: ["T₁", "temperatura iniziale (kelvin)", "tempK"], V2: ["V₂", "volume finale", "volume"], T2: ["T₂", "temperatura finale (kelvin)", "tempK"] },
+    solve: { V1: ["{V2} · {T1} / {T2}", x => x.V2 * x.T1 / x.T2], T1: ["{V1} · {T2} / {V2}", x => x.V1 * x.T2 / x.V2], V2: ["{V1} · {T2} / {T1}", x => x.V1 * x.T2 / x.T1], T2: ["{V2} · {T1} / {V1}", x => x.V2 * x.T1 / x.V1] } },
+  { t: "Termodinamica", name: "Trasformazione isocora", show: "{p1} / {T1} = {p2} / {T2}",
+    vars: { p1: ["p₁", "pressione iniziale", "pressure"], T1: ["T₁", "temperatura iniziale (kelvin)", "tempK"], p2: ["p₂", "pressione finale", "pressure"], T2: ["T₂", "temperatura finale (kelvin)", "tempK"] },
+    solve: { p1: ["{p2} · {T1} / {T2}", x => x.p2 * x.T1 / x.T2], T1: ["{p1} · {T2} / {p2}", x => x.p1 * x.T2 / x.p2], p2: ["{p1} · {T2} / {T1}", x => x.p1 * x.T2 / x.T1], T2: ["{p2} · {T1} / {p1}", x => x.p2 * x.T1 / x.p1] } },
+  { t: "Termodinamica", name: "Rendimento di una macchina termica", show: "{eta} = {L} / {Qa}",
+    vars: { eta: ["η", "rendimento (es. 0,3 = 30%)", "none"], L: ["L", "lavoro prodotto", "energy"], Qa: ["Q_ass", "calore assorbito", "energy"] },
+    solve: { eta: ["{L} / {Qa}", x => x.L / x.Qa], L: ["{eta} · {Qa}", x => x.eta * x.Qa], Qa: ["{L} / {eta}", x => x.L / x.eta] } },
+  { t: "Termodinamica", name: "Rendimento con i calori", show: "{eta} = 1 − {Qc} / {Qa}",
+    vars: { eta: ["η", "rendimento", "none"], Qc: ["Q_ced", "calore ceduto", "energy"], Qa: ["Q_ass", "calore assorbito", "energy"] },
+    solve: { eta: ["1 − {Qc} / {Qa}", x => 1 - x.Qc / x.Qa], Qc: ["(1 − {eta}) · {Qa}", x => (1 - x.eta) * x.Qa], Qa: ["{Qc} / (1 − {eta})", x => x.Qc / (1 - x.eta)] } },
+  { t: "Termodinamica", name: "Rendimento di Carnot", show: "{eta} = 1 − {Tf} / {Tc}",
+    vars: { eta: ["η", "rendimento massimo", "none"], Tf: ["T_f", "temperatura fredda (kelvin)", "tempK"], Tc: ["T_c", "temperatura calda (kelvin)", "tempK"] },
+    solve: { eta: ["1 − {Tf} / {Tc}", x => 1 - x.Tf / x.Tc], Tf: ["(1 − {eta}) · {Tc}", x => (1 - x.eta) * x.Tc], Tc: ["{Tf} / (1 − {eta})", x => x.Tf / (1 - x.eta)] } },
+  { t: "Termodinamica", name: "Variazione di entropia (T costante)", show: "{dS} = {Q} / {T}",
+    vars: { dS: ["ΔS", "variazione di entropia", "entropy"], Q: ["Q", "calore scambiato", "energy"], T: ["T", "temperatura (kelvin)", "tempK"] },
+    solve: { dS: ["{Q} / {T}", x => x.Q / x.T], Q: ["{dS} · {T}", x => x.dS * x.T], T: ["{Q} / {dS}", x => x.Q / x.dS] } },
+  // ---------- OSCILLAZIONI E ONDE ----------
+  { t: "Oscillazioni e onde", name: "Periodo del pendolo", show: "{T} = 2 · π · √({l} / g)",
+    vars: { T: ["T", "periodo", "period"], l: ["l", "lunghezza del filo", "len"] },
+    solve: { T: ["2 · π · √({l} / g)", x => 2 * Math.PI * Math.sqrt(x.l / G_ACC)], l: ["g · ({T} / (2 · π))²", x => G_ACC * (x.T / (2 * Math.PI)) ** 2] }, consts: ["g"] },
+  { t: "Oscillazioni e onde", name: "Periodo della molla", show: "{T} = 2 · π · √({m} / {k})",
+    vars: { T: ["T", "periodo", "period"], m: ["m", "massa", "mass"], k: ["k", "costante elastica", "spring"] },
+    solve: { T: ["2 · π · √({m} / {k})", x => 2 * Math.PI * Math.sqrt(x.m / x.k)], m: ["{k} · ({T} / (2 · π))²", x => x.k * (x.T / (2 * Math.PI)) ** 2], k: ["{m} · (2 · π / {T})²", x => x.m * (2 * Math.PI / x.T) ** 2] } },
+  { t: "Oscillazioni e onde", name: "Intensità di un'onda sferica", show: "{I} = {P} / (4 · π · {r}²)",
+    vars: { I: ["I", "intensità", "intensity"], P: ["P", "potenza della sorgente", "power"], r: ["r", "distanza dalla sorgente", "len"] },
+    solve: { I: ["{P} / (4 · π · {r}²)", x => x.P / (4 * Math.PI * x.r ** 2)], P: ["{I} · 4 · π · {r}²", x => x.I * 4 * Math.PI * x.r ** 2], r: ["√({P} / (4 · π · {I}))", x => Math.sqrt(x.P / (4 * Math.PI * x.I))] } },
+  { t: "Oscillazioni e onde", name: "Livello di intensità sonora", show: "{Ls} = 10 · log({I} / I₀)",
+    vars: { Ls: ["L", "livello sonoro", "db"], I: ["I", "intensità del suono", "intensity"] },
+    solve: { Ls: ["10 · log({I} / I₀)", x => 10 * Math.log10(x.I / I0)], I: ["I₀ · 10^({Ls} / 10)", x => I0 * Math.pow(10, x.Ls / 10)] }, consts: ["I₀"] },
+  { t: "Oscillazioni e onde", name: "Effetto Doppler (sorgente che si avvicina)", show: "{fp} = {f} · {v} / ({v} − {vs})",
+    vars: { fp: ["f'", "frequenza percepita", "freq"], f: ["f", "frequenza emessa", "freq"], v: ["v", "velocità del suono", "speed"], vs: ["v_s", "velocità della sorgente", "speed"] },
+    solve: { fp: ["{f} · {v} / ({v} − {vs})", x => x.f * x.v / (x.v - x.vs)], f: ["{fp} · ({v} − {vs}) / {v}", x => x.fp * (x.v - x.vs) / x.v],
+      v: ["{fp} · {vs} / ({fp} − {f})", x => x.fp * x.vs / (x.fp - x.f)], vs: ["{v} · (1 − {f} / {fp})", x => x.v * (1 - x.f / x.fp)] } },
+  // ---------- OTTICA ----------
+  { t: "Ottica", name: "Indice di rifrazione", show: "{n} = c / {v}",
+    vars: { n: ["n", "indice di rifrazione", "none"], v: ["v", "velocità della luce nel mezzo", "speed"] },
+    solve: { n: ["c / {v}", x => C_LUCE / x.v], v: ["c / {n}", x => C_LUCE / x.n] }, consts: ["c"] },
+  { t: "Ottica", name: "Legge di Snell (rifrazione)", show: "{n1} · sin {a1} = {n2} · sin {a2}",
+    vars: { n1: ["n₁", "indice del primo mezzo", "none"], a1: ["θ₁", "angolo di incidenza", "angle"], n2: ["n₂", "indice del secondo mezzo", "none"], a2: ["θ₂", "angolo di rifrazione", "angle"] },
+    solve: { n1: ["{n2} · sin {a2} / sin {a1}", x => x.n2 * Math.sin(x.a2 * RAD) / Math.sin(x.a1 * RAD)], a1: ["arcsin({n2} · sin {a2} / {n1})", x => Math.asin(x.n2 * Math.sin(x.a2 * RAD) / x.n1) / RAD],
+      n2: ["{n1} · sin {a1} / sin {a2}", x => x.n1 * Math.sin(x.a1 * RAD) / Math.sin(x.a2 * RAD)], a2: ["arcsin({n1} · sin {a1} / {n2})", x => Math.asin(x.n1 * Math.sin(x.a1 * RAD) / x.n2) / RAD] } },
+  { t: "Ottica", name: "Lente sottile", show: "1 / {f} = 1 / {p} + 1 / {q}",
+    vars: { f: ["f", "distanza focale", "len"], p: ["p", "distanza dell'oggetto", "len"], q: ["q", "distanza dell'immagine", "len"] },
+    solve: { f: ["1 / (1 / {p} + 1 / {q})", x => 1 / (1 / x.p + 1 / x.q)], p: ["1 / (1 / {f} − 1 / {q})", x => 1 / (1 / x.f - 1 / x.q)], q: ["1 / (1 / {f} − 1 / {p})", x => 1 / (1 / x.f - 1 / x.p)] } },
+  { t: "Ottica", name: "Ingrandimento", show: "{G} = {q} / {p}",
+    vars: { G: ["G", "ingrandimento", "none"], q: ["q", "distanza dell'immagine", "len"], p: ["p", "distanza dell'oggetto", "len"] },
+    solve: { G: ["{q} / {p}", x => x.q / x.p], q: ["{G} · {p}", x => x.G * x.p], p: ["{q} / {G}", x => x.q / x.G] } },
+  { t: "Ottica", name: "Luce: lunghezza d'onda e frequenza", show: "c = {wl} · {f}",
+    vars: { wl: ["λ", "lunghezza d'onda", "len"], f: ["f", "frequenza", "freq"] },
+    solve: { wl: ["c / {f}", x => C_LUCE / x.f], f: ["c / {wl}", x => C_LUCE / x.wl] }, consts: ["c"] },
+  // ---------- ELETTROSTATICA ----------
+  { t: "Elettrostatica", name: "Campo elettrico", show: "{E} = {F} / {q}",
+    vars: { E: ["E", "campo elettrico", "efield"], F: ["F", "forza sulla carica di prova", "force"], q: ["q", "carica di prova", "charge"] },
+    solve: { E: ["{F} / {q}", x => x.F / x.q], F: ["{E} · {q}", x => x.E * x.q], q: ["{F} / {E}", x => x.F / x.E] } },
+  { t: "Elettrostatica", name: "Campo di una carica puntiforme", show: "{E} = kₑ · {Q} / {r}²",
+    vars: { E: ["E", "campo elettrico", "efield"], Q: ["Q", "carica che crea il campo", "charge"], r: ["r", "distanza", "len"] },
+    solve: { E: ["kₑ · {Q} / {r}²", x => K_E * x.Q / x.r ** 2], Q: ["{E} · {r}² / kₑ", x => x.E * x.r ** 2 / K_E], r: ["√(kₑ · {Q} / {E})", x => Math.sqrt(K_E * x.Q / x.E)] }, consts: ["kₑ"] },
+  { t: "Elettrostatica", name: "Potenziale di una carica puntiforme", show: "{V} = kₑ · {Q} / {r}",
+    vars: { V: ["V", "potenziale elettrico", "volt"], Q: ["Q", "carica", "charge"], r: ["r", "distanza", "len"] },
+    solve: { V: ["kₑ · {Q} / {r}", x => K_E * x.Q / x.r], Q: ["{V} · {r} / kₑ", x => x.V * x.r / K_E], r: ["kₑ · {Q} / {V}", x => K_E * x.Q / x.V] }, consts: ["kₑ"] },
+  { t: "Elettrostatica", name: "Energia potenziale elettrica", show: "{U} = kₑ · {q1} · {q2} / {r}",
+    vars: { U: ["U", "energia potenziale", "energy"], q1: ["q₁", "prima carica", "charge"], q2: ["q₂", "seconda carica", "charge"], r: ["r", "distanza", "len"] },
+    solve: { U: ["kₑ · {q1} · {q2} / {r}", x => K_E * x.q1 * x.q2 / x.r], q1: ["{U} · {r} / (kₑ · {q2})", x => x.U * x.r / (K_E * x.q2)],
+      q2: ["{U} · {r} / (kₑ · {q1})", x => x.U * x.r / (K_E * x.q1)], r: ["kₑ · {q1} · {q2} / {U}", x => K_E * x.q1 * x.q2 / x.U] }, consts: ["kₑ"] },
+  { t: "Elettrostatica", name: "Lavoro e differenza di potenziale", show: "{L} = {q} · {dV}",
+    vars: { L: ["L", "lavoro", "energy"], q: ["q", "carica", "charge"], dV: ["ΔV", "differenza di potenziale", "volt"] },
+    solve: { L: ["{q} · {dV}", x => x.q * x.dV], q: ["{L} / {dV}", x => x.L / x.dV], dV: ["{L} / {q}", x => x.L / x.q] } },
+  { t: "Elettrostatica", name: "Campo uniforme (tra due piastre)", show: "{E} = {dV} / {d}",
+    vars: { E: ["E", "campo elettrico", "efield"], dV: ["ΔV", "differenza di potenziale", "volt"], d: ["d", "distanza tra le piastre", "len"] },
+    solve: { E: ["{dV} / {d}", x => x.dV / x.d], dV: ["{E} · {d}", x => x.E * x.d], d: ["{dV} / {E}", x => x.dV / x.E] } },
+  { t: "Elettrostatica", name: "Capacità di un condensatore", show: "{C} = {Q} / {V}",
+    vars: { C: ["C", "capacità", "capac"], Q: ["Q", "carica sulle armature", "charge"], V: ["ΔV", "differenza di potenziale", "volt"] },
+    solve: { C: ["{Q} / {V}", x => x.Q / x.V], Q: ["{C} · {V}", x => x.C * x.V], V: ["{Q} / {C}", x => x.Q / x.C] } },
+  { t: "Elettrostatica", name: "Condensatore piano", show: "{C} = ε₀ · {er} · {S} / {d}",
+    vars: { C: ["C", "capacità", "capac"], er: ["εᵣ", "costante dielettrica relativa (1 nel vuoto)", "none"], S: ["S", "area delle armature", "area"], d: ["d", "distanza tra le armature", "len"] },
+    solve: { C: ["ε₀ · {er} · {S} / {d}", x => EPS0 * x.er * x.S / x.d], er: ["{C} · {d} / (ε₀ · {S})", x => x.C * x.d / (EPS0 * x.S)],
+      S: ["{C} · {d} / (ε₀ · {er})", x => x.C * x.d / (EPS0 * x.er)], d: ["ε₀ · {er} · {S} / {C}", x => EPS0 * x.er * x.S / x.C] }, consts: ["ε₀"] },
+  { t: "Elettrostatica", name: "Energia di un condensatore", show: "{U} = ½ · {C} · {V}²",
+    vars: { U: ["U", "energia immagazzinata", "energy"], C: ["C", "capacità", "capac"], V: ["ΔV", "differenza di potenziale", "volt"] },
+    solve: { U: ["½ · {C} · {V}²", x => 0.5 * x.C * x.V ** 2], C: ["2 · {U} / {V}²", x => 2 * x.U / x.V ** 2], V: ["√(2 · {U} / {C})", x => Math.sqrt(2 * x.U / x.C)] } },
+  // ---------- CIRCUITI ----------
+  { t: "Circuiti", name: "Resistenze in serie", show: "{R} = {R1} + {R2}",
+    vars: { R: ["R_eq", "resistenza equivalente", "ohm"], R1: ["R₁", "prima resistenza", "ohm"], R2: ["R₂", "seconda resistenza", "ohm"] },
+    solve: { R: ["{R1} + {R2}", x => x.R1 + x.R2], R1: ["{R} − {R2}", x => x.R - x.R2], R2: ["{R} − {R1}", x => x.R - x.R1] } },
+  { t: "Circuiti", name: "Resistenze in parallelo", show: "1 / {R} = 1 / {R1} + 1 / {R2}",
+    vars: { R: ["R_eq", "resistenza equivalente", "ohm"], R1: ["R₁", "prima resistenza", "ohm"], R2: ["R₂", "seconda resistenza", "ohm"] },
+    solve: { R: ["{R1} · {R2} / ({R1} + {R2})", x => x.R1 * x.R2 / (x.R1 + x.R2)], R1: ["{R} · {R2} / ({R2} − {R})", x => x.R * x.R2 / (x.R2 - x.R)], R2: ["{R} · {R1} / ({R1} − {R})", x => x.R * x.R1 / (x.R1 - x.R)] } },
+  { t: "Circuiti", name: "Effetto Joule", show: "{P} = {R} · {I}²",
+    vars: { P: ["P", "potenza dissipata", "power"], R: ["R", "resistenza", "ohm"], I: ["I", "intensità di corrente", "current"] },
+    solve: { P: ["{R} · {I}²", x => x.R * x.I ** 2], R: ["{P} / {I}²", x => x.P / x.I ** 2], I: ["√({P} / {R})", x => Math.sqrt(x.P / x.R)] } },
+  { t: "Circuiti", name: "Energia elettrica consumata", show: "{E} = {P} · {t}",
+    vars: { E: ["E", "energia", "energy"], P: ["P", "potenza", "power"], t: ["t", "tempo", "time"] },
+    solve: { E: ["{P} · {t}", x => x.P * x.t], P: ["{E} / {t}", x => x.E / x.t], t: ["{E} / {P}", x => x.E / x.P] } },
+  // ---------- MAGNETISMO ----------
+  { t: "Magnetismo", name: "Forza di Lorentz", show: "{F} = {q} · {v} · {B}",
+    vars: { F: ["F", "forza (velocità perpendicolare al campo)", "force"], q: ["q", "carica", "charge"], v: ["v", "velocità", "speed"], B: ["B", "campo magnetico", "bfield"] },
+    solve: { F: ["{q} · {v} · {B}", x => x.q * x.v * x.B], q: ["{F} / ({v} · {B})", x => x.F / (x.v * x.B)], v: ["{F} / ({q} · {B})", x => x.F / (x.q * x.B)], B: ["{F} / ({q} · {v})", x => x.F / (x.q * x.v)] } },
+  { t: "Magnetismo", name: "Forza su un filo percorso da corrente", show: "{F} = {B} · {I} · {L}",
+    vars: { F: ["F", "forza (filo perpendicolare al campo)", "force"], B: ["B", "campo magnetico", "bfield"], I: ["I", "intensità di corrente", "current"], L: ["L", "lunghezza del filo", "len"] },
+    solve: { F: ["{B} · {I} · {L}", x => x.B * x.I * x.L], B: ["{F} / ({I} · {L})", x => x.F / (x.I * x.L)], I: ["{F} / ({B} · {L})", x => x.F / (x.B * x.L)], L: ["{F} / ({B} · {I})", x => x.F / (x.B * x.I)] } },
+  { t: "Magnetismo", name: "Campo di un filo rettilineo", show: "{B} = μ₀ · {I} / (2 · π · {d})",
+    vars: { B: ["B", "campo magnetico", "bfield"], I: ["I", "intensità di corrente", "current"], d: ["d", "distanza dal filo", "len"] },
+    solve: { B: ["μ₀ · {I} / (2 · π · {d})", x => MU0 * x.I / (2 * Math.PI * x.d)], I: ["{B} · 2 · π · {d} / μ₀", x => x.B * 2 * Math.PI * x.d / MU0], d: ["μ₀ · {I} / (2 · π · {B})", x => MU0 * x.I / (2 * Math.PI * x.B)] }, consts: ["μ₀"] },
+  { t: "Magnetismo", name: "Raggio della traiettoria di una carica", show: "{r} = {m} · {v} / ({q} · {B})",
+    vars: { r: ["r", "raggio della circonferenza", "len"], m: ["m", "massa", "mass"], v: ["v", "velocità", "speed"], q: ["q", "carica", "charge"], B: ["B", "campo magnetico", "bfield"] },
+    solve: { r: ["{m} · {v} / ({q} · {B})", x => x.m * x.v / (x.q * x.B)], m: ["{r} · {q} · {B} / {v}", x => x.r * x.q * x.B / x.v], v: ["{r} · {q} · {B} / {m}", x => x.r * x.q * x.B / x.m],
+      q: ["{m} · {v} / ({r} · {B})", x => x.m * x.v / (x.r * x.B)], B: ["{m} · {v} / ({q} · {r})", x => x.m * x.v / (x.q * x.r)] } }
 ];
+
+/* Simboli con pedice: "V_f" diventa V con f in basso (a schermo) e "Vf" (nel testo semplice). */
+const symHtml = (l) => escapeHtml(l).replace(/_(\S+)/, "<sub>$1</sub>");
+const symTxt = (l) => l.replace("_", "");
 
 /* Colori dei simboli: ogni grandezza ha il suo evidenziatore, nella formula e nei campi. */
 const SYM_COLORS = ["sky", "yellow", "mint", "pink", "lilac"];
@@ -255,11 +398,11 @@ const pf = {
     $("#pfList").innerHTML = PHYS.map((f, i) => f.t === t ? `<button class="pf-item" data-f="${i}"><span class="pf-name">${escapeHtml(f.name)}</span><span class="pf-show">${escapeHtml(this.plain(f.show, f))}</span></button>` : "").join("");
   },
   /** formula in testo semplice (con le etichette dei simboli) */
-  plain(tpl, f) { return tpl.replace(/\{(\w+)\}/g, (_, k) => f.vars[k][0]); },
+  plain(tpl, f) { return tpl.replace(/\{(\w+)\}/g, (_, k) => symTxt(f.vars[k][0])); },
   /** formula con i simboli colorati */
   colored(tpl, f) {
     const keys = Object.keys(f.vars);
-    return escapeHtml(tpl).replace(/\{(\w+)\}/g, (_, k) => `<span class="sym c-${SYM_COLORS[keys.indexOf(k) % SYM_COLORS.length]}${k === this.unknown ? " unk" : ""}">${escapeHtml(f.vars[k][0])}</span>`);
+    return escapeHtml(tpl).replace(/\{(\w+)\}/g, (_, k) => `<span class="sym c-${SYM_COLORS[keys.indexOf(k) % SYM_COLORS.length]}${k === this.unknown ? " unk" : ""}">${symHtml(f.vars[k][0])}</span>`);
   },
   open(i) {
     this.f = PHYS[i];
@@ -284,16 +427,16 @@ const pf = {
       <button class="btn small ghost" id="pfBack"><svg class="i"><use href="#i-back"/></svg>Tutte le formule</button>
       <h2>${escapeHtml(f.name)}</h2>
       <div class="pf-formula">${this.colored(f.show, f)}</div>
-      <ul class="pf-legend">${keys.map((key, i) => `<li><span class="sym c-${SYM_COLORS[i % SYM_COLORS.length]}">${escapeHtml(f.vars[key][0])}</span>
+      <ul class="pf-legend">${keys.map((key, i) => `<li><span class="sym c-${SYM_COLORS[i % SYM_COLORS.length]}">${symHtml(f.vars[key][0])}</span>
         <span>${escapeHtml(f.vars[key][1])}<small>si misura in ${escapeHtml(QTY[f.vars[key][2]][0][0])}</small></span>
-        <button class="icon-btn" data-say="${escapeHtml(f.vars[key][0].replace("₀", " zero").replace("₁", " uno").replace("₂", " due"))}: ${escapeHtml(f.vars[key][1])}" aria-label="Ascolta"><svg class="i"><use href="#i-volume"/></svg></button></li>`).join("")}
+        <button class="icon-btn" data-say="${escapeHtml(f.vars[key][0].replace("_", " ").replace("₀", " zero").replace("₁", " uno").replace("₂", " due"))}: ${escapeHtml(f.vars[key][1])}" aria-label="Ascolta"><svg class="i"><use href="#i-volume"/></svg></button></li>`).join("")}
         ${consts ? `<li class="consts"><span class="hint">Costanti:</span><ul>${consts}</ul></li>` : ""}</ul>
       <h3 class="pf-q">Cosa devi trovare?</h3>
-      <div class="chips">${keys.map(key => `<button class="chip${key === k ? " on" : ""}" data-unk="${key}">${escapeHtml(f.vars[key][0])} <small>${escapeHtml(f.vars[key][1])}</small></button>`).join("")}</div>
+      <div class="chips">${keys.map(key => `<button class="chip${key === k ? " on" : ""}" data-unk="${key}">${symHtml(f.vars[key][0])} <small>${escapeHtml(f.vars[key][1])}</small></button>`).join("")}</div>
       <div class="pf-inverse"><span class="hint">Formula da usare</span><div>${this.colored(`{${k}} = ` + f.solve[k][0], f)}</div></div>
       <h3 class="pf-q">Scrivi i dati che conosci</h3>
       <div class="pf-inputs">${keys.filter(key => key !== k).map(key => `
-        <label class="pf-in"><span class="sym c-${SYM_COLORS[keys.indexOf(key) % SYM_COLORS.length]}">${escapeHtml(f.vars[key][0])}</span>
+        <label class="pf-in"><span class="sym c-${SYM_COLORS[keys.indexOf(key) % SYM_COLORS.length]}">${symHtml(f.vars[key][0])}</span>
           <input type="text" inputmode="decimal" data-in="${key}" value="${escapeHtml(keep[key]?.[0] || "")}" placeholder="${escapeHtml(f.vars[key][1])}" autocomplete="off">
           ${unitSel(key, "data-unit")}</label>`).join("")}
         <label class="pf-in result-unit"><span>Risultato in</span>${unitSel(k, "data-unit")}</label>
@@ -308,7 +451,7 @@ const pf = {
       if (key === k) continue;
       const inp = $(`#pfWork [data-in="${key}"]`), unit = $(`#pfWork [data-unit="${key}"]`).value;
       const v = parseNum(inp.value);
-      if (!isFinite(v)) { inp.focus(); inp.classList.add("bad"); return toast(`Scrivi il valore di ${f.vars[key][0]} (${f.vars[key][1]}).`); }
+      if (!isFinite(v)) { inp.focus(); inp.classList.add("bad"); return toast(`Scrivi il valore di ${symTxt(f.vars[key][0])} (${f.vars[key][1]}).`); }
       inp.classList.remove("bad");
       const units = QTY[f.vars[key][2]], fac = units.find(u => u[0] === unit)[1], siU = units[0][0];
       x[key] = v * fac;
@@ -317,7 +460,7 @@ const pf = {
     const res = f.solve[k][1](x);
     const outUnit = $(`#pfWork [data-unit="${k}"]`).value, units = QTY[f.vars[k][2]];
     const siU = units[0][0], fac = units.find(u => u[0] === outUnit)[1];
-    const lab = (key) => f.vars[key][0];
+    const lab = (key) => symTxt(f.vars[key][0]);
     // sostituzione: metto i valori (in unità SI) al posto dei simboli
     const subst = f.solve[k][0].replace(/\{(\w+)\}/g, (_, key) => {
       const c = conv.find(c => c.key === key);
@@ -359,8 +502,8 @@ const pf = {
   },
   printAll() {
     const html = PHYS_TOPICS.map(t => `<h3>${t}</h3>` + PHYS.filter(f => f.t === t).map(f => {
-      const inv = Object.keys(f.solve).slice(1).map(k => `${f.vars[k][0]} = ${this.plain(f.solve[k][0], f)}`).join("   ·   ");
-      const legend = Object.values(f.vars).map(v => `${v[0]} ${v[1]} (${QTY[v[2]][0][0]})`).join("; ");
+      const inv = Object.keys(f.solve).slice(1).map(k => `${symTxt(f.vars[k][0])} = ${this.plain(f.solve[k][0], f)}`).join("   ·   ");
+      const legend = Object.values(f.vars).map(v => `${symTxt(v[0])} ${v[1]} (${QTY[v[2]][0][0]})`).join("; ");
       return `<div class="f-item"><div class="f-name">${escapeHtml(f.name)}</div><div class="f-eq">${escapeHtml(this.plain(f.show, f))}</div><div class="f-note">Inverse: ${escapeHtml(inv)}<br>${escapeHtml(legend)}</div></div>`;
     }).join("")).join("");
     printer.run(`<div class="print-form">${html}</div>`, { title: "Formulario di fisica" });
