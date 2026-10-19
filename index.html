@@ -86,6 +86,9 @@
     <symbol id="i-atom" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6" fill="currentColor"/><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/></symbol>
     <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
     <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5.5 9.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.5L14 9V3"/><path d="M7 15h10"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 12 10 5 10-5M2 17l10 5 10-5"/></symbol>
+    <symbol id="i-column" viewBox="0 0 24 24"><path d="M4 21h16M6 21V9M10 21V9M14 21V9M18 21V9M3 9h18L12 3z"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 21a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.6A5 5 0 0 1 21.5 20"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
   </defs>
 </svg>
@@ -101,6 +104,16 @@
 </header>
 
 <main id="main">
+  <nav class="subj-nav hidden" id="subjNav" aria-label="Materie">
+    <button data-view="filo"><svg class="i"><use href="#i-column"/></svg>Filosofia</button>
+    <button data-view="umane"><svg class="i"><use href="#i-people"/></svg>Scienze umane</button>
+    <button data-view="mate"><svg class="i"><use href="#i-calc"/></svg>Matematica</button>
+    <button data-view="fisica"><svg class="i"><use href="#i-atom"/></svg>Fisica</button>
+  </nav>
+
+  <!-- ================= FILOSOFIA / SCIENZE UMANE (le costruisce autori.js) ================= -->
+  <section class="view" id="view-filo" aria-label="Filosofia" data-group="materie"><div class="subject-body"></div></section>
+  <section class="view" id="view-umane" aria-label="Scienze umane" data-group="materie"><div class="subject-body"></div></section>
 
   <!-- ================= STUDIA ================= -->
   <section class="view active" id="view-leggi" aria-label="Studia">
@@ -291,7 +304,7 @@
   </section>
 
   <!-- ================= MATEMATICA ================= -->
-  <section class="view" id="view-mate" aria-label="Matematica">
+  <section class="view" id="view-mate" aria-label="Matematica" data-group="materie">
     <div class="seg scroll" id="mateSeg" role="tablist">
       <button data-mt="calc" class="on"><svg class="i"><use href="#i-calc"/></svg>Calcolatrice</button>
       <button data-mt="eq"><svg class="i"><use href="#i-equal"/></svg>Equazioni</button>
@@ -412,7 +425,7 @@
   </section>
 
   <!-- ================= FISICA ================= -->
-  <section class="view" id="view-fisica" aria-label="Fisica">
+  <section class="view" id="view-fisica" aria-label="Fisica" data-group="materie">
     <div class="seg scroll" id="fisSeg" role="tablist">
       <button data-ft="formule" class="on"><svg class="i"><use href="#i-sigma"/></svg>Formule</button>
       <button data-ft="problemi"><svg class="i"><use href="#i-steps"/></svg>Problemi</button>
@@ -632,8 +645,7 @@
   <button class="tab active" data-view="leggi"><svg class="i"><use href="#i-book"/></svg><span>Studia</span></button>
   <button class="tab" data-view="detta"><svg class="i"><use href="#i-mic"/></svg><span>Scrivi</span></button>
   <button class="tab" data-view="mappa"><svg class="i"><use href="#i-map"/></svg><span>Mappe</span></button>
-  <button class="tab" data-view="mate"><svg class="i"><use href="#i-calc"/></svg><span>Mate</span></button>
-  <button class="tab" data-view="fisica"><svg class="i"><use href="#i-atom"/></svg><span>Fisica</span></button>
+  <button class="tab" data-view="materie"><svg class="i"><use href="#i-layers"/></svg><span>Materie</span></button>
   <button class="tab" data-view="ripassa"><svg class="i"><use href="#i-repeat"/></svg><span>Ripassa</span></button>
 </nav>
 
@@ -787,6 +799,7 @@
 <script src="mate.js" defer></script>
 <script src="fisica.js" defer></script>
 <script src="schede.js" defer></script>
+<script src="autori.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>

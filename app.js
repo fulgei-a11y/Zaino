@@ -2245,6 +2245,14 @@ const GUIDE = [
     ["grid", "Tabelline", "La tavola pitagorica: tocca un numero per sentire l'operazione."],
     ["camera", "Da foto", "Fotografa un esercizio e risolvetelo insieme, un passo alla volta."]
   ]],
+  ["Filosofia e Scienze umane", "Gli autori, le idee e i collegamenti. Si aprono da Materie, in basso.", [
+    ["timeline", "Autori", "Gli autori in ordine di tempo, divisi per periodo (filosofia) o per disciplina (pedagogia, psicologia, sociologia, antropologia). Puoi cercare per nome."],
+    ["file", "Scheda autore", "Tocca un nome: contesto, vita, il pensiero in punti, un esempio, le parole chiave, le opere, i collegamenti, una frase celebre e le domande da interrogazione. Viene salvata: la seconda volta si apre subito."],
+    ["map", "Dalla scheda", "Con un tocco ne fai una mappa, le flashcard o un'interrogazione simulata, oppure la salvi e la stampi."],
+    ["columns", "Confronta", "Scegli due autori e ottieni una tabella con somiglianze e differenze."],
+    ["chat", "Chiedi all'autore", "Fai domande a Kant, Socrate, Piaget o Montessori: rispondono in prima persona, in modo semplice. È una simulazione, quindi controlla sempre sul libro."],
+    ["bulb", "Concetti", "Una parola o un'idea che non ti è chiara, spiegata con un esempio e con la differenza dai concetti simili."]
+  ]],
   ["Fisica", "La materia più temuta, un passo alla volta.", [
     ["sigma", "Formule", "Scegli una formula e cosa devi trovare: Zaino scrive la formula inversa, converte le unità (km/h, minuti, grammi…) e fa la sostituzione passo per passo. Ogni grandezza ha il suo colore."],
     ["steps", "Problemi", "Fotografa il problema: ottieni la tabella dei dati con le conversioni, l'incognita evidenziata, la formula giusta e i passaggi uno alla volta."],
@@ -2279,14 +2287,14 @@ const guide = {
   /** sezione della guida adatta a dove ci si trova */
   forView() {
     const v = $(".view.active")?.id.replace("view-", "");
-    return { leggi: 1, detta: 2, mappa: 3, mate: 4, fisica: 5, ripassa: 6, quaderno: 7 }[v] ?? 0;
+    return { leggi: 1, detta: 2, mappa: 3, mate: 4, filo: 5, umane: 5, fisica: 6, ripassa: 7, quaderno: 8 }[v] ?? 0;
   }
 };
 
 const WELCOME = [
   { tiles: ["camera", "volume", "book"], title: "Ciao, questo è Zaino", text: `Il posto dove porti libri e compiti. Fotografi una pagina e Zaino te la <span class="hl">legge ad alta voce</span>, evidenziando la frase che stai ascoltando.` },
   { tiles: ["list", "map", "timeline"], title: "Lo studio, più leggero", text: `Da ogni testo ottieni in un tocco <span class="hl">riassunti, mappe, linee del tempo</span> e spiegazioni passo passo. Le mappe puoi farle anche tu: l'IA le controlla.` },
-  { tiles: ["chat", "calendar", "calc"], title: "Pronta per le verifiche", text: `Interrogazione simulata a voce, flashcard, piano di studio con timer e strumenti di matematica: <span class="hl">calcolatrice parlante, equazioni con i passaggi</span> e una sezione di <span class="hl">fisica</span> con formule inverse e problemi guidati.` },
+  { tiles: ["chat", "calendar", "layers"], title: "Pronta per le verifiche", text: `Interrogazione simulata a voce, flashcard e piano di studio con timer. In <b>Materie</b> trovi <span class="hl">filosofia e scienze umane</span> con le schede degli autori, e strumenti per <span class="hl">matematica e fisica</span>.` },
   { tiles: ["sliders", "help"], title: "Fallo tuo", text: `Nelle impostazioni scegli carattere, grandezza e colore della pagina. Il tasto <b>?</b> in alto apre la guida in qualsiasi momento.` }
 ];
 const welcome = {
@@ -2314,8 +2322,14 @@ const welcome = {
    ========================================================= */
 function showView(name) {
   tts.stop();
-  $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + name));
-  $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.view === name));
+  if (name === "materie") name = store.get("lastSubject", "filo");
+  const view = $("#view-" + name);
+  const inMaterie = view?.dataset.group === "materie";
+  if (inMaterie) store.set("lastSubject", name);
+  $$(".view").forEach(v => v.classList.toggle("active", v === view));
+  $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.view === name || (inMaterie && t.dataset.view === "materie")));
+  $("#subjNav").classList.toggle("hidden", !inMaterie);
+  $$("#subjNav button").forEach(b => b.classList.toggle("on", b.dataset.view === name));
   if (name === "quaderno") renderNotebook();
   if (name === "leggi" && !reader.text) home.render();
   if (name === "mate") requestAnimationFrame(() => graph.draw());
@@ -2432,6 +2446,8 @@ function init() {
   mate.init();
   fisica.init();
   slides.bind();
+  autori.init();
+  $("#subjNav").addEventListener("click", (e) => { const b = e.target.closest("[data-view]"); if (b) showView(b.dataset.view); });
 
   // input testo
   $("#inPhoto").addEventListener("change", (e) => { handleFiles([...e.target.files]); e.target.value = ""; });
