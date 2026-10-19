@@ -89,7 +89,9 @@ const DEFAULTS = {
   voice: "", rate: 0.95,
   modGemini: "gemini-flash-latest",
   modGroq: "llama-3.3-70b-versatile",
-  modWhisper: "whisper-large-v3-turbo"
+  modWhisper: "whisper-large-v3-turbo",
+  modGeminiLite: "gemini-flash-lite-latest",
+  modGroqVision: ""
 };
 const settings = Object.assign({}, DEFAULTS, store.get("settings", {}));
 const FONTS = {
@@ -126,6 +128,26 @@ function friendlyError(provider, status, detail = "") {
   return `${provider}: ${detail || "errore " + status}`;
 }
 
+/* ---------- Pause dopo un limite: il servizio stanco viene saltato per un po' ---------- */
+const cooldown = {
+  until: store.get("cooldown", {}),
+  ok(key) { return !(this.until[key] > Date.now()); },
+  set(key, seconds) {
+    this.until[key] = Date.now() + seconds * 1000;
+    store.set("cooldown", this.until);
+  },
+  clear(key) { if (this.until[key]) { delete this.until[key]; store.set("cooldown", this.until); } }
+};
+/** Quanto aspettare dopo un errore di limite (secondi), leggendo i dettagli dell'errore. */
+function waitSeconds(status, raw, retryAfter) {
+  if (status !== 429) return status >= 500 || status === 0 ? 20 : 0;
+  const txt = JSON.stringify(raw || "");
+  if (/per ?day|PerDay|RPD|daily/i.test(txt)) return 60 * 60;                   // limite del giorno: un'ora
+  const m = txt.match(/"retryDelay":"(\d+)/) || txt.match(/try again in (\d+)/i);
+  const s = Number(retryAfter) || (m ? Number(m[1]) : 0);
+  return Math.min(Math.max(s || 60, 15), 600);
+}
+
 async function geminiCall({ prompt, system, images = [], json = false, temperature = 0.4, model }) {
   if (!settings.keyGemini) throw new AIError("Manca la chiave Gemini (Impostazioni ⚙️).", -1);
   const parts = [];
@@ -148,11 +170,9 @@ async function geminiCall({ prompt, system, images = [], json = false, temperatu
   } catch { throw new AIError(friendlyError("Gemini", 0), 0); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    // se il modello scelto non esiste, riprova una volta con un modello di riserva
-    if (res.status === 404 && !model && m !== "gemini-2.5-flash") {
-      return geminiCall({ prompt, system, images, json, temperature, model: "gemini-2.5-flash" });
-    }
-    throw new AIError(friendlyError("Gemini", res.status, data?.error?.message), res.status);
+    const e = new AIError(friendlyError("Gemini", res.status, data?.error?.message), res.status);
+    e.wait = waitSeconds(res.status, data?.error, res.headers.get("retry-after"));
+    throw e;
   }
   const cand = data.candidates?.[0];
   const text = (cand?.content?.parts || []).filter(p => !p.thought).map(p => p.text || "").join("");
@@ -164,12 +184,19 @@ async function geminiCall({ prompt, system, images = [], json = false, temperatu
   return text;
 }
 
-async function groqChat({ prompt, system, json = false, temperature = 0.4 }) {
+async function groqChat({ prompt, system, images = [], json = false, temperature = 0.4, model }) {
   if (!settings.keyGroq) throw new AIError("Manca la chiave Groq (Impostazioni ⚙️).", -1);
   const messages = [];
   if (system) messages.push({ role: "system", content: system });
-  messages.push({ role: "user", content: prompt });
-  const body = { model: settings.modGroq || DEFAULTS.modGroq, messages, temperature };
+  if (images.length) {
+    messages.push({ role: "user", content: [
+      { type: "text", text: prompt },
+      ...images.map(img => ({ type: "image_url", image_url: { url: `data:${img.mime};base64,${img.data}` } }))
+    ] });
+  } else {
+    messages.push({ role: "user", content: prompt });
+  }
+  const body = { model: model || settings.modGroq || DEFAULTS.modGroq, messages, temperature };
   if (json) body.response_format = { type: "json_object" };
   let res;
   try {
@@ -180,29 +207,76 @@ async function groqChat({ prompt, system, json = false, temperature = 0.4 }) {
     });
   } catch { throw new AIError(friendlyError("Groq", 0), 0); }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new AIError(friendlyError("Groq", res.status, data?.error?.message), res.status);
-  return data.choices?.[0]?.message?.content || "";
+  if (!res.ok) {
+    const e = new AIError(friendlyError("Groq", res.status, data?.error?.message), res.status);
+    e.wait = waitSeconds(res.status, data?.error, res.headers.get("retry-after"));
+    throw e;
+  }
+  const out = data.choices?.[0]?.message?.content || "";
+  if (!out) throw new AIError("Groq non ha risposto. Riprova.", 1);
+  return out;
 }
 
-/** Chiede all'IA: usa Gemini, e se fallisce (limite, rete, sovraccarico) passa a Groq. */
+/** Trova su Groq un modello che legge le immagini (i nomi cambiano nel tempo). */
+let groqVisionModel = null;
+async function findGroqVision() {
+  if (settings.modGroqVision) return settings.modGroqVision;
+  if (groqVisionModel !== null) return groqVisionModel;
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/models", { headers: { Authorization: "Bearer " + settings.keyGroq } });
+    const ids = ((await r.json()).data || []).filter(m => m.active !== false).map(m => m.id);
+    const prefs = [/llama-4-scout/i, /llama-4-maverick/i, /llama-4/i, /vision|-vl\b|-vl-/i];
+    groqVisionModel = "";
+    for (const re of prefs) { const id = ids.find(i => re.test(i)); if (id) { groqVisionModel = id; break; } }
+  } catch { groqVisionModel = ""; }
+  return groqVisionModel;
+}
+
+/** Chiede all'IA provando in ordine: Gemini → Gemini Flash-Lite → Groq.
+    Un servizio che ha appena segnalato il limite viene saltato finché non si riposa. */
 async function ask(opts) {
   const hasG = !!settings.keyGemini, hasQ = !!settings.keyGroq;
   if (!hasG && !hasQ) {
     openSettings();
     throw new AIError("Per iniziare inserisci almeno una chiave gratuita (Gemini o Groq).", -1);
   }
-  if (opts.images?.length) return geminiCall(opts); // solo Gemini legge le immagini
-  if (!hasG) return groqChat(opts);
-  try {
-    return await geminiCall(opts);
-  } catch (e) {
-    const retriable = e.status === 0 || e.status === 429 || e.status >= 500 || e.status === 1;
-    if (hasQ && retriable) {
-      busy(true, "Gemini è occupato, provo con Groq…");
-      return groqChat(opts);
+  const withImages = !!opts.images?.length;
+  const main = settings.modGemini || DEFAULTS.modGemini;
+  const steps = [];
+  if (hasG) {
+    steps.push({ key: "gemini:" + main, name: "Gemini", run: () => geminiCall({ ...opts, model: main }) });
+    for (const m of [DEFAULTS.modGeminiLite, "gemini-2.5-flash"]) {
+      if (m !== main) steps.push({ key: "gemini:" + m, name: "Gemini (riserva)", run: () => geminiCall({ ...opts, model: m }), quiet404: true });
     }
-    throw e;
   }
+  if (hasQ) {
+    if (withImages) steps.push({ key: "groq:vision", name: "Groq", run: async () => {
+      const m = await findGroqVision();
+      if (!m) throw new AIError("Su Groq non c'è un modello per leggere le foto.", 404);
+      return groqChat({ ...opts, model: m });
+    } });
+    else steps.push({ key: "groq:text", name: "Groq", run: () => groqChat(opts) });
+  }
+  // prima quelli riposati; se sono tutti in pausa, li provo comunque
+  const ready = steps.filter(s => cooldown.ok(s.key));
+  const order = ready.length ? ready : steps;
+  let firstErr = null, lastErr = null;
+  for (let i = 0; i < order.length; i++) {
+    const s = order[i];
+    if (i > 0) busy(true, `${order[i - 1].name} è occupato, provo con ${s.name}…`);
+    try {
+      const out = await s.run();
+      cooldown.clear(s.key);
+      return out;
+    } catch (e) {
+      if (e.wait) cooldown.set(s.key, e.wait);
+      if (e.status === 404 && s.quiet404) cooldown.set(s.key, 24 * 3600); // modello di riserva inesistente: lo salto
+      if (!firstErr && !(e.status === 404 && s.quiet404)) firstErr = e;
+      lastErr = e;
+      // chiave sbagliata o richiesta non valida: provo comunque il servizio successivo
+    }
+  }
+  throw firstErr || lastErr || new AIError("L'IA non risponde. Riprova tra un minuto.", 1);
 }
 
 function parseJSON(text) {
@@ -1394,6 +1468,7 @@ function openSettings() {
   $("#modGemini").value = settings.modGemini;
   $("#modGroq").value = settings.modGroq;
   $("#modWhisper").value = settings.modWhisper;
+  $("#modGroqVision").value = settings.modGroqVision;
   const d = $("#dlgSettings");
   if (!d.open) d.showModal();
 }
@@ -1405,7 +1480,8 @@ function bindSettings() {
     theme: ["#setTheme"], voice: ["#setVoice"],
     modGemini: ["#modGemini", v => v.trim() || DEFAULTS.modGemini],
     modGroq: ["#modGroq", v => v.trim() || DEFAULTS.modGroq],
-    modWhisper: ["#modWhisper", v => v.trim() || DEFAULTS.modWhisper]
+    modWhisper: ["#modWhisper", v => v.trim() || DEFAULTS.modWhisper],
+    modGroqVision: ["#modGroqVision", v => { groqVisionModel = null; return v.trim(); }]
   };
   for (const [key, [sel, conv = v => v]] of Object.entries(map)) {
     $(sel).addEventListener("input", (e) => {
