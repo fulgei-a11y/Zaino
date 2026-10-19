@@ -1,6 +1,6 @@
 // Permette di aprire l'app anche senza connessione (le funzioni IA richiedono comunque internet).
 // Il numero di versione cambia a ogni aggiornamento: deve essere uguale a quello in index.html e app.js.
-const VERSION = "12";
+const VERSION = "13";
 const CACHE = "zaino-v" + VERSION;
 const SHELL = ["./", "index.html", "styles.css", "app.js", "mate.js", "fisica.js", "schede.js", "autori.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"]
   .map((u) => (/\.(css|js)$/.test(u) ? u + "?v=" + VERSION : u));

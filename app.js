@@ -181,7 +181,7 @@ function waitSeconds(status, raw, retryAfter) {
   return Math.min(Math.max(s || 60, 15), 600);
 }
 
-async function geminiCall({ prompt, system, images = [], json = false, temperature = 0.4, model }) {
+async function geminiCall({ prompt, system, images = [], json = false, temperature = 0.4, model, tools }) {
   if (!settings.keyGemini) throw new AIError("Manca la chiave Gemini (in Impostazioni).", -1);
   const parts = [];
   for (const img of images) parts.push({ inline_data: { mime_type: img.mime, data: img.data } });
@@ -192,6 +192,7 @@ async function geminiCall({ prompt, system, images = [], json = false, temperatu
   };
   if (system) body.systemInstruction = { parts: [{ text: system }] };
   if (json) body.generationConfig.responseMimeType = "application/json";
+  if (tools) body.tools = tools;
   const m = model || settings.modGemini || DEFAULTS.modGemini;
   let res;
   try {
@@ -2377,7 +2378,8 @@ const home = {
 
 const GUIDE = [
   ["Come si usa", null, [
-    ["book", "1. Porta il testo", "In Studia fotografa una pagina, carica una foto o un PDF, oppure incolla un testo."],
+    ["book", "1. Porta il testo", "In Studia fotografa una pagina, carica una foto o un PDF, oppure incolla un testo o un link."],
+    ["globe", "Da un sito o Wikipedia", "Incolla un link: Zaino prende solo il testo della pagina, senza pubblicità. Oppure scrivi un argomento e trova la voce di Wikipedia. Per le pagine con accesso (registro, piattaforma della scuola) c'è il tasto «Manda a Zaino»; su Android anche Condividi → Zaino."],
     ["volume", "2. Ascoltalo", "Premi il tasto blu: la voce legge e la frase si colora come con un evidenziatore. Tocca una frase per partire da lì."],
     ["sparkles", "3. Trasformalo", "Sotto il testo scegli cosa ti serve: riassunto, mappa, linea del tempo, flashcard e altro."],
     ["chat", "4. Mettiti alla prova", "In Ripassa: flashcard, interrogazione a voce e piano verso la verifica."]
@@ -2615,7 +2617,214 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "12";
+const APP_VERSION = "13";
+
+/* =========================================================
+   TESTO DA UN SITO WEB
+   - Wikipedia: servizio ufficiale (aperto a tutti), con ricerca per argomento
+   - altri siti: estrattore di testo gratuito; se non basta, Gemini legge la pagina
+   - "Manda a Zaino": un preferito del browser che spedisce qui il testo della pagina aperta
+   - Android: Condividi → Zaino
+   Esce solo l'indirizzo della pagina, mai dati personali.
+   ========================================================= */
+const web = {
+  SKIP: /^(note|bibliografia|voci correlate|altri progetti|collegamenti esterni|fonti|riferimenti|note e riferimenti|see also|references|external links|further reading|notes)$/i,
+  isUrl(t) { return /^(https?:\/\/|www\.)\S+$/i.test(t.trim()) || /^[\w-]+(\.[\w-]+)+\/\S*$/.test(t.trim()); },
+  normUrl(t) { t = t.trim(); return /^https?:\/\//i.test(t) ? t : "https://" + t; },
+  wikiOf(u) {
+    try {
+      const x = new URL(u);
+      const m = x.hostname.match(/^([a-z-]+)\.(?:m\.)?wikipedia\.org$/i);
+      if (!m) return null;
+      const title = decodeURIComponent((x.pathname.match(/\/wiki\/(.+)$/) || [])[1] || x.searchParams.get("title") || "");
+      return title ? { lang: m[1], title: title.replace(/_/g, " ") } : null;
+    } catch { return null; }
+  },
+  async wikiText(lang, title) {
+    const q = new URLSearchParams({ action: "query", prop: "extracts", explaintext: "1", redirects: "1", titles: title, format: "json", origin: "*" });
+    const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?${q}`);
+    if (!r.ok) throw new Error("Wikipedia non risponde. Riprova tra poco.");
+    const page = Object.values((await r.json()).query?.pages || {})[0];
+    if (!page || page.missing !== undefined || !page.extract) throw new Error("Non ho trovato questa voce su Wikipedia.");
+    // titoli "== Sezione ==" → "# Sezione"; mi fermo a Note, Bibliografia, ecc.
+    const out = [];
+    for (const line of page.extract.split("\n")) {
+      const h = line.match(/^(=+)\s*(.*?)\s*=+$/);
+      if (h) { if (this.SKIP.test(h[2])) break; if (h[2]) out.push("", "# " + h[2]); continue; }
+      out.push(line);
+    }
+    const text = out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+    return { title: page.title, text: "# " + page.title + "\n\n" + text };
+  },
+  async wikiSearch(q, lang = "it") {
+    const p = new URLSearchParams({ action: "query", list: "search", srsearch: q, srlimit: "6", format: "json", origin: "*" });
+    const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?${p}`);
+    if (!r.ok) throw new Error("Wikipedia non risponde. Riprova tra poco.");
+    return ((await r.json()).query?.search || []).map(x => ({ title: x.title, snippet: x.snippet.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&#0?39;/g, "'") }));
+  },
+  /** Pulizia del testo che arriva dall'estrattore (Markdown) */
+  clean(md) {
+    return md
+      .replace(/^(?:\s*(?:Title|URL Source|Published Time|Warning|Markdown Content):.*\n)+/, "")
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, "")                 // immagini
+      .replace(/\[([^\]]*)\]\((?:[^()]|\([^)]*\))*\)/g, "$1")   // link → solo il testo
+      .replace(/^\s*[-*+]\s*$/gm, "")
+      .replace(/^#{2,6}\s*/gm, "# ")
+      .replace(/^(=+|-{3,})\s*$/gm, "")
+      .replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n")
+      .split("\n\n").filter(par => {          // via i menu: blocchi fatti solo di parole corte senza punteggiatura
+        const t = par.trim(); if (!t) return false;
+        const lines = t.split("\n");
+        return !(lines.length > 3 && lines.every(l => l.trim().split(/\s+/).length <= 4 && !/[.!?:;]$/.test(l.trim())));
+      }).join("\n\n").trim();
+  },
+  async pageText(url) {
+    const w = this.wikiOf(url);
+    if (w) return this.wikiText(w.lang, w.title);
+    // 1) estrattore di testo gratuito
+    try {
+      const r = await fetch("https://r.jina.ai/" + url, { headers: { Accept: "text/plain" } });
+      if (r.ok) {
+        const raw = await r.text();
+        const title = (raw.match(/^Title:\s*(.+)$/m) || [])[1] || "";
+        const text = this.clean(raw);
+        if (text.split(/\s+/).length > 60) return { title, text: (title ? "# " + title + "\n\n" : "") + text };
+      }
+    } catch { /* provo con Gemini */ }
+    // 2) Gemini legge la pagina
+    if (settings.keyGemini) {
+      busy(true, "Chiedo a Gemini di leggere la pagina…");
+      const prompt = `Apri questa pagina e riporta il TESTO PRINCIPALE così com'è, in italiano se è in italiano, senza riassumere e senza commenti.
+Togli menu, pubblicità, commenti dei lettori, note a piè di pagina e link. Metti il titolo della pagina sulla prima riga preceduto da "# " e i titoli dei paragrafi preceduti da "# ".
+Se la pagina non si può aprire o richiede un accesso, rispondi solo: NON_DISPONIBILE
+Pagina: ${url}`;
+      for (const m of [settings.modGemini || DEFAULTS.modGemini, "gemini-2.5-flash"]) {
+        try {
+          const t = (await geminiCall({ prompt, model: m, temperature: 0, tools: [{ url_context: {} }] })).trim();
+          if (/NON_DISPONIBILE/.test(t) || t.split(/\s+/).length < 40) break;
+          return { title: (t.match(/^#\s*(.+)$/m) || [])[1] || "", text: t };
+        } catch { /* provo il modello successivo */ }
+      }
+    }
+    throw new Error("Questa pagina non si lascia leggere (forse serve un accesso). Usa il tasto «Manda a Zaino» oppure copia e incolla il testo.");
+  },
+  open({ title, text }, from = "") {
+    if (text.length > 120000) text = text.slice(0, 120000) + "\n\n[…il testo continua sulla pagina originale]";
+    reader.load(text);
+    showView("leggi");
+    this.hideBox();
+    toast(from ? `Testo arrivato da ${from}. Premi ▶️ per ascoltare.` : "Fatto! Premi ▶️ per ascoltare.");
+    setTimeout(() => $("#readerCard").scrollIntoView({ behavior: "smooth" }), 50);
+  },
+  async go(q) {
+    q = (q ?? $("#webInput").value).trim();
+    if (!q) return toast("Scrivi un argomento o incolla un link.");
+    const res = $("#webResults");
+    try {
+      if (this.isUrl(q)) {
+        busy(true, "Leggo la pagina…");
+        this.open(await this.pageText(this.normUrl(q)));
+      } else {
+        busy(true, "Cerco su Wikipedia…");
+        const list = await this.wikiSearch(q);
+        res.innerHTML = list.length
+          ? `<p class="hint">Scegli la voce giusta:</p>` + list.map(x => `<button class="web-hit" data-wt="${escapeHtml(x.title)}"><b>${escapeHtml(x.title)}</b><small>${escapeHtml(x.snippet)}…</small></button>`).join("")
+          : `<p class="hint">Nessuna voce trovata. Prova con un'altra parola.</p>`;
+      }
+    } catch (e) { toast(e.message || "Non sono riuscito a leggere la pagina.", 7000); }
+    finally { busy(false); }
+  },
+  async openWiki(title) {
+    try { busy(true, "Apro la voce…"); this.open(await this.wikiText("it", title)); }
+    catch (e) { toast(e.message, 6000); }
+    finally { busy(false); }
+  },
+  showBox() {
+    $("#webBox").classList.remove("hidden");
+    $("#pasteActions").classList.add("hidden");
+    $("#webInput").focus();
+  },
+  hideBox() { $("#webBox").classList.add("hidden"); $("#webResults").innerHTML = ""; $("#webInput").value = ""; },
+
+  /* ---- "Manda a Zaino" ---- */
+  appUrl() { return location.origin + location.pathname.replace(/index\.html$/, ""); },
+  bookmarklet() {
+    const app = this.appUrl(), origin = location.origin;
+    const code = `(()=>{const s=String(getSelection()).trim();const el=document.querySelector('article,main,[role=main]')||document.body;const t=s.length>80?s:el.innerText;const m={type:'zaino-text',title:document.title,url:location.href,text:t};try{navigator.clipboard.writeText(t)}catch(e){}const w=window.open('${app}?from=page','zaino');let n=0;const i=setInterval(()=>{try{w.postMessage(m,'${origin}')}catch(e){}if(++n>60)clearInterval(i)},250);addEventListener('message',e=>{if(e.origin==='${origin}'&&e.data==='zaino-ok')clearInterval(i)})})()`;
+    return "javascript:" + encodeURIComponent(code).replace(/%3D/g, "=").replace(/%2C/g, ",").replace(/%3A/g, ":").replace(/%2F/g, "/");
+  },
+  guide() {
+    const bm = this.bookmarklet(), code = decodeURIComponent(bm);
+    $("#bmBody").innerHTML = `<p>È un preferito speciale del browser. Quando sei su una pagina, anche dove hai fatto l'accesso (registro, piattaforma della scuola), lo tocchi e il testo arriva qui, pulito. Se prima selezioni una parte, arriva solo quella.</p>
+      <h3>Sul computer</h3>
+      <p>Trascina questo tasto nella barra dei preferiti (se non la vedi: <b>Ctrl+Maiusc+B</b>, sul Mac <b>Cmd+Maiusc+B</b>).</p>
+      <p><a class="btn primary bm-link" href="${bm}" draggable="true">${icon("bookmark")}Manda a Zaino</a></p>
+      <h3>Su iPhone o iPad (Safari)</h3>
+      <ol class="bm-steps">
+        <li>Premi <b>Copia il codice</b> qui sotto.</li>
+        <li>Tocca il tasto <b>Condividi</b> di Safari, scegli <b>Aggiungi segnalibro</b> e poi <b>Salva</b>.</li>
+        <li>Apri i segnalibri (l'icona del libro), tocca <b>Modifica</b> e poi il segnalibro appena creato.</li>
+        <li>Chiamalo <b>Manda a Zaino</b>, cancella l'indirizzo e <b>incolla</b> al suo posto il codice.</li>
+        <li>Per usarlo: sulla pagina che ti serve apri i segnalibri e tocca <b>Manda a Zaino</b>.</li>
+      </ol>
+      <div class="btn-row"><button class="btn primary" id="bmCopy">${icon("copy")}Copia il codice</button></div>
+      <textarea class="bm-code" readonly rows="3" aria-label="Codice del tasto">${escapeHtml(code)}</textarea>
+      <p class="hint">Se usi Zaino dall'icona sulla schermata Home, il testo viene anche copiato: apri Zaino e premi <b>Incolla un testo</b>.</p>
+      <h3>Su Android</h3>
+      <p>Più semplice ancora: con Zaino installato, nel browser tocca <b>Condividi</b> e scegli <b>Zaino</b>.</p>`;
+    $("#bmBody .bm-link").addEventListener("click", (e) => { e.preventDefault(); toast("Non toccarlo qui: trascinalo nella barra dei preferiti."); });
+    $("#bmCopy").addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(code); toast("Codice copiato. Ora incollalo nel segnalibro."); }
+      catch { const ta = $("#bmBody .bm-code"); ta.focus(); ta.select(); document.execCommand?.("copy"); toast("Codice selezionato: copialo e incollalo nel segnalibro."); }
+    });
+    $("#dlgBookmark").showModal();
+  },
+  /** Riceve il testo dal tasto «Manda a Zaino» e dalla condivisione su Android */
+  receive() {
+    const qs = new URLSearchParams(location.search);
+    const clean = () => history.replaceState(null, "", location.pathname);
+    if (qs.get("from") === "page") {
+      busy(true, "Aspetto il testo dalla pagina…");
+      let done = false;
+      const onMsg = (e) => {
+        const d = e.data;
+        if (done || !d || d.type !== "zaino-text" || typeof d.text !== "string") return;
+        done = true; window.removeEventListener("message", onMsg); clean();
+        try { e.source?.postMessage("zaino-ok", e.origin); } catch { /* niente */ }
+        busy(false);
+        let host = ""; try { host = new URL(d.url).hostname.replace(/^www\./, ""); } catch { /* niente */ }
+        const title = String(d.title || "").slice(0, 200);
+        const body = d.text.replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+        this.open({ title, text: (title && !body.startsWith(title) ? "# " + title + "\n\n" : "") + body }, host || "la pagina");
+      };
+      window.addEventListener("message", onMsg);
+      setTimeout(() => {
+        if (done) return;
+        done = true; window.removeEventListener("message", onMsg); busy(false); clean();
+        toast("Il testo non è arrivato, ma è stato copiato: premi «Incolla un testo».", 7000);
+        $("#btnPaste").click();
+      }, 8000);
+      return;
+    }
+    if (qs.has("share")) {
+      setTimeout(clean, 4000);
+      const text = (qs.get("text") || "").trim(), url = (qs.get("url") || "").trim() || (text.match(/https?:\/\/\S+/) || [])[0] || "";
+      const textOnly = text.replace(url, "").trim();
+      if (textOnly.split(/\s+/).length > 40) return this.open({ title: qs.get("title") || "", text: textOnly }, "la condivisione");
+      if (url) { $("#webInput").value = url; this.showBox(); return this.go(url); }
+      if (textOnly) return this.open({ title: "", text: textOnly });
+    }
+  },
+  bind() {
+    $("#btnWeb").addEventListener("click", () => this.showBox());
+    $("#btnWebGo").addEventListener("click", () => this.go());
+    $("#webInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this.go(); } });
+    $("#webResults").addEventListener("click", (e) => { const b = e.target.closest("[data-wt]"); if (b) this.openWiki(b.dataset.wt); });
+    $("#btnBookmarklet").addEventListener("click", () => this.guide());
+    $("#btnWebClose").addEventListener("click", () => this.hideBox());
+    $("#btnBmClose").addEventListener("click", () => $("#dlgBookmark").close());
+  }
+};
 
 function init() {
   if (!versionGuard()) return;
@@ -2873,6 +3082,8 @@ function init() {
     if (c) { nbFilter = c.dataset.sub; renderNotebook(); }
   });
 
+  web.bind();
+
   // ripristino del lavoro in corso
   const cur = store.get("current", "");
   if (cur) reader.load(cur); else home.render();
@@ -2880,6 +3091,7 @@ function init() {
   const cm = store.get("currentMap", null);
   if (cm?.root) mindmap.load(cm.root, cm.savedId);
   flash.refreshDecks();
+  web.receive();
   // quando i caratteri sono pronti ridisegno la mappa con le misure giuste
   document.fonts?.ready.then(() => { if (mindmap.root) mindmap.draw(); });
 
