@@ -225,9 +225,6 @@ async function geminiCall({ prompt, system, images = [], json = false, temperatu
 }
 
 /* ---------- Claude (facoltativo, a pagamento a consumo) ---------- */
-// Zaino è usato da una studentessa minorenne: con Claude aggiungo sempre queste regole (indicazioni di Anthropic per i prodotti usati da minori).
-const CLAUDE_SAFETY = `Contesto: chi usa questo strumento è una studentessa minorenne delle superiori, con dislessia. Sei un'intelligenza artificiale che fa da tutor di studio, non una persona.
-Resta sempre nel ruolo di aiuto allo studio. Usa contenuti adatti a un'adolescente. Se emergono temi di disagio, rischio o pericolo, rispondi con delicatezza e suggerisci di parlarne con un adulto di fiducia (genitori, insegnanti) o con un professionista.`;
 const claudeModels = {};
 async function findClaudeModel(kind) {
   if (claudeModels[kind] !== undefined) return claudeModels[kind];
@@ -242,7 +239,8 @@ async function claudeCall({ prompt, system, images = [], json = false, temperatu
   if (!settings.keyClaude) throw new AIError("Manca la chiave Claude (in Impostazioni).", -1);
   const content = images.map(img => ({ type: "image", source: { type: "base64", media_type: img.mime, data: img.data } }));
   content.push({ type: "text", text: prompt + (json ? "\n\nRispondi solo con il JSON valido, senza testo prima o dopo e senza ```." : "") });
-  const body = { model, max_tokens: 8000, temperature, system: CLAUDE_SAFETY + (system ? "\n\n" + system : ""), messages: [{ role: "user", content }] };
+  const body = { model, max_tokens: 8000, temperature, messages: [{ role: "user", content }] };
+  if (system) body.system = system;
   let res;
   try {
     res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -2757,7 +2755,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "15";
+const APP_VERSION = "16";
 
 /* =========================================================
    TESTO DA UN SITO WEB
