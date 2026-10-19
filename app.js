@@ -499,6 +499,25 @@ Se non ci sono errori, "errori" è una lista vuota.
 
 TESTO:
 ${t}`,
+  fisica: (t) => `Sei un insegnante di fisica paziente. Aiuta una studentessa delle superiori con dislessia e discalculia a risolvere questo problema DA SOLA, un passo alla volta.
+Rispondi SOLO con JSON:
+{"riassunto": "cosa chiede il problema, in una frase semplice",
+ "dati": [{"simbolo": "v₀", "grandezza": "velocità iniziale", "valore": "72", "unita": "km/h", "si": "20 m/s"}],
+ "incognite": [{"simbolo": "t", "grandezza": "tempo"}],
+ "formule": [{"formula": "v = s / t", "perche": "lega spazio, tempo e velocità"}],
+ "disegno": "come fare uno schema del problema (facoltativo, una frase)",
+ "passi": [{"titolo": "titolo breve", "spiegazione": "cosa fare e perché, frasi brevi", "calcolo": "t = 100 m / 20 m/s = 5 s"}],
+ "risultato": "t = 5 s",
+ "controllo": "perché il risultato ha senso (ordine di grandezza, unità)"}
+Regole:
+- nei dati metti TUTTI i valori del testo, anche quelli nascosti nelle parole (es. "parte da fermo" → v₀ = 0 m/s; "cade" → a = g = 9,81 m/s²);
+- nel campo "si" scrivi il dato convertito nell'unità del Sistema Internazionale (se è già in SI, ripetilo);
+- se serve una formula inversa, ricavala in un passo a parte spiegando l'operazione fatta su entrambi i membri;
+- nei calcoli scrivi sempre i numeri CON le unità di misura; usa la virgola per i decimali; simboli leggibili (², √, ·, niente LaTeX);
+- da 3 a 7 passi; se ci sono più domande, rispondi a tutte, una dopo l'altra.
+
+PROBLEMA:
+${t}`,
   correggi: (t) => `Correggi gli errori di ortografia, grammatica, punteggiatura e le maiuscole in questo testo dettato.
 Non cambiare il contenuto, lo stile o le parole scelte, se non per correggere errori.
 Se capisci che la persona ha dettato la punteggiatura a voce (es. "virgola", "punto", "a capo"), trasformala nei segni giusti.
@@ -2198,6 +2217,12 @@ const GUIDE = [
     ["grid", "Tabelline", "La tavola pitagorica: tocca un numero per sentire l'operazione."],
     ["camera", "Da foto", "Fotografa un esercizio e risolvetelo insieme, un passo alla volta."]
   ]],
+  ["Fisica", "La materia più temuta, un passo alla volta.", [
+    ["sigma", "Formule", "Scegli una formula e cosa devi trovare: Zaino scrive la formula inversa, converte le unità (km/h, minuti, grammi…) e fa la sostituzione passo per passo. Ogni grandezza ha il suo colore."],
+    ["steps", "Problemi", "Fotografa il problema: ottieni la tabella dei dati con le conversioni, l'incognita evidenziata, la formula giusta e i passaggi uno alla volta."],
+    ["activity", "Simula", "Guarda un'auto muoversi mentre si disegnano i grafici spazio-tempo e velocità-tempo. Oppure somma due forze e guarda la risultante."],
+    ["scale", "Unità e prefissi", "Notazione scientifica spiegata con la virgola che si sposta, prefissi (kilo, milli, micro…), grandezze del Sistema Internazionale e costanti."]
+  ]],
   ["Ripassa", "Per prepararti alle verifiche.", [
     ["cards", "Flashcard", "Gira la carta, poi dimmi se la sapevi. Quelle sbagliate tornano più spesso."],
     ["chat", "Interrogami", "Una domanda come in classe, tu rispondi a voce. Poi vedi cosa hai detto bene, cosa mancava e una risposta completa."],
@@ -2226,14 +2251,14 @@ const guide = {
   /** sezione della guida adatta a dove ci si trova */
   forView() {
     const v = $(".view.active")?.id.replace("view-", "");
-    return { leggi: 1, detta: 2, mappa: 3, mate: 4, ripassa: 5, quaderno: 6 }[v] ?? 0;
+    return { leggi: 1, detta: 2, mappa: 3, mate: 4, fisica: 5, ripassa: 6, quaderno: 7 }[v] ?? 0;
   }
 };
 
 const WELCOME = [
   { tiles: ["camera", "volume", "book"], title: "Ciao, questo è Zaino", text: `Il posto dove porti libri e compiti. Fotografi una pagina e Zaino te la <span class="hl">legge ad alta voce</span>, evidenziando la frase che stai ascoltando.` },
   { tiles: ["list", "map", "timeline"], title: "Lo studio, più leggero", text: `Da ogni testo ottieni in un tocco <span class="hl">riassunti, mappe, linee del tempo</span> e spiegazioni passo passo. Le mappe puoi farle anche tu: l'IA le controlla.` },
-  { tiles: ["chat", "calendar", "calc"], title: "Pronta per le verifiche", text: `Interrogazione simulata a voce, flashcard, piano di studio con timer e strumenti di matematica: <span class="hl">calcolatrice parlante, equazioni con i passaggi, formulario</span>.` },
+  { tiles: ["chat", "calendar", "calc"], title: "Pronta per le verifiche", text: `Interrogazione simulata a voce, flashcard, piano di studio con timer e strumenti di matematica: <span class="hl">calcolatrice parlante, equazioni con i passaggi</span> e una sezione di <span class="hl">fisica</span> con formule inverse e problemi guidati.` },
   { tiles: ["sliders", "help"], title: "Fallo tuo", text: `Nelle impostazioni scegli carattere, grandezza e colore della pagina. Il tasto <b>?</b> in alto apre la guida in qualsiasi momento.` }
 ];
 const welcome = {
@@ -2266,6 +2291,7 @@ function showView(name) {
   if (name === "quaderno") renderNotebook();
   if (name === "leggi" && !reader.text) home.render();
   if (name === "mate") requestAnimationFrame(() => graph.draw());
+  if (name === "fisica") requestAnimationFrame(() => fisica.inited.simula && sim.redraw());
   if (name === "mappa" && mindmap.root) requestAnimationFrame(() => mindmap.draw({ center: true }));
   mindmap.select(name === "mappa" ? mindmap.selected : null);
   scrollTo({ top: 0 });
@@ -2375,6 +2401,7 @@ function init() {
   $("#btnShowWelcome").addEventListener("click", () => { $("#dlgSettings").close(); welcome.open(); });
   home.bind();
   mate.init();
+  fisica.init();
 
   // input testo
   $("#inPhoto").addEventListener("change", (e) => { handleFiles([...e.target.files]); e.target.value = ""; });

@@ -83,6 +83,9 @@
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"/></symbol>
     <symbol id="i-spell" viewBox="0 0 24 24"><path d="M3 16 7.5 4 12 16M4.5 12h6"/><path d="m13 17 3 3 6-7"/></symbol>
     <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+    <symbol id="i-atom" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6" fill="currentColor"/><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+    <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5.5 9.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.5L14 9V3"/><path d="M7 15h10"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
   </defs>
 </svg>
@@ -407,6 +410,113 @@
     </div>
   </section>
 
+  <!-- ================= FISICA ================= -->
+  <section class="view" id="view-fisica" aria-label="Fisica">
+    <div class="seg scroll" id="fisSeg" role="tablist">
+      <button data-ft="formule" class="on"><svg class="i"><use href="#i-sigma"/></svg>Formule</button>
+      <button data-ft="problemi"><svg class="i"><use href="#i-steps"/></svg>Problemi</button>
+      <button data-ft="simula"><svg class="i"><use href="#i-activity"/></svg>Simula</button>
+      <button data-ft="unita"><svg class="i"><use href="#i-scale"/></svg>Unità e prefissi</button>
+    </div>
+
+    <!-- formule interattive -->
+    <div class="fis-pane" data-fpane="formule">
+      <div class="card" id="pfPick">
+        <div class="intro in-card">
+          <h1>Formule di fisica</h1>
+          <p>Scegli una formula e cosa devi trovare: ti scrivo la formula inversa, converto le unità e faccio i passaggi con te.</p>
+        </div>
+        <div class="chips" id="pfTopics"></div>
+        <div class="pf-list" id="pfList"></div>
+        <button class="btn small ghost" id="pfPrintAll"><svg class="i"><use href="#i-printer"/></svg>Stampa tutto il formulario di fisica</button>
+      </div>
+      <div class="card hidden" id="pfWork"></div>
+    </div>
+
+    <!-- problemi guidati -->
+    <div class="fis-pane hidden" data-fpane="problemi">
+      <div class="card">
+        <div class="intro in-card">
+          <h1>Problemi guidati</h1>
+          <p>Fotografa il problema: metto in ordine i dati, trovo l'incognita e la formula, poi lo risolviamo un passo alla volta.</p>
+        </div>
+        <label class="source">
+          <span class="tile t-pen"><svg class="i"><use href="#i-camera"/></svg></span>
+          <span class="s-txt"><b>Fotografa il problema</b><small>Inquadra tutto il testo, anche i disegni</small></span>
+          <input type="file" id="physPhoto" accept="image/*" capture="environment" hidden>
+        </label>
+        <textarea id="physText" rows="4" placeholder="…oppure scrivi o incolla qui il testo del problema"></textarea>
+        <div class="btn-row"><button class="btn primary" id="btnPhysText"><svg class="i"><use href="#i-steps"/></svg>Risolviamolo insieme</button></div>
+      </div>
+      <div class="card hidden" id="physOut"></div>
+    </div>
+
+    <!-- simulazioni -->
+    <div class="fis-pane hidden" data-fpane="simula">
+      <div class="seg small" id="simSeg">
+        <button data-sm="moto" class="on">Moto rettilineo</button>
+        <button data-sm="vettori">Somma di forze</button>
+      </div>
+      <div class="card" id="simMoto">
+        <h2>Il moto, in diretta</h2>
+        <canvas class="sim-canvas" id="simTrack" style="height:120px"></canvas>
+        <div class="sim-read"><span>t = <b id="simT">0 s</b></span><span>s = <b id="simS">0 m</b></span><span>v = <b id="simV">0 m/s</b></span></div>
+        <div class="sim-ctrl">
+          <label>Velocità iniziale v₀ <b id="sV0v"></b><input type="range" id="sV0" min="-10" max="20" step="1" value="5"></label>
+          <label>Accelerazione a <b id="sAv"></b><input type="range" id="sA" min="-4" max="4" step="0.5" value="1"></label>
+        </div>
+        <div class="chips" id="simPresets">
+          <button class="chip" data-p="8,0">Velocità costante</button>
+          <button class="chip" data-p="0,2">Parte da fermo e accelera</button>
+          <button class="chip" data-p="15,-3">Frenata</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" id="simPlay"><svg class="i"><use href="#i-play"/></svg>Avvia</button>
+          <button class="btn" id="simReset"><svg class="i"><use href="#i-undo"/></svg>Da capo</button>
+        </div>
+        <div class="sim-graphs">
+          <canvas class="sim-canvas" id="simST"></canvas>
+          <canvas class="sim-canvas" id="simVT"></canvas>
+        </div>
+        <p class="sim-explain" id="simExplain"></p>
+      </div>
+      <div class="card hidden" id="simVett">
+        <h2>Somma di due forze</h2>
+        <canvas class="sim-canvas" id="simVec" style="height:280px"></canvas>
+        <div class="sim-read"><span><b id="vecR"></b></span><span id="vecAng"></span></div>
+        <div class="sim-ctrl">
+          <label>F₁ <b id="sF1v"></b><input type="range" id="sF1" min="0" max="10" step="0.5" value="6"></label>
+          <label>F₂ <b id="sF2v"></b><input type="range" id="sF2" min="0" max="10" step="0.5" value="4"></label>
+          <label>Angolo tra le forze θ <b id="sThv"></b><input type="range" id="sTh" min="0" max="180" step="5" value="60"></label>
+        </div>
+        <p class="sim-explain" id="vecExplain"></p>
+      </div>
+    </div>
+
+    <!-- unità e prefissi -->
+    <div class="fis-pane hidden" data-fpane="unita">
+      <div class="card">
+        <h2>Notazione scientifica</h2>
+        <p class="hint">Scrivi un numero: ti mostro come diventa e perché.</p>
+        <input type="text" id="sciIn" value="0,00045" inputmode="decimal" aria-label="Numero">
+        <div class="sci-out" id="sciOut"></div>
+      </div>
+      <div class="card">
+        <h2>Prefissi</h2>
+        <p class="hint">Tocca un prefisso per sentirlo. Esempio: 1 km = 10³ m = 1000 m.</p>
+        <div class="prefixes" id="prefixes"></div>
+      </div>
+      <div class="card">
+        <h2>Grandezze e unità del Sistema Internazionale</h2>
+        <div class="table-wrap"><table class="compare grandezze" id="grandezze"></table></div>
+      </div>
+      <div class="card">
+        <h2>Costanti utili</h2>
+        <div class="formulario" id="costanti"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= RIPASSA ================= -->
   <section class="view" id="view-ripassa" aria-label="Ripassa">
     <div class="seg" id="ripSeg" role="tablist">
@@ -522,6 +632,7 @@
   <button class="tab" data-view="detta"><svg class="i"><use href="#i-mic"/></svg><span>Scrivi</span></button>
   <button class="tab" data-view="mappa"><svg class="i"><use href="#i-map"/></svg><span>Mappe</span></button>
   <button class="tab" data-view="mate"><svg class="i"><use href="#i-calc"/></svg><span>Mate</span></button>
+  <button class="tab" data-view="fisica"><svg class="i"><use href="#i-atom"/></svg><span>Fisica</span></button>
   <button class="tab" data-view="ripassa"><svg class="i"><use href="#i-repeat"/></svg><span>Ripassa</span></button>
 </nav>
 
@@ -651,6 +762,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="mate.js" defer></script>
+<script src="fisica.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>

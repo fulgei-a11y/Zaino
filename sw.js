@@ -1,6 +1,6 @@
 // Permette di aprire l'app anche senza connessione (le funzioni IA richiedono comunque internet).
-const CACHE = "zaino-v7";
-const SHELL = ["./", "index.html", "styles.css", "app.js", "mate.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
+const CACHE = "zaino-v8";
+const SHELL = ["./", "index.html", "styles.css", "app.js", "mate.js", "fisica.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
