@@ -450,6 +450,12 @@ Non inventare informazioni che non sono nel testo, salvo quando ti viene chiesto
 Formato consentito: righe che iniziano con "## " per i titoli, righe che iniziano con "- " per gli elenchi, **grassetto** per le parole chiave. Nient'altro.`;
 
 const PROMPTS = {
+  domandeVerifica: (t, materia) => `Una studentessa delle superiori con dislessia ha una verifica di ${materia || "questa materia"} su questo testo.
+Prepara le 8 domande più probabili che l'insegnante potrebbe fare (scritte o orali), dalla più semplice alla più difficile, con una risposta modello breve e corretta presa dal testo.
+Rispondi SOLO con JSON: {"domande": [{"domanda": "...", "risposta": "3-5 frasi brevi, con le parole chiave in **grassetto**"}]}
+
+TESTO:
+"""${t}"""`,
   controlla: (src, out, cosa, json) => `Sei un revisore molto attento. Un assistente ha preparato ${cosa} a partire dal TESTO qui sotto, per una studentessa delle superiori con dislessia.
 Controlla il lavoro confrontandolo riga per riga con il TESTO:
 1. correggi ogni informazione sbagliata, confusa o che nel testo non c'è (nomi, date, numeri, definizioni, cause e conseguenze);
@@ -1051,10 +1057,21 @@ async function pdfToText(file) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
   const MAX_PAGES = 30;
-  const n = Math.min(pdf.numPages, MAX_PAGES);
+  let pages = [...Array(Math.min(pdf.numPages, MAX_PAGES)).keys()].map(i => i + 1);
+  // PDF lunghi (per esempio i libri di LibroAID): chiedo quali pagine servono
+  if (pdf.numPages > 8) {
+    busy(false);
+    let labels = null;
+    try { labels = await pdf.getPageLabels(); } catch { /* niente */ }
+    const chosen = await askPdfPages(pdf.numPages, labels, file.name);
+    if (!chosen) throw new Error("Nessuna pagina scelta.");
+    pages = chosen;
+  }
+  const n = pages.length;
   let out = [];
-  for (let p = 1; p <= n; p++) {
-    busy(true, `Leggo il PDF: pagina ${p} di ${n}…`);
+  for (let k = 0; k < n; k++) {
+    const p = pages[k];
+    busy(true, `Leggo il PDF: pagina ${k + 1} di ${n}…`);
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
     let text = "", lastY = null;
@@ -1082,8 +1099,39 @@ async function pdfToText(file) {
     }
     out.push(text.trim());
   }
-  if (pdf.numPages > MAX_PAGES) toast(`Ho letto le prime ${MAX_PAGES} pagine. Per il resto dividi il PDF.`, 5000);
   return out.join("\n\n");
+}
+
+/** «45-52, 60» → elenco di pagine del PDF. Se il PDF ha i numeri stampati (etichette), uso quelli. */
+function parsePageList(txt, total, labels) {
+  const toIndex = (v) => {
+    if (labels) { const i = labels.indexOf(String(v)); if (i >= 0) return i + 1; }
+    const n = parseInt(v, 10);
+    return n >= 1 && n <= total ? n : null;
+  };
+  const out = [];
+  for (const part of txt.replace(/\s*[-–]\s*/g, "-").split(/[\s,;]+/).filter(Boolean)) {
+    const m = part.match(/^(\w+)\s*[-–]\s*(\w+)$/);
+    if (m) {
+      const a = toIndex(m[1]), b = toIndex(m[2]);
+      if (a && b) for (let i = Math.min(a, b); i <= Math.max(a, b); i++) out.push(i);
+    } else { const a = toIndex(part); if (a) out.push(a); }
+  }
+  return [...new Set(out)].sort((x, y) => x - y);
+}
+async function askPdfPages(total, labels, name) {
+  const useLabels = labels && labels.some((l, i) => l !== String(i + 1));
+  const msg = `«${name}» ha ${total} pagine. Quali ti servono? Scrivi per esempio 45-52 oppure 12, 15-18.` +
+    (useLabels ? " Puoi usare i numeri stampati sulle pagine del libro." : " Usa i numeri delle pagine del PDF (possono essere diversi da quelli stampati sul libro).") +
+    ` Al massimo 30 pagine alla volta.`;
+  for (;;) {
+    const r = await uiDialog({ title: "Quali pagine?", message: msg, input: "", buttons: [{ label: "Annulla", value: null }, { label: "Leggi queste pagine", value: "ok", primary: true }] });
+    if (!r || r.choice !== "ok") return null;
+    const pages = parsePageList(r.text, total, useLabels ? labels : null);
+    if (!pages.length) { toast("Non ho capito le pagine. Scrivi per esempio 45-52."); continue; }
+    if (pages.length > 30) { toast(`Sono ${pages.length} pagine: scegline al massimo 30 alla volta.`, 5000); continue; }
+    return pages;
+  }
 }
 
 async function handleFiles(files) {
@@ -1164,13 +1212,18 @@ function showResult(title, html, md) {
   $("#resultCard").scrollIntoView({ behavior: "smooth" });
 }
 
-function makeDeck(data, lang = "it") {
+function buildDeck(data, lang = "it", subject = reader.subject || "", title = "") {
   const cards = (data.carte || data.cards || []).filter(c => c.domanda && c.risposta).map(c => ({ q: c.domanda, a: c.risposta, box: 0 }));
   if (!cards.length) throw new Error("Non sono riuscito a creare le carte. Riprova.");
-  const deck = { id: uid(), title: data.titolo || "Flashcard", date: todayLabel(), cards, lang, subject: reader.subject || "" };
+  const deck = { id: uid(), title: title || data.titolo || "Flashcard", date: todayLabel(), cards, lang, subject };
   const decks = store.get("decks", []);
   decks.unshift(deck);
   store.set("decks", decks);
+  return deck;
+}
+function makeDeck(data, lang = "it") {
+  const deck = buildDeck(data, lang);
+  const cards = deck.cards;
   flash.refreshDecks(deck.id);
   showView("ripassa");
   ripassa.tab("carte");
@@ -2179,12 +2232,21 @@ const planner = {
     if (!date) return toast("Scegli la data della verifica.");
     if (date <= today) return toast("La data della verifica deve essere dopo oggi.");
     if (!topics) return toast("Scrivi cosa devi studiare.");
+    await this.make({ subject, date, topics, minutes });
+    $("#planTopics").value = "";
+    this.render();
+    $("#planList").scrollIntoView({ behavior: "smooth" });
+  },
+
+  /** Crea e salva un piano; lo usa anche «Preparo la verifica». */
+  async make({ subject, date, topics, minutes, extra = "" }) {
+    const today = isoDay(new Date());
     const days = [];
     for (let d = new Date(today + "T12:00"); isoDay(d) < date && days.length < 30; d.setDate(d.getDate() + 1)) days.push(isoDay(d));
     let sessions;
     try {
       busy(true, "Preparo il piano…");
-      const out = parseJSON(await ask({ prompt: PROMPTS.piano(subject, topics, days, minutes), json: true, temperature: 0.3 }));
+      const out = parseJSON(await ask({ prompt: PROMPTS.piano(subject, topics + (extra ? "\n" + extra : ""), days, minutes), json: true, temperature: 0.3 }));
       sessions = (out.sessioni || []).map((x, i) => ({ date: days.includes(x.data) ? x.data : days[Math.min(i, days.length - 1)], items: (x.attivita || []).map(t => ({ t: String(t), done: false })) }))
         .filter(x => x.items.length);
       if (!sessions.length) throw new Error();
@@ -2200,9 +2262,7 @@ const planner = {
     const plans = store.get("plans", []);
     plans.unshift(plan);
     store.set("plans", plans);
-    $("#planTopics").value = "";
-    this.render();
-    $("#planList").scrollIntoView({ behavior: "smooth" });
+    return plan;
   },
 
   /** Piano di riserva, senza IA: un argomento al giorno e ripasso finale. */
@@ -2482,10 +2542,13 @@ const home = {
         `<li><label class="p-item"><input type="checkbox" data-plan="${p.id}" data-si="${si}" data-ii="${ii}"${it.done ? " checked" : ""}><span>${escapeHtml(it.t)}<small>${escapeHtml(p.subject)}</small></span></label></li>`).join("")}</ul>`;
     } else if (next) {
       const left = daysBetween(today, next.date);
+      // se per questa verifica c'è un kit pronto, lo offro
       t.innerHTML = `<h2>${icon("calendar")}Prossima verifica</h2><ul><li><button class="p-item" data-go="piano"><span>${escapeHtml(next.subject)}<small>${left === 1 ? "domani" : "tra " + left + " giorni"}: oggi niente in programma</small></span></button></li></ul>`;
     } else {
-      t.innerHTML = `<h2>${icon("calendar")}Hai una verifica in arrivo?</h2><p class="hint">Dimmi la data e cosa studiare: preparo un piano giorno per giorno, a piccoli passi.</p><button class="btn small" data-go="piano">Crea un piano</button>`;
+      t.innerHTML = `<h2>${icon("calendar")}Hai una verifica in arrivo?</h2><p class="hint">Apri il capitolo (foto, PDF o testo) e premi <b>Preparo la verifica</b>: riassunto, mappa, flashcard, domande probabili e piano, tutto insieme.</p><button class="btn small" data-go="piano">Oppure crea solo un piano</button>`;
     }
+    const kitNext = store.get("kits", []).filter(k => k.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
+    if (kitNext) t.insertAdjacentHTML("beforeend", `<button class="btn small" data-kitopen="${kitNext.id}">${icon("layers")}Materiale per «${escapeHtml(kitNext.topic.slice(0, 40))}»</button>`);
     t.classList.remove("hidden");
     // da riprendere
     const r = $("#homeRecent");
@@ -2501,6 +2564,8 @@ const home = {
     $("#homePanels").addEventListener("click", (e) => {
       const go = e.target.closest("[data-go]");
       if (go) { if (go.dataset.go === "piano") { showView("ripassa"); ripassa.tab("piano"); } else showView(go.dataset.go); return; }
+      const ko = e.target.closest("[data-kitopen]");
+      if (ko) { const K = kit.find(ko.dataset.kitopen); if (K) kit.showDone(K); return; }
       const op = e.target.closest("[data-open]");
       if (op) openNotebookItem(op.dataset.open, op.dataset.type);
     });
@@ -2511,12 +2576,154 @@ const home = {
   }
 };
 
+/* =========================================================
+   PREPARO LA VERIFICA: tutto il materiale in un passo
+   ========================================================= */
+const kit = {
+  STEPS: [
+    ["testo", "Salvo il testo nel quaderno"],
+    ["riassunto", "Riassunto"],
+    ["mappa", "Mappa"],
+    ["flashcard", "Flashcard"],
+    ["domande", "Domande probabili con le risposte"],
+    ["piano", "Piano giorno per giorno"]
+  ],
+  open() {
+    const text = reader.activeText();
+    if (!text) return toast("Prima apri il testo da studiare.");
+    if (text.length < 300) return toast("Il testo è troppo breve per preparare una verifica.");
+    fillSubjects();
+    $("#kitSubject").value = reader.subject || "";
+    $("#kitTopic").value = reader.title() || "";
+    const d = new Date(); d.setDate(d.getDate() + 7);
+    $("#kitDate").value = "";
+    $("#kitDate").min = isoDay(new Date(Date.now() + 86400000));
+    $("#kitForm").classList.remove("hidden");
+    $("#kitProgress").classList.add("hidden");
+    $("#kitDone").classList.add("hidden");
+    $("#dlgKit").showModal();
+  },
+  async run() {
+    const text = reader.activeText();
+    const subject = $("#kitSubject").value.trim();
+    const topic = $("#kitTopic").value.trim() || reader.title() || "Verifica";
+    const date = $("#kitDate").value;
+    const minutes = Number($("#kitMinutes").value) || 30;
+    const today = isoDay(new Date());
+    if (date && date <= today) return toast("La data della verifica deve essere dopo oggi.");
+    reader.subject = subject;
+    const steps = this.STEPS.filter(([k]) => k !== "piano" || date);
+    $("#kitForm").classList.add("hidden");
+    const prog = $("#kitProgress");
+    prog.classList.remove("hidden");
+    prog.innerHTML = `<p class="hint">Ci vuole circa un minuto: puoi lasciare il telefono, continuo da sola.</p><ol class="kit-steps">${steps.map(([k, l]) => `<li data-k="${k}"><span class="ks-dot"></span>${escapeHtml(l)}</li>`).join("")}</ol>`;
+    const mark = (k, st) => { const li = prog.querySelector(`[data-k="${k}"]`); if (li) li.className = st; };
+    const K = { id: uid(), subject, topic, date, created: today, problems: [] };
+    const title = (what) => `${what}: ${topic}`;
+    for (const [k] of steps) {
+      mark(k, "doing");
+      try {
+        if (k === "testo") {
+          K.textId = uid();
+          notebookPut({ id: K.textId, type: "testo", title: title("Testo"), subject, date: todayLabel(), data: text });
+        }
+        if (k === "riassunto") {
+          const md = await askChecked("riassunto", text, { prompt: PROMPTS.riassunto(text), system: SYSTEM_TUTOR });
+          K.sumId = uid(); K.sum = md;
+          notebookPut({ id: K.sumId, type: "testo", title: title("Riassunto"), subject, date: todayLabel(), data: md.replace(/\*\*/g, "").replace(/^##\s*/gm, "# ").replace(/^[-*•]\s+/gm, "") });
+        }
+        if (k === "mappa") {
+          const root = normalizeMap(parseJSON(await askChecked("mappa", text, { prompt: PROMPTS.mappa(text), system: SYSTEM_TUTOR, json: true })));
+          K.mapId = uid();
+          notebookPut({ id: K.mapId, type: "mappa", title: root.text || title("Mappa"), subject, date: todayLabel(), data: cleanMap(root) });
+        }
+        if (k === "flashcard") {
+          const deck = buildDeck(parseJSON(await askChecked("flashcard", text, { prompt: PROMPTS.flashcard(text), system: SYSTEM_TUTOR, json: true })), "it", subject, title("Flashcard"));
+          K.deckId = deck.id; flash.refreshDecks();
+        }
+        if (k === "domande") {
+          const d = parseJSON(await ask({ prompt: PROMPTS.domandeVerifica(text, subject), system: SYSTEM_TUTOR, json: true, temperature: 0.3, claude: true }));
+          K.questions = (d.domande || []).filter(q => q.domanda && q.risposta);
+          if (!K.questions.length) throw new Error();
+          K.qId = uid();
+          notebookPut({ id: K.qId, type: "testo", title: title("Domande probabili"), subject, date: todayLabel(),
+            data: "# Domande probabili\n\n" + K.questions.map((q, i) => `# ${i + 1}. ${q.domanda}\n\n${q.risposta.replace(/\*\*/g, "")}`).join("\n\n") });
+        }
+        if (k === "piano") {
+          const plan = await planner.make({ subject: subject || topic, date, minutes,
+            topics: topic,
+            extra: "Materiale già pronto in Zaino: riassunto, mappa, flashcard e domande probabili. Usa attività come: ascolta il riassunto, ripassa la mappa, flashcard, rispondi a voce alle domande probabili, interrogazione simulata." });
+          K.planId = plan.id;
+        }
+        mark(k, "ok");
+      } catch (e) {
+        mark(k, "ko"); K.problems.push(k);
+      }
+      busy(false);
+    }
+    const kits = store.get("kits", []).filter(x => x.date >= today || !x.date).slice(0, 9);
+    kits.unshift(K); store.set("kits", kits);
+    planner.render(); home.render(); renderNotebook();
+    this.showDone(K);
+  },
+  showDone(K) {
+    $("#kitForm").classList.add("hidden");
+    $("#kitProgress").classList.add("hidden");
+    const box = $("#kitDone");
+    const b = (k, ic, label, sub, ok = true) => ok ? `<button class="kit-out" data-kit="${k}">${icon(ic)}<span><b>${label}</b><small>${sub}</small></span></button>` : "";
+    const left = K.date ? daysBetween(isoDay(new Date()), K.date) : null;
+    box.innerHTML = `<h3>${escapeHtml(K.topic)}</h3>
+      <p class="hint">${K.subject ? escapeHtml(K.subject) + " · " : ""}${left !== null ? (left === 1 ? "verifica domani" : left > 1 ? `verifica tra ${left} giorni` : "verifica passata") : "senza data"}</p>
+      ${K.problems.length ? `<p class="kit-warn">Qualcosa non è riuscito (${K.problems.length}): puoi rifarlo dagli strumenti sotto il testo.</p>` : ""}
+      <div class="kit-grid">
+        ${b("sum", "list", "Riassunto", "Leggilo o ascoltalo", !!K.sumId)}
+        ${b("map", "map", "Mappa", "Da completare e stampare", !!K.mapId)}
+        ${b("cards", "cards", "Flashcard", "Ripasso a carte", !!K.deckId)}
+        ${b("questions", "help", "Domande probabili", "Con le risposte modello", !!K.qId)}
+        ${b("ask", "chat", "Interrogami", "A voce, sul testo", !!K.textId)}
+        ${b("plan", "calendar", "Il piano", "Cosa fare ogni giorno", !!K.planId)}
+      </div>
+      <div class="btn-row"><button class="btn primary" data-kit="print">${icon("printer")}Stampa riassunto e domande</button></div>`;
+    box.dataset.kit = K.id;
+    box.classList.remove("hidden");
+    if (!$("#dlgKit").open) $("#dlgKit").showModal();
+  },
+  find(id) { return store.get("kits", []).find(x => x.id === id); },
+  action(what) {
+    const K = this.find($("#kitDone").dataset.kit);
+    if (!K) return;
+    const close = () => $("#dlgKit").close();
+    if (what === "sum") { close(); return openNotebookItem(K.sumId, "testo"); }
+    if (what === "questions") { close(); return openNotebookItem(K.qId, "testo"); }
+    if (what === "map") { close(); return openNotebookItem(K.mapId, "mappa"); }
+    if (what === "cards") { close(); return openNotebookItem(K.deckId, "flashcard"); }
+    if (what === "plan") { close(); showView("ripassa"); return ripassa.tab("piano"); }
+    if (what === "ask") {
+      const it = store.get("notebook", []).find(x => x.id === K.textId);
+      if (!it) return toast("Il testo non è più nel quaderno.");
+      close(); showView("ripassa"); ripassa.tab("interroga"); return quiz.setSource(it.data, K.topic);
+    }
+    if (what === "print") {
+      const qs = (K.questions || []).map((q, i) => `<h3>${i + 1}. ${escapeHtml(q.domanda)}</h3>${mdToHtml(q.risposta)}`).join("");
+      return printer.run(`<div class="print-text"><h1>${escapeHtml(K.topic)}</h1>${K.sum ? mdToHtml(K.sum) : ""}${qs ? `<h2>Domande probabili</h2>${qs}` : ""}</div>`, { title: (K.subject ? K.subject + " · " : "") + "Verifica" });
+    }
+  },
+  bind() {
+    $("#btnKit").addEventListener("click", () => this.open());
+    $("#btnKitGo").addEventListener("click", () => this.run());
+    $("#btnKitCancel").addEventListener("click", () => $("#dlgKit").close());
+    $("#btnKitClose").addEventListener("click", () => $("#dlgKit").close());
+    $("#kitDone").addEventListener("click", (e) => { const b = e.target.closest("[data-kit]"); if (b) this.action(b.dataset.kit); });
+  }
+};
+
 const GUIDE = [
   ["Come si usa", null, [
-    ["book", "1. Porta il testo", "In Studia fotografa una pagina, carica una foto o un PDF, oppure incolla un testo o un link."],
+    ["book", "1. Porta il testo", "In Studia fotografa una pagina, carica una foto o un PDF, oppure incolla un testo o un link. Con un PDF lungo, come un libro di LibroAID, ti chiedo quali pagine leggere."],
     ["globe", "Da un sito o Wikipedia", "Incolla un link: Zaino prende solo il testo della pagina, senza pubblicità. Oppure scrivi un argomento e trova la voce di Wikipedia. Per le pagine con accesso (registro, piattaforma della scuola) c'è il tasto «Manda a Zaino»; su Android anche Condividi → Zaino."],
     ["volume", "2. Ascoltalo", "Premi il tasto blu: la voce legge e la frase si colora come con un evidenziatore. Tocca una frase per partire da lì."],
     ["sparkles", "3. Trasformalo", "Sotto il testo scegli cosa ti serve: riassunto, mappa, linea del tempo, flashcard e altro."],
+    ["layers", "Preparo la verifica", "Un tasto solo, sotto il testo: riassunto, mappa, flashcard, le domande più probabili con le risposte e il piano fino alla data. Tutto finisce nel quaderno e in Ripassa."],
     ["chat", "4. Mettiti alla prova", "In Ripassa: flashcard, interrogazione a voce e piano verso la verifica."]
   ]],
   ["Studia", "Il lettore e gli strumenti sul testo.", [
@@ -2755,7 +2962,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "16";
+const APP_VERSION = "17";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -3221,6 +3428,7 @@ function init() {
   });
 
   web.bind();
+  kit.bind();
 
   // ripristino del lavoro in corso
   const cur = store.get("current", "");
