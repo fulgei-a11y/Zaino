@@ -179,8 +179,10 @@ const lifeTxt = (a, b) => b == null ? `nato nel ${yearTxt(a)}` : (a < 0 ? `ca. $
    2. ISTRUZIONI PER L'IA
    ========================================================= */
 const AUTORE_PROMPTS = {
-  scheda: (nome, materia, vita) => `Prepara una scheda di studio su ${nome} (${vita}) per una studentessa di quarta del liceo delle scienze umane con dislessia, materia: ${materia}.
+  scheda: (nome, materia, vita, fonte) => `Prepara una scheda di studio su ${nome} (${vita}) per una studentessa di quarta del liceo delle scienze umane con dislessia, materia: ${materia}.
 Usa frasi brevi (massimo 20 parole), parole semplici, e spiega i termini tecnici. Solo informazioni corrette e verificabili.
+${fonte ? `Basati sulla VOCE DI WIKIPEDIA riportata in fondo: prendi da lì date, opere, concetti e nomi. Puoi semplificare e riordinare, ma non contraddirla.
+Se un'informazione non è nella voce, aggiungila solo se ne sei assolutamente sicuro; altrimenti lasciala fuori. Non inventare frasi celebri: se non sei certo che sia autentica, scrivi "frase": null.` : `Se non sei sicuro di un dato (anno, titolo, frase celebre), lascialo fuori. Non inventare frasi celebri: se non sei certo, scrivi "frase": null.`}
 Rispondi SOLO con JSON:
 {"in_breve": "2 frasi: chi è e perché è importante",
  "contesto": "1-2 frasi sul periodo storico e sul problema che affronta",
@@ -193,7 +195,10 @@ Rispondi SOLO con JSON:
  "frase": {"testo": "una frase celebre (tradotta in italiano)", "spiegazione": "cosa vuol dire"},
  "attualita": "1-2 frasi: perché è ancora utile oggi",
  "domande": ["3 domande tipiche da interrogazione"]}
-Da 4 a 6 punti in "pensiero", da 5 a 8 "parole", da 2 a 4 "collegamenti", da 1 a 4 "opere".`,
+Da 4 a 6 punti in "pensiero", da 5 a 8 "parole", da 2 a 4 "collegamenti", da 1 a 4 "opere".${fonte ? `
+
+VOCE DI WIKIPEDIA («${fonte.title}»):
+"""${fonte.text}"""` : ""}`,
   confronta: (a, b, materia) => `Confronta ${a} e ${b} (${materia}) per una studentessa delle superiori con dislessia.
 Rispondi SOLO con JSON: {"titolo": "${a} e ${b} a confronto", "colonne": ["${a}", "${b}"], "righe": [{"aspetto": "...", "valori": ["...", "..."]}], "in_comune": "una frase su cosa hanno in comune", "differenza": "una frase sulla differenza più importante"}
 Da 5 a 8 righe (es. periodo, problema principale, idea chiave, metodo, conoscenza, uomo/società, opere). Celle brevi (massimo 14 parole), parole chiave, contenuti corretti.`,
@@ -476,7 +481,7 @@ const autori = {
     if (!qz) {
       try {
         busy(true, "Preparo il quiz…");
-        qz = parseJSON(await ask({ prompt: AUTORE_PROMPTS.quiz(a.name, this.cardText(key)), json: true, temperature: 0.4 }));
+        qz = parseJSON(await ask({ prompt: AUTORE_PROMPTS.quiz(a.name, this.cardText(key)), json: true, temperature: 0.4, quality: true }));
         qz.domande = (qz.domande || []).filter(d => d.domanda && Array.isArray(d.opzioni) && d.opzioni.length >= 2 && d.giusta >= 0 && d.giusta < d.opzioni.length);
         if (!qz.domande.length) throw new Error("Non sono riuscito a preparare il quiz. Riprova.");
         store.set("quiz:" + a.id, qz);
@@ -529,18 +534,44 @@ const autori = {
   },
 
   /* ---------- scheda autore ---------- */
+  /** La voce di Wikipedia dell'autore (se la trovo con sicurezza), da usare come base della scheda. */
+  async wikiSource(key, a) {
+    try {
+      const role = key === "filo" ? "filosofo" : ({ pedagogia: "pedagogista", psicologia: "psicologo", sociologia: "sociologo", antropologia: "antropologo" }[a.group] || "");
+      const surname = a.name.split(/\s+/).pop().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const norm = (t) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const hits = await web.wikiSearch(`${a.name} ${role}`);
+      const hit = hits.find(h => norm(h.title).includes(surname) && !/disambigua|\(film|\(album/i.test(h.title));
+      if (!hit) return null;
+      const w = await web.wikiText("it", hit.title);
+      if (w.text.length < 800) return null;
+      return { title: w.title, text: w.text.slice(0, 12000) };
+    } catch { return null; }
+  },
+
   async openCard(key, id, regenerate = false) {
     const a = this.find(key, id);
     if (!a) return;
     this.state[key].current = id;
-    let data = regenerate ? null : store.get("autore:" + id, null);
+    const cached = store.get("autore:" + id, null);
+    // le schede fatte prima del controllo su Wikipedia vengono rifatte una volta (se qualcosa va storto, tengo la vecchia)
+    let data = regenerate || (cached && !cached.v2) ? null : cached;
     if (!data) {
       try {
+        busy(true, `Cerco ${a.name} su Wikipedia…`);
+        const fonte = await this.wikiSource(key, a);
         busy(true, `Preparo la scheda di ${a.name}…`);
-        data = parseJSON(await ask({ prompt: AUTORE_PROMPTS.scheda(a.name, this.materiaOf(key, a), lifeTxt(a.from, a.to)), json: true, temperature: 0.2 }));
+        data = parseJSON(await ask({ prompt: AUTORE_PROMPTS.scheda(a.name, this.materiaOf(key, a), lifeTxt(a.from, a.to), fonte), json: true, temperature: 0.2, quality: true }));
+        data.v2 = true;
+        if (cached) store.set("quiz:" + id, null);
+        if (fonte) data.fonte = { title: fonte.title, url: `https://it.wikipedia.org/wiki/${encodeURIComponent(fonte.title.replace(/ /g, "_"))}` };
         store.set("autore:" + id, data);
         this.renderList(key);
-      } catch (e) { busy(false); return toast(e.message || "Non sono riuscito a preparare la scheda. Riprova.", 6000); }
+      } catch (e) {
+        busy(false);
+        if (cached && !regenerate) data = cached;
+        else return toast(e.message || "Non sono riuscito a preparare la scheda. Riprova.", 6000);
+      }
       busy(false);
     }
     const g = this.groupOf(key, a.group);
@@ -573,7 +604,7 @@ const autori = {
         ${data.frase?.testo ? `<blockquote class="au-quote"><p>«${escapeHtml(data.frase.testo)}»</p>${data.frase.spiegazione ? `<small>${escapeHtml(data.frase.spiegazione)}</small>` : ""}</blockquote>` : ""}
         ${data.attualita ? `<h3>Perché è ancora attuale</h3><p>${escapeHtml(data.attualita)}</p>` : ""}
         ${L(data.domande).length ? `<h3>Domande da interrogazione</h3><ol>${L(data.domande).map(q => `<li>${escapeHtml(q)}</li>`).join("")}</ol>` : ""}
-        <p class="hint au-note">Scheda preparata dall'IA: confrontala con il libro e con gli appunti. <button class="linklike" data-act="regen">Rifalla</button></p>
+        <p class="hint au-note">${data.fonte ? `Scheda preparata dall'IA partendo dalla voce di Wikipedia <a href="${escapeHtml(data.fonte.url)}" target="_blank" rel="noopener">«${escapeHtml(data.fonte.title)}»</a>.` : "Scheda preparata dall'IA."} Confrontala con il libro e con gli appunti. <button class="linklike" data-act="regen">Rifalla</button></p>
       </div>`;
     $(`#view-${key} .au-quiz`).classList.add("hidden");
     this.pane(key, "scheda");
@@ -631,7 +662,7 @@ const autori = {
     if (A.id === B.id) return toast("Scegli due autori diversi.");
     try {
       busy(true, `Confronto ${A.name} e ${B.name}…`);
-      const d = parseJSON(await ask({ prompt: AUTORE_PROMPTS.confronta(A.name, B.name, SUBJECTS[key].materia), json: true, temperature: 0.2 }));
+      const d = parseJSON(await ask({ prompt: AUTORE_PROMPTS.confronta(A.name, B.name, SUBJECTS[key].materia), json: true, temperature: 0.2, quality: true }));
       const r = renderCompare(d);
       const out = root.querySelector(".au-cmp-out");
       out.innerHTML = `<h2>${escapeHtml(r.title)}</h2><div class="result">${r.html}</div>

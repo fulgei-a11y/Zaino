@@ -121,12 +121,16 @@ const DEFAULTS = {
   font: "Atkinson", size: 22, letter: 0.05, line: 1.9, theme: "crema", syllables: false,
   voice: "", rate: 0.95,
   modGemini: "gemini-flash-latest",
-  modGroq: "llama-3.3-70b-versatile",
+  modGroq: "openai/gpt-oss-120b",
+  modGroqBackup: "llama-3.3-70b-versatile",
+  check: true,
   modWhisper: "whisper-large-v3-turbo",
   modGeminiLite: "gemini-flash-lite-latest",
   modGroqVision: ""
 };
 const settings = Object.assign({}, DEFAULTS, store.get("settings", {}));
+// aggiornamento: chi aveva il vecchio modello Groq predefinito passa a quello nuovo, più preciso
+if (settings.modGroq === "llama-3.3-70b-versatile") { settings.modGroq = DEFAULTS.modGroq; store.set("settings", settings); }
 const FONTS = {
   Atkinson: '"Atkinson Hyperlegible", Verdana, sans-serif',
   Lexend: 'Lexend, Verdana, sans-serif',
@@ -205,6 +209,7 @@ async function geminiCall({ prompt, system, images = [], json = false, temperatu
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const e = new AIError(friendlyError("Gemini", res.status, data?.error?.message), res.status);
+    e.raw = data?.error?.message || "";
     e.wait = waitSeconds(res.status, data?.error, res.headers.get("retry-after"));
     throw e;
   }
@@ -266,7 +271,29 @@ async function findGroqVision() {
   return groqVisionModel;
 }
 
-/** Chiede all'IA provando in ordine: Gemini → Gemini Flash-Lite → Groq.
+/** Il modello Gemini più potente ("Pro") disponibile con la chiave; controllo una volta al giorno. */
+let geminiProModel;
+async function findGeminiPro() {
+  if (geminiProModel !== undefined) return geminiProModel;
+  const c = store.get("geminiPro", null);
+  if (c && Date.now() - c.t < 86400000) return (geminiProModel = c.m);
+  let m = "";
+  try {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": settings.keyGemini } });
+    if (r.ok) {
+      const names = ((await r.json()).models || [])
+        .filter(x => (x.supportedGenerationMethods || []).includes("generateContent"))
+        .map(x => x.name.replace(/^models\//, ""));
+      const ver = (n) => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+      if (names.includes("gemini-pro-latest")) m = "gemini-pro-latest";
+      else m = names.filter(n => /^gemini-\d+(\.\d+)?-pro(-preview)?(-[\d-]+)?$/.test(n)).sort((a, b) => ver(b) - ver(a) || a.length - b.length)[0] || "";
+    }
+  } catch { /* uso solo Flash */ }
+  store.set("geminiPro", { m, t: Date.now() });
+  return (geminiProModel = m);
+}
+
+/** Chiede all'IA provando in ordine: (Gemini Pro per i compiti importanti) → Gemini → Gemini Flash-Lite → Groq.
     Un servizio che ha appena segnalato il limite viene saltato finché non si riposa. */
 async function ask(opts) {
   const hasG = !!settings.keyGemini, hasQ = !!settings.keyGroq;
@@ -277,6 +304,14 @@ async function ask(opts) {
   const withImages = !!opts.images?.length;
   const main = settings.modGemini || DEFAULTS.modGemini;
   const steps = [];
+  if (hasG && opts.quality && !withImages) {
+    steps.push({ key: "gemini:pro", name: "Gemini Pro", pro: true, run: async () => {
+      const m = await findGeminiPro();
+      if (!m) throw new AIError("Nessun modello Pro disponibile.", 404);
+      busy(true, "Uso il modello più preciso: ci vuole qualche secondo in più…");
+      return geminiCall({ ...opts, model: m });
+    } });
+  }
   if (hasG) {
     steps.push({ key: "gemini:" + main, name: "Gemini", run: () => geminiCall({ ...opts, model: main }) });
     for (const m of [DEFAULTS.modGeminiLite, "gemini-2.5-flash"]) {
@@ -289,7 +324,12 @@ async function ask(opts) {
       if (!m) throw new AIError("Su Groq non c'è un modello per leggere le foto.", 404);
       return groqChat({ ...opts, model: m });
     } });
-    else steps.push({ key: "groq:text", name: "Groq", run: () => groqChat(opts) });
+    else {
+      const gm = settings.modGroq || DEFAULTS.modGroq;
+      steps.push({ key: "groq:" + gm, name: "Groq", run: () => groqChat({ ...opts, model: gm }) });
+      // riserva: se il modello principale rifiuta (testo troppo lungo, limite), provo il modello più leggero
+      if (DEFAULTS.modGroqBackup !== gm) steps.push({ key: "groq:" + DEFAULTS.modGroqBackup, name: "Groq (riserva)", run: () => groqChat({ ...opts, model: DEFAULTS.modGroqBackup }), quiet404: true });
+    }
   }
   // prima quelli riposati; se sono tutti in pausa, li provo comunque
   const ready = steps.filter(s => cooldown.ok(s.key));
@@ -305,6 +345,9 @@ async function ask(opts) {
     } catch (e) {
       if (e.wait) cooldown.set(s.key, e.wait);
       if (e.status === 404 && s.quiet404) cooldown.set(s.key, 24 * 3600); // modello di riserva inesistente: lo salto
+      // il modello Pro non è compreso nella chiave gratuita (limite 0, accesso negato): lo salto per un giorno
+      if (s.pro && (e.status === 403 || e.status === 404 || /limit:\s*0\b|free_tier|not available/i.test(e.raw || ""))) cooldown.set(s.key, 24 * 3600);
+      if (s.pro) continue; // un errore del Pro non deve mai bloccare: si passa al Flash
       if (!firstErr && !(e.status === 404 && s.quiet404)) firstErr = e;
       lastErr = e;
       // chiave sbagliata o richiesta non valida: provo comunque il servizio successivo
@@ -349,6 +392,20 @@ Non inventare informazioni che non sono nel testo, salvo quando ti viene chiesto
 Formato consentito: righe che iniziano con "## " per i titoli, righe che iniziano con "- " per gli elenchi, **grassetto** per le parole chiave. Nient'altro.`;
 
 const PROMPTS = {
+  controlla: (src, out, cosa, json) => `Sei un revisore molto attento. Un assistente ha preparato ${cosa} a partire dal TESTO qui sotto, per una studentessa delle superiori con dislessia.
+Controlla il lavoro confrontandolo riga per riga con il TESTO:
+1. correggi ogni informazione sbagliata, confusa o che nel testo non c'è (nomi, date, numeri, definizioni, cause e conseguenze);
+2. aggiungi le informazioni importanti del testo che mancano;
+3. togli ripetizioni e frasi vuote;
+4. NON cambiare lo stile semplice, mantieni più o meno la stessa lunghezza e lo stesso formato.
+${json ? "Rispondi SOLO con il JSON corretto, con la stessa identica struttura e gli stessi nomi dei campi." : "Rispondi SOLO con la versione corretta e completa, nello stesso formato, senza commenti e senza dire cosa hai cambiato."}
+Se è già tutto corretto, restituiscilo identico.
+
+TESTO:
+"""${src}"""
+
+${cosa.toUpperCase()} DA CONTROLLARE:
+"""${out}"""`,
   ocr: `Trascrivi fedelmente tutto il testo di questa pagina, nell'ordine in cui si legge.
 - Scrivi i titoli su una riga che inizia con "# ".
 - Separa i paragrafi con una riga vuota. Unisci le parole spezzate a fine riga.
@@ -1113,6 +1170,26 @@ async function chooseTargetLang() {
   });
 }
 
+/** Chiede il lavoro all'IA e poi lo fa ricontrollare sul testo di partenza.
+    Se il controllo non riesce o rovina il formato, tengo la prima versione. */
+const CHECK_WHAT = { mappa: "una mappa concettuale (in JSON)", flashcard: "delle flashcard (in JSON)", linea: "una linea del tempo (in JSON)",
+  confronta: "una tabella di confronto (in JSON)", riassunto: "un riassunto", semplifica: "una versione semplificata", parole: "un elenco di parole chiave", formulario: "un formulario" };
+async function askChecked(act, text, opts) {
+  const first = await ask(opts);
+  if (!settings.check || !CHECK_WHAT[act] || text.length < 300 || text.length > 30000) return first;
+  busy(true, "Ricontrollo sul testo che sia tutto giusto…");
+  try {
+    const fixed = await ask({ prompt: PROMPTS.controlla(text, first, CHECK_WHAT[act], !!opts.json), system: opts.system, json: !!opts.json, temperature: 0 });
+    if (opts.json) {
+      const a = parseJSON(first), b = parseJSON(fixed);
+      const ok = Object.keys(a).every(k => k in b && (!Array.isArray(a[k]) || (Array.isArray(b[k]) && (b[k].length > 0 || a[k].length === 0))));
+      return ok ? fixed : first;
+    }
+    const t = fixed.trim();
+    return t.length > first.length * 0.6 && t.length < first.length * 1.8 ? t : first;
+  } catch { return first; }
+}
+
 async function runAction(act, source) {
   const text = source || reader.activeText();
   if (!text) return;
@@ -1122,14 +1199,14 @@ async function runAction(act, source) {
     if (act === "interroga") { showView("ripassa"); ripassa.tab("interroga"); return quiz.setSource(text, reader.title()); }
     if (act === "mappa") {
       busy(true, "Sto creando la mappa…");
-      const data = parseJSON(await ask({ prompt: PROMPTS.mappa(text), system: SYSTEM_TUTOR, json: true }));
+      const data = parseJSON(await askChecked("mappa", text, { prompt: PROMPTS.mappa(text), system: SYSTEM_TUTOR, json: true }));
       mindmap.load(normalizeMap(data));
       showView("mappa");
       return;
     }
     if (act === "flashcard") {
       busy(true, "Sto preparando le flashcard…");
-      return makeDeck(parseJSON(await ask({ prompt: PROMPTS.flashcard(text), system: SYSTEM_TUTOR, json: true })));
+      return makeDeck(parseJSON(await askChecked("flashcard", text, { prompt: PROMPTS.flashcard(text), system: SYSTEM_TUTOR, json: true })));
     }
     if (act === "vocaboli") {
       const lang = source ? detectLang(text) : reader.lang;
@@ -1147,12 +1224,12 @@ async function runAction(act, source) {
     }
     if (act === "linea" || act === "confronta" || act === "esercizio") {
       busy(true, BUSY_TEXT[act]);
-      const data = parseJSON(await ask({ prompt: PROMPTS[act](text), system: SYSTEM_TUTOR, json: true, temperature: 0.2 }));
+      const data = parseJSON(await askChecked(act, text, { prompt: PROMPTS[act](text), system: SYSTEM_TUTOR, json: true, temperature: 0.2 }));
       const r = act === "linea" ? renderTimeline(data) : act === "confronta" ? renderCompare(data) : renderExercise(data);
       return showResult(r.title + part, r.html, r.md);
     }
     busy(true, BUSY_TEXT[act] || "Ci sto pensando…");
-    const out = await ask({ prompt: PROMPTS[act](text), system: SYSTEM_TUTOR });
+    const out = await askChecked(act, text, { prompt: PROMPTS[act](text), system: SYSTEM_TUTOR });
     showResult((ACT_LABELS[act] || "Risultato") + part, mdToHtml(out), out);
   } catch (e) {
     toast(e.message || "Qualcosa non ha funzionato. Riprova.", 6000);
@@ -2550,6 +2627,7 @@ function openSettings() {
   $("#modGroq").value = settings.modGroq;
   $("#modWhisper").value = settings.modWhisper;
   $("#modGroqVision").value = settings.modGroqVision;
+  $("#setCheck").checked = settings.check;
   const d = $("#dlgSettings");
   if (!d.open) d.showModal();
 }
@@ -2575,6 +2653,7 @@ function bindSettings() {
     settings.syllables = e.target.checked; saveSettings(); reader.render(); reader.setPicked(reader.picked);
   });
   $("#setTheme").addEventListener("change", () => mindmap.root && mindmap.draw());
+  $("#setCheck").addEventListener("change", (e) => { settings.check = e.target.checked; saveSettings(); });
   $("#btnVoiceTest").addEventListener("click", () => tts.say("Ciao! Questa è la voce che leggerà i tuoi testi."));
   $("#btnLoadModels").addEventListener("click", loadModels);
   $("#btnExport").addEventListener("click", exportBackup);
@@ -2617,7 +2696,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "13";
+const APP_VERSION = "14";
 
 /* =========================================================
    TESTO DA UN SITO WEB
