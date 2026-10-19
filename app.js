@@ -2420,7 +2420,10 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
+const APP_VERSION = "11";
+
 function init() {
+  if (!versionGuard()) return;
   applySettings();
   bindSettings();
 
@@ -2676,10 +2679,28 @@ function init() {
   if (!store.get("welcomed", false)) setTimeout(() => welcome.open(), 300);
   else if (!settings.keyGemini && !settings.keyGroq) setTimeout(() => { openSettings(); toast("Inserisci le chiavi gratuite di Gemini e Groq per iniziare.", 5000); }, 400);
 
-  // funziona anche come app installata
+  // funziona anche come app installata; quando arriva una versione nuova la pagina si ricarica da sola
   if ("serviceWorker" in navigator && location.protocol === "https:") {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(r => r.update()).catch(() => {});
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (hadController && !sessionStorage.getItem("zaino-reloaded")) { sessionStorage.setItem("zaino-reloaded", "1"); location.reload(); }
+    });
   }
+  $("#appVersion").textContent = "Versione " + APP_VERSION;
+}
+
+/** Se la pagina e il programma sono di versioni diverse (aggiornamento a metà), svuoto la cache e ricarico una volta. */
+function versionGuard() {
+  const pageV = document.querySelector('meta[name="zaino-version"]')?.content;
+  if (pageV === APP_VERSION) { try { sessionStorage.removeItem("zaino-fix"); } catch {} return true; }
+  try {
+    if (sessionStorage.getItem("zaino-fix")) return true;   // già provato: vado avanti comunque
+    sessionStorage.setItem("zaino-fix", "1");
+  } catch { return true; }
+  (window.caches ? caches.keys().then(k => Promise.all(k.map(x => caches.delete(x)))) : Promise.resolve())
+    .finally(() => location.reload());
+  return false;
 }
 
 document.addEventListener("DOMContentLoaded", init);
