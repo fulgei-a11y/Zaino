@@ -7,13 +7,14 @@
    ========================================================= */
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+let onStoreChange = null; // impostato più avanti: salvataggio automatico
 const store = {
   get(key, fallback) {
     try { const v = localStorage.getItem("sf." + key); return v ? JSON.parse(v) : fallback; }
     catch { return fallback; }
   },
   set(key, value) {
-    try { localStorage.setItem("sf." + key, JSON.stringify(value)); return true; }
+    try { localStorage.setItem("sf." + key, JSON.stringify(value)); onStoreChange?.(key); return true; }
     catch (e) { toast("Memoria del dispositivo piena: elimina qualcosa dal quaderno."); return false; }
   }
 };
@@ -1390,6 +1391,7 @@ const mindmap = {
     this.select(null);
     this.persist();
     this.draw({ center: true });
+    mapImages.preload(root).then(added => { if (added && this.root === root) this.draw(); }).catch(() => {});
   },
 
   showCard() {
@@ -1501,6 +1503,7 @@ const mindmap = {
         if (t === null) return;
         return this.change(() => { node.label = t || undefined; });
       }
+      case "img": return imgPicker.open(node);
       case "color": {
         const names = ["Arancio", "Verde", "Blu", "Rosa", "Giallo", "Viola", "Azzurro"];
         const c = await uiDialog({ title: `Colore di «${node.text}»`, message: node.children.length ? "Il colore vale anche per le idee collegate sotto." : "",
@@ -1609,6 +1612,31 @@ const mindmap = {
       const out = parseJSON(await ask({ prompt: PROMPTS.migliora(JSON.stringify(plain(this.root))), system: SYSTEM_TUTOR, json: true }));
       const fresh = normalizeMap(out);
       if (!fresh.children.length) throw new Error("L'IA non ha restituito una mappa valida. Riprova.");
+      // quello che ha aggiunto lei (immagini, colori, parole sulle linee, collegamenti) resta al suo posto
+      const key = (t) => String(t || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+      const old = new Map();
+      const walkOld = (n) => { old.set(key(n.text), n); n.children.forEach(walkOld); };
+      walkOld(this.root);
+      const newByKey = new Map();
+      const walkNew = (n) => {
+        const o = old.get(key(n.text));
+        if (o) { if (o.img) n.img = o.img; if (o.color != null) n.color = o.color; if (o.label) n.label = o.label; }
+        newByKey.set(key(n.text), n); n.children.forEach(walkNew);
+      };
+      walkNew(fresh);
+      const idToKey = new Map(); old.forEach((n, k) => idToKey.set(n.id, k));
+      fresh.links = (this.root.links || []).map(l => ({ ...l, a: newByKey.get(idToKey.get(l.a))?.id, b: newByKey.get(idToKey.get(l.b))?.id })).filter(l => l.a && l.b);
+      const lost = mapImages.ids(this.root).filter(i => !mapImages.ids(fresh).includes(i));
+      if (lost.length) {
+        // l'IA ha cambiato il testo di un riquadro con immagine: rimetto l'immagine sul riquadro più simile del suo ramo
+        const all = []; const w = (n) => { all.push(n); n.children.forEach(w); }; w(fresh);
+        for (const id of lost) {
+          let src; const f = (n) => { if (n.img === id) src = n; n.children.forEach(f); }; f(this.root);
+          const words = key(src?.text).split(" ").filter(x => x.length > 3);
+          const best = all.filter(n => !n.img).map(n => ({ n, sc: words.filter(x => key(n.text).includes(x)).length })).sort((a, b) => b.sc - a.sc)[0];
+          if (best && best.sc > 0) best.n.img = id;
+        }
+      }
       this.select(null);
       this.zoom = null; // la mappa è cambiata molto: la rimetto tutta nello schermo
       this.change(() => { this.root = fresh; });
@@ -1645,6 +1673,16 @@ const mindmap = {
       n._lines = lines; n._size = size; n._bold = bold; n._depth = depth;
       n._w = Math.ceil(tw + PAD_X * 2);
       n._h = Math.ceil(lines.length * size * 1.3 + PAD_Y * 2);
+      n._img = null;
+      const im = n.img && mapImages.cache.get(n.img);
+      if (im) {
+        // immagine sopra il testo, dentro il riquadro
+        let iw = Math.min(depth === 0 ? 240 : 200, Math.max(n._w - 12, 150)), ih = Math.round(iw * im.h / im.w);
+        if (ih > 170) { ih = 170; iw = Math.round(ih * im.w / im.h); }
+        n._img = { src: im.src, w: iw, h: ih };
+        n._w = Math.max(n._w, iw + 12);
+        n._h += ih + 6;
+      }
       if (depth > 0 && n.color != null && BRANCH_COLORS[n.color]) color = BRANCH_COLORS[n.color];
       n._color = color;
       n.children.forEach((c, i) => prep(c, depth + 1, depth === 0 ? BRANCH_COLORS[(c.color ?? i) % BRANCH_COLORS.length] : color));
@@ -1743,13 +1781,14 @@ const mindmap = {
         if (n.label) labels += this.labelSvg(gm.mx, gm.my, n.label, stroke, `data-elabel="${n.id}"`, print);
       }
       const tx = n._x + n._w / 2;
-      const ty0 = n._y + 10 + n._size;
+      const ty0 = n._y + 10 + n._size + (n._img ? n._img.h + 6 : 0);
+      const imgSvg = n._img ? `<image href="${n._img.src}" x="${n._x + (n._w - n._img.w) / 2}" y="${n._y + 6}" width="${n._img.w}" height="${n._img.h}" preserveAspectRatio="xMidYMid meet"/>` : "";
       const tspans = n._lines.map((l, i) => `<tspan x="${tx}" y="${ty0 + i * n._size * 1.3 - n._size * 0.15}">${escapeHtml(l)}</tspan>`).join("");
       const dash = n.ai ? ` stroke-dasharray="8 5"` : "";
       const sel = !print && n.id === this.selected ? " sel" : "";
       boxes += `<g class="map-node${sel}" data-id="${n.id}" role="button" tabindex="0">
         <rect x="${n._x}" y="${n._y}" width="${n._w}" height="${n._h}" rx="12" fill="${fill}" stroke="${stroke}" stroke-width="${n.ai ? 3 : 2}"${dash}/>
-        <text text-anchor="middle" font-family="Atkinson Hyperlegible, Verdana, sans-serif" font-size="${n._size}" font-weight="${n._bold ? 700 : 400}" fill="${ink}">${tspans}</text>
+        ${imgSvg}<text text-anchor="middle" font-family="Atkinson Hyperlegible, Verdana, sans-serif" font-size="${n._size}" font-weight="${n._bold ? 700 : 400}" fill="${ink}">${tspans}</text>
       </g>`;
     }
     // collegamenti trasversali: frecce tratteggiate con la parola di collegamento
@@ -2452,45 +2491,348 @@ function openNotebookItem(id, type) {
 }
 
 async function deleteNotebookItem(id, type) {
-  if (!(await uiConfirm("Eliminare questo elemento dal quaderno?", "Elimina", true))) return;
-  if (type === "flashcard") store.set("decks", store.get("decks", []).filter(d => d.id !== id));
-  else store.set("notebook", store.get("notebook", []).filter(x => x.id !== id));
+  if (!(await uiConfirm("Spostare questo elemento nel cestino? Potrai ripristinarlo per 30 giorni.", "Sposta nel cestino", true))) return;
+  if (type === "flashcard") {
+    const decks = store.get("decks", []), d = decks.find(x => x.id === id);
+    if (d) trash.put("deck", d);
+    store.set("decks", decks.filter(x => x.id !== id));
+    flash.refreshDecks();
+  } else {
+    const nb = store.get("notebook", []), it = nb.find(x => x.id === id);
+    if (it) trash.put("notebook", it);
+    store.set("notebook", nb.filter(x => x.id !== id));
+  }
+  trash.render();
   renderNotebook();
 }
 
-function exportBackup() {
-  // schede degli autori e quiz già pronti: così non vanno rifatti (e non si ripagano) sull'altro dispositivo
+/* ---------- scelta dell'immagine per un riquadro della mappa ---------- */
+const imgPicker = {
+  node: null,
+  open(node) {
+    this.node = node;
+    $("#imgTitle").textContent = `Immagine per «${node.text.slice(0, 40)}»`;
+    $("#imgQuery").value = node.text;
+    $("#imgResults").innerHTML = "";
+    const cur = node.img && mapImages.cache.get(node.img);
+    $("#imgCurrent").classList.toggle("hidden", !cur);
+    $("#imgCurrent").innerHTML = cur ? `<img src="${cur.src}" alt=""><button class="btn small bad" id="btnImgRemove">${icon("trash")}Togli l'immagine</button>` : "";
+    $("#btnImgPaste").classList.toggle("hidden", !navigator.clipboard?.read);
+    $("#dlgImg").showModal();
+  },
+  async set(getId) {
+    const node = this.node; if (!node) return;
+    try {
+      busy(true, "Preparo l'immagine…");
+      const id = await getId();
+      $("#dlgImg").close();
+      mindmap.change(() => { node.img = id; });
+      toast("Immagine aggiunta. Con Annulla la togli.");
+    } catch (e) { toast(e.message || "Non sono riuscito ad aggiungere l'immagine.", 6000); }
+    finally { busy(false); }
+  },
+  async search() {
+    const q = $("#imgQuery").value.trim(); if (!q) return;
+    const box = $("#imgResults");
+    box.innerHTML = `<p class="hint">Cerco…</p>`;
+    try {
+      const res = await mapImages.wikiSearch(q);
+      box.innerHTML = res.length ? res.map(r => `<button class="img-hit" data-src="${escapeHtml(r.src)}" title="${escapeHtml(r.title)}"><img src="${escapeHtml(r.src)}" alt="${escapeHtml(r.title)}" loading="lazy"><small>${escapeHtml(r.title)}</small></button>`).join("")
+        : `<p class="hint">Nessuna immagine trovata: prova con un'altra parola.</p>`;
+    } catch (e) { box.innerHTML = `<p class="hint">${escapeHtml(e.message)}</p>`; }
+  },
+  async paste() {
+    try {
+      for (const it of await navigator.clipboard.read()) {
+        const type = it.types.find(t => t.startsWith("image/"));
+        if (type) { const blob = await it.getType(type); return this.set(() => mapImages.add(blob)); }
+      }
+      toast("Negli appunti non c'è un'immagine: copiala prima (tasto destro → Copia immagine).", 6000);
+    } catch { toast("Il browser non mi lascia leggere gli appunti. Usa «Foto o galleria».", 6000); }
+  },
+  bind() {
+    $("#btnImgClose").addEventListener("click", () => $("#dlgImg").close());
+    $("#imgFile").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) this.set(() => mapImages.add(f)); });
+    $("#btnImgPaste").addEventListener("click", () => this.paste());
+    $("#btnImgSearch").addEventListener("click", () => this.search());
+    $("#imgQuery").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this.search(); } });
+    $("#imgResults").addEventListener("click", (e) => { const b = e.target.closest("[data-src]"); if (b) this.set(() => mapImages.fromUrl(b.dataset.src)); });
+    $("#imgCurrent").addEventListener("click", (e) => {
+      if (!e.target.closest("#btnImgRemove")) return;
+      const node = this.node; $("#dlgImg").close();
+      mindmap.change(() => { delete node.img; });
+    });
+  }
+};
+
+/* =========================================================
+   ARCHIVIO GRANDE (IndexedDB): immagini delle mappe e copie automatiche
+   ========================================================= */
+const idb = {
+  _db: null,
+  open() {
+    return this._db ||= new Promise((res, rej) => {
+      const r = indexedDB.open("zaino", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("kv");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async run(mode, fn) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction("kv", mode), req = fn(tx.objectStore("kv"));
+      tx.oncomplete = () => res(req?.result); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+    });
+  },
+  get(k) { return this.run("readonly", st => st.get(k)).catch(() => undefined); },
+  set(k, v) { return this.run("readwrite", st => st.put(v, k)); },
+  del(k) { return this.run("readwrite", st => st.delete(k)).catch(() => {}); },
+  async keys(prefix = "") { return ((await this.run("readonly", st => st.getAllKeys()).catch(() => [])) || []).filter(k => String(k).startsWith(prefix)); }
+};
+
+/* ---------- immagini delle mappe ---------- */
+const mapImages = {
+  cache: new Map(),             // id → { src, w, h }
+  /** Riduce l'immagine (lato lungo 520 px, JPEG): leggera da salvare e da stampare. */
+  async compress(blob, max = 520) {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+      return { src: c.toDataURL("image/jpeg", 0.8), w, h };
+    } finally { URL.revokeObjectURL(url); }
+  },
+  async add(blob) {
+    const im = await this.compress(blob);
+    const id = "img_" + uid();
+    await idb.set("img:" + id, im);
+    this.cache.set(id, im);
+    return id;
+  },
+  ids(root) { const out = []; const walk = (n) => { if (n.img) out.push(n.img); (n.children || []).forEach(walk); }; if (root) walk(root); return out; },
+  /** Carica in memoria le immagini della mappa; true se ne ha caricate di nuove. */
+  async preload(root) {
+    let added = false;
+    for (const id of this.ids(root)) {
+      if (this.cache.has(id)) continue;
+      const im = await idb.get("img:" + id);
+      if (im) { this.cache.set(id, im); added = true; }
+    }
+    return added;
+  },
+  async wikiSearch(q) {
+    const p = new URLSearchParams({ action: "query", generator: "search", gsrsearch: q, gsrlimit: "12", prop: "pageimages", piprop: "thumbnail", pithumbsize: "480", format: "json", origin: "*" });
+    const r = await fetch("https://it.wikipedia.org/w/api.php?" + p);
+    if (!r.ok) throw new Error("Wikipedia non risponde. Riprova tra poco.");
+    return Object.values((await r.json()).query?.pages || {}).filter(x => x.thumbnail?.source)
+      .sort((a, b) => (a.index || 0) - (b.index || 0)).map(x => ({ title: x.title, src: x.thumbnail.source }));
+  },
+  async fromUrl(src) {
+    const r = await fetch(src);
+    if (!r.ok) throw new Error("Non riesco a scaricare l'immagine.");
+    return this.add(await r.blob());
+  }
+};
+
+/* ---------- copia completa (backup) ---------- */
+async function buildBackup({ images = true } = {}) {
   const cache = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     if (/^sf\.(autore|quiz):/.test(k)) cache[k.slice(3)] = store.get(k.slice(3), null);
   }
-  const data = { app: "studio-facile", version: 2, date: new Date().toISOString(),
+  const data = { app: "studio-facile", version: 3, date: new Date().toISOString(),
     notebook: store.get("notebook", []), decks: store.get("decks", []), plans: store.get("plans", []), kits: store.get("kits", []),
-    errStats: store.get("errStats", {}), cache };
+    trash: store.get("trash", []), currentMap: store.get("currentMap", null), errStats: store.get("errStats", {}), cache };
+  if (images) {
+    // le immagini delle mappe (salvate, in uso e nel cestino)
+    const ids = new Set();
+    data.notebook.filter(x => x.type === "mappa").forEach(x => mapImages.ids(x.data).forEach(i => ids.add(i)));
+    data.trash.filter(t => t.item?.type === "mappa").forEach(t => mapImages.ids(t.item.data).forEach(i => ids.add(i)));
+    mapImages.ids(data.currentMap?.root).forEach(i => ids.add(i));
+    data.images = {};
+    for (const id of ids) { const im = mapImages.cache.get(id) || await idb.get("img:" + id); if (im) data.images[id] = im; }
+  }
+  return data;
+}
+/** Unisce un backup a quello che c'è: non cancella niente, aggiunge quello che manca. */
+async function mergeBackup(data) {
+  const merge = (key, incoming) => {
+    const cur = store.get(key, []);
+    const ids = new Set(cur.map(x => x.id));
+    store.set(key, [...cur, ...(incoming || []).filter(x => x && !ids.has(x.id))]);
+  };
+  merge("notebook", data.notebook);
+  merge("decks", data.decks);
+  merge("plans", data.plans);
+  merge("kits", data.kits);
+  for (const [k, v] of Object.entries(data.cache || {})) if (/^(autore|quiz):/.test(k) && v && !store.get(k, null)) store.set(k, v);
+  for (const [id, im] of Object.entries(data.images || {})) if (!(await idb.get("img:" + id))) await idb.set("img:" + id, im);
+  if (data.errStats) {
+    const st = store.get("errStats", {});
+    for (const [k, n] of Object.entries(data.errStats)) st[k] = Math.max(st[k] || 0, n);
+    store.set("errStats", st);
+  }
+  if (!mindmap.root && data.currentMap?.root) mindmap.load(data.currentMap.root, data.currentMap.savedId);
+  renderNotebook(); flash.refreshDecks(); planner.render(); home.render(); trash.render();
+}
+
+/* ---------- copie automatiche giornaliere (ultimi 7 giorni, su questo dispositivo) ---------- */
+const autosave = {
+  timer: null,
+  KEYS: /^(notebook|decks|plans|kits|trash|currentMap|errStats|autore:|quiz:)/,
+  init() {
+    onStoreChange = (key) => { if (this.KEYS.test(key)) this.schedule(); };
+    setTimeout(() => this.run(), 4000);
+  },
+  schedule() { clearTimeout(this.timer); this.timer = setTimeout(() => this.run(), 15000); },
+  async run() {
+    try {
+      const day = isoDay(new Date());
+      const data = await buildBackup({ images: false });
+      if (data.notebook.length || data.decks.length || data.currentMap) await idb.set("snap:" + day, data);
+      const snaps = (await idb.keys("snap:")).sort();
+      for (const k of snaps.slice(0, Math.max(0, snaps.length - 7))) await idb.del(k);
+      await folder.write();
+    } catch { /* la copia automatica non deve mai disturbare */ }
+  },
+  async list() {
+    const out = [];
+    for (const k of (await idb.keys("snap:")).sort().reverse()) {
+      const d = await idb.get(k);
+      if (d) out.push({ key: k, day: k.slice(5), n: (d.notebook?.length || 0) + (d.decks?.length || 0) });
+    }
+    return out;
+  },
+  async renderList() {
+    const box = $("#snapList");
+    if (!box) return;
+    const list = await this.list();
+    box.innerHTML = list.length
+      ? list.map(x => `<div class="snap-row"><span>${escapeHtml(dayLabel(x.day))}<small>${x.n} ${x.n === 1 ? "elemento" : "elementi"}</small></span><button type="button" class="btn small" data-snap="${x.key}">Recupera</button></div>`).join("")
+      : `<p class="hint">Ancora nessuna copia: la prima arriva dopo qualche minuto di lavoro.</p>`;
+  },
+  async restore(key) {
+    const d = await idb.get(key);
+    if (!d) return;
+    if (!(await uiConfirm(`Recuperare quello che c'era il ${dayLabel(key.slice(5))}? Gli elementi che mancano oggi vengono aggiunti, niente viene cancellato.`, "Recupera"))) return;
+    await mergeBackup(d);
+    toast("Fatto: ho rimesso nel quaderno quello che mancava.");
+  }
+};
+
+/* ---------- cestino: quello che si elimina resta recuperabile per 30 giorni ---------- */
+const trash = {
+  put(kind, item) {
+    const t = store.get("trash", []).filter(x => Date.now() - x.at < 30 * 86400000);
+    t.unshift({ kind, item, at: Date.now() });
+    store.set("trash", t.slice(0, 200));
+  },
+  render() {
+    const t = store.get("trash", []);
+    const b = $("#btnTrash");
+    if (b) { b.textContent = `Cestino (${t.length})`; b.classList.toggle("hidden", !t.length); }
+  },
+  open() {
+    const t = store.get("trash", []);
+    $("#trashList").innerHTML = t.length ? t.map((x, i) => `<li><span class="t">${escapeHtml(x.item.title || "Senza titolo")}<small>${x.kind === "deck" ? "flashcard" : escapeHtml(x.item.type || "")} · eliminato ${escapeHtml(new Date(x.at).toLocaleDateString("it-IT", { day: "numeric", month: "long" }))}</small></span>
+      <button class="btn small" data-tr="${i}">Ripristina</button></li>`).join("") : `<li class="hint">Il cestino è vuoto.</li>`;
+    $("#dlgTrash").showModal();
+  },
+  restore(i) {
+    const t = store.get("trash", []);
+    const x = t[i]; if (!x) return;
+    if (x.kind === "deck") store.set("decks", [x.item, ...store.get("decks", []).filter(d => d.id !== x.item.id)]);
+    else notebookPut(x.item);
+    t.splice(i, 1); store.set("trash", t);
+    renderNotebook(); flash.refreshDecks(); this.render(); this.open();
+    toast("Ripristinato nel quaderno");
+  },
+  purge() { store.set("trash", store.get("trash", []).filter(x => Date.now() - x.at < 30 * 86400000)); }
+};
+
+/* ---------- salvataggio automatico in una cartella del computer (Chrome, Edge) ---------- */
+const folder = {
+  supported: () => "showDirectoryPicker" in window,
+  async handle() { return idb.get("backupDir"); },
+  async choose() {
+    try {
+      const dir = await window.showDirectoryPicker({ id: "zaino-backup", mode: "readwrite" });
+      await idb.set("backupDir", dir);
+      await this.write(true);
+      toast(`Fatto: salvo automaticamente nella cartella «${dir.name}».`, 6000);
+    } catch (e) { if (e?.name !== "AbortError") toast("Non sono riuscito a usare quella cartella. Prova con un'altra.", 6000); }
+    this.render(); home.render();
+  },
+  async stop() { await idb.del("backupDir"); this.render(); home.render(); toast("Salvataggio nella cartella disattivato."); },
+  async state() {
+    const dir = await this.handle();
+    if (!dir) return { dir: null };
+    let perm = "denied";
+    try { perm = await dir.queryPermission({ mode: "readwrite" }); } catch { /* niente */ }
+    return { dir, perm };
+  },
+  /** Riattiva il permesso (serve un tocco: il browser lo chiede a ogni avvio). */
+  async resume() {
+    const dir = await this.handle(); if (!dir) return;
+    try { if (await dir.requestPermission({ mode: "readwrite" }) === "granted") { await this.write(true); toast("Salvataggio automatico riattivato."); } } catch { /* niente */ }
+    this.render(); home.render();
+  },
+  async write(force = false) {
+    const { dir, perm } = await this.state();
+    if (!dir || perm !== "granted") return false;
+    const data = JSON.stringify(await buildBackup());
+    const put = async (name) => { const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(data); await w.close(); };
+    await put("zaino-backup.json");                                   // sempre l'ultima versione
+    await put(`zaino-backup-${isoDay(new Date())}.json`);             // una copia per giorno
+    // tengo le ultime 14 copie giornaliere
+    const days = [];
+    for await (const [name] of dir.entries()) if (/^zaino-backup-\d{4}-\d{2}-\d{2}\.json$/.test(name)) days.push(name);
+    for (const n of days.sort().slice(0, Math.max(0, days.length - 14))) { try { await dir.removeEntry(n); } catch { /* niente */ } }
+    store.set("lastBackup", Date.now());
+    localStorage.setItem("sf.folderSaved", String(Date.now()));
+    if (force) this.render();
+    return true;
+  },
+  async render() {
+    const box = $("#folderBox");
+    if (!box) return;
+    if (!this.supported()) { box.innerHTML = `<p class="hint">Il salvataggio automatico in una cartella funziona sul computer con Chrome o Edge. Su questo dispositivo usa «Scarica backup».</p>`; return; }
+    const { dir, perm } = await this.state();
+    const when = Number(localStorage.getItem("sf.folderSaved") || 0);
+    box.innerHTML = !dir
+      ? `<p class="hint">Sul computer Zaino può salvare da solo una copia in una cartella, a ogni modifica. Scegli una cartella di Google Drive, OneDrive o iCloud: così la copia finisce anche online.</p>
+         <button type="button" class="btn small primary" data-fold="choose">${icon("download")}Scegli la cartella</button>`
+      : perm === "granted"
+        ? `<p class="hint">Attivo: salvo nella cartella <b>${escapeHtml(dir.name)}</b>${when ? `, ultima copia alle ${new Date(when).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : ""}.</p>
+           <button type="button" class="btn small ghost" data-fold="stop">Disattiva</button>`
+        : `<p class="hint">Cartella <b>${escapeHtml(dir.name)}</b>: il browser chiede di nuovo il permesso.</p>
+           <button type="button" class="btn small primary" data-fold="resume">Riattiva il salvataggio</button> <button type="button" class="btn small ghost" data-fold="stop">Disattiva</button>`;
+  }
+};
+
+async function exportBackup() {
+  const data = await buildBackup();
+  const name = `zaino-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
   store.set("lastBackup", Date.now());
-  download(`zaino-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 1), "application/json");
+  // sul telefono: si apre «Condividi», così si salva su File/iCloud, Drive o si manda via WhatsApp
+  const file = new File([blob], name, { type: "application/json" });
+  if (matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: "Backup di Zaino" }); return; }
+    catch (e) { if (e?.name === "AbortError") return; }
+  }
+  download(name, blob);
 }
 async function importBackup(file) {
   try {
     const data = JSON.parse(await file.text());
     if (data.app !== "studio-facile") throw new Error();
-    const merge = (key, incoming) => {
-      const cur = store.get(key, []);
-      const ids = new Set(cur.map(x => x.id));
-      store.set(key, [...cur, ...(incoming || []).filter(x => !ids.has(x.id))]);
-    };
-    merge("notebook", data.notebook);
-    merge("decks", data.decks);
-    merge("plans", data.plans);
-    merge("kits", data.kits);
-    for (const [k, v] of Object.entries(data.cache || {})) if (/^(autore|quiz):/.test(k) && v && !store.get(k, null)) store.set(k, v);
-    if (data.errStats) {
-      const st = store.get("errStats", {});
-      for (const [k, n] of Object.entries(data.errStats)) st[k] = Math.max(st[k] || 0, n);
-      store.set("errStats", st);
-    }
-    renderNotebook(); flash.refreshDecks(); planner.render(); home.render();
+    await mergeBackup(data);
     toast("Backup caricato");
   } catch { toast("Questo file non è un backup valido."); }
 }
@@ -2568,9 +2910,13 @@ const home = {
       ? `<h2>${icon("library")}Da riprendere</h2><ul>${nb.map(x => `<li><button class="p-item" data-open="${x.id}" data-type="${x.type}">${icon(ico[x.type] || "file")}<span>${escapeHtml(x.title)}<small>${x.subject ? escapeHtml(x.subject) + ", " : ""}${escapeHtml(x.date || "")}</small></span></button></li>`).join("")}</ul>
          <button class="btn small ghost" data-go="quaderno">Apri il quaderno</button>`
       : `<h2>${icon("library")}Il tuo quaderno</h2><p class="hint">Testi, mappe e flashcard che salvi li ritrovi qui, pronti da riprendere.</p>`;
-    // promemoria: un backup ogni due settimane, se c'è qualcosa da salvare
+    folder.state().then(({ dir, perm }) => {
+      if (dir && perm !== "granted" && !$("#homeRecent [data-fold]")) r.insertAdjacentHTML("beforeend", `<div class="bk-remind"><span>${icon("download")}<b>Salvataggio automatico in pausa.</b> Il browser chiede di nuovo il permesso per la cartella «${escapeHtml(dir.name)}».</span><div class="row gap"><button class="btn small primary" data-fold="resume">Riattiva</button></div></div>`);
+    }).catch(() => {});
+    // promemoria: un backup alla settimana, se c'è qualcosa da salvare
     const last = store.get("lastBackup", 0), many = nb.length + store.get("decks", []).length;
-    if (many >= 3 && Date.now() - last > 14 * 86400000 && !sessionStorage.getItem("sf-bk-later")) {
+    const folderOn = Date.now() - Number(localStorage.getItem("sf.folderSaved") || 0) < 3 * 86400000;
+    if (many >= 3 && !folderOn && Date.now() - last > 7 * 86400000 && !sessionStorage.getItem("sf-bk-later")) {
       r.insertAdjacentHTML("beforeend", `<div class="bk-remind"><span>${icon("download")}<b>Fai una copia di sicurezza</b> del quaderno: se il browser cancella i dati, non perdi niente.</span>
         <div class="row gap"><button class="btn small primary" data-bk="now">Scarica backup</button><button class="btn small ghost" data-bk="later">Più tardi</button></div></div>`);
     }
@@ -2580,6 +2926,8 @@ const home = {
     $("#homePanels").addEventListener("click", (e) => {
       const go = e.target.closest("[data-go]");
       if (go) { if (go.dataset.go === "piano") { showView("ripassa"); ripassa.tab("piano"); } else showView(go.dataset.go); return; }
+      const fo = e.target.closest("[data-fold]");
+      if (fo) return folder[fo.dataset.fold]?.();
       const bk = e.target.closest("[data-bk]");
       if (bk) { if (bk.dataset.bk === "now") exportBackup(); else sessionStorage.setItem("sf-bk-later", "1"); return this.render(); }
       const ko = e.target.closest("[data-kitopen]");
@@ -2741,6 +3089,8 @@ const GUIDE = [
     ["globe", "Da un sito o Wikipedia", "Incolla un link: Zaino prende solo il testo della pagina, senza pubblicità. Oppure scrivi un argomento e trova la voce di Wikipedia. Per le pagine con accesso (registro, piattaforma della scuola) c'è il tasto «Manda a Zaino»; su Android anche Condividi → Zaino."],
     ["volume", "2. Ascoltalo", "Premi il tasto blu: la voce legge e la frase si colora come con un evidenziatore. Tocca una frase per partire da lì."],
     ["sparkles", "3. Trasformalo", "Sotto il testo scegli cosa ti serve: riassunto, mappa, linea del tempo, flashcard e altro."],
+    ["image", "Immagini nelle mappe", "Tocca un riquadro e premi «Immagine»: una foto, un'immagine copiata o una cercata su Wikipedia. Si vede nella mappa, in stampa e nelle schede."],
+    ["download", "Il lavoro è al sicuro", "Zaino tiene da solo una copia al giorno per 7 giorni, e quello che elimini resta nel cestino del quaderno per 30 giorni. Sul computer può salvare tutto da solo in una cartella di Google Drive o OneDrive (Impostazioni → Quaderno)."],
     ["layers", "Preparo la verifica", "Un tasto solo, sotto il testo: riassunto, mappa, flashcard, le domande più probabili con le risposte e il piano fino alla data. Tutto finisce nel quaderno e in Ripassa."],
     ["chat", "4. Mettiti alla prova", "In Ripassa: flashcard, interrogazione a voce e piano verso la verifica."]
   ]],
@@ -2912,6 +3262,7 @@ function openSettings() {
   $("#modWhisper").value = settings.modWhisper;
   $("#modGroqVision").value = settings.modGroqVision;
   $("#setCheck").checked = settings.check;
+  folder.render(); autosave.renderList();
   const d = $("#dlgSettings");
   if (!d.open) d.showModal();
 }
@@ -2980,7 +3331,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "18";
+const APP_VERSION = "19";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -3449,6 +3800,14 @@ function init() {
   try { navigator.storage?.persist?.(); } catch { /* niente */ }
   web.bind();
   kit.bind();
+  trash.purge(); trash.render();
+  imgPicker.bind();
+  autosave.init();
+  $("#btnTrash").addEventListener("click", () => trash.open());
+  $("#trashList").addEventListener("click", (e) => { const b = e.target.closest("[data-tr]"); if (b) trash.restore(+b.dataset.tr); });
+  $("#btnTrashClose").addEventListener("click", () => $("#dlgTrash").close());
+  $("#folderBox").addEventListener("click", (e) => { const b = e.target.closest("[data-fold]"); if (b) folder[b.dataset.fold]?.(); });
+  $("#snapList").addEventListener("click", (e) => { const b = e.target.closest("[data-snap]"); if (b) autosave.restore(b.dataset.snap); });
 
   // ripristino del lavoro in corso
   const cur = store.get("current", "");

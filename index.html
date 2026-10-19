@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow">
-<meta name="zaino-version" content="18">
+<meta name="zaino-version" content="19">
 <meta name="theme-color" content="#f5f6fa">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Zaino">
@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@300;400;500;600;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=18">
+<link rel="stylesheet" href="styles.css?v=19">
 </head>
 <body>
 
@@ -674,6 +674,7 @@
     <div class="card">
       <div class="chips" id="nbFilter"></div>
       <ul id="notebook" class="notebook"></ul>
+      <button class="btn small ghost hidden" id="btnTrash">Cestino</button>
     </div>
   </section>
 </main>
@@ -746,10 +747,15 @@
 
     <fieldset>
       <legend>Quaderno</legend>
-      <p class="hint">Tutto resta salvato in questo browser, su questo dispositivo. Per spostarlo tra telefono e computer, o per non perderlo, scarica il backup su uno e caricalo sull'altro. Il backup contiene quaderno, flashcard, piani, materiale delle verifiche e schede degli autori, ma non le chiavi.</p>
+      <p class="hint">Tutto resta salvato in questo browser, su questo dispositivo. Per spostarlo tra telefono e computer, o per non perderlo, scarica il backup su uno e caricalo sull'altro. Il backup contiene quaderno, mappe con le immagini, flashcard, piani, materiale delle verifiche e schede degli autori, ma non le chiavi.</p>
       <div class="row gap wrap" id="backupRow">
         <button type="button" class="btn small" id="btnExport"><svg class="i"><use href="#i-download"/></svg>Scarica backup</button>
       </div>
+      <h3 class="set-sub">Salvataggio automatico in una cartella</h3>
+      <div id="folderBox"></div>
+      <h3 class="set-sub">Copie automatiche</h3>
+      <p class="hint">Ogni giorno Zaino tiene da solo una copia del lavoro, per 7 giorni. Se hai cancellato o perso qualcosa, recuperalo da qui.</p>
+      <div id="snapList"></div>
     </fieldset>
 
     <fieldset>
@@ -794,6 +800,32 @@
   </div>
   <div id="kitProgress" class="hidden"></div>
   <div id="kitDone" class="hidden"></div>
+</dialog>
+
+<dialog id="dlgTrash" class="sheet">
+  <div class="sheet-head">
+    <h2>Cestino</h2>
+    <button class="icon-btn" id="btnTrashClose" aria-label="Chiudi"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+  <p class="hint pad">Quello che elimini resta qui per 30 giorni.</p>
+  <ul id="trashList" class="notebook pad"></ul>
+</dialog>
+
+<dialog id="dlgImg" class="sheet">
+  <div class="sheet-head">
+    <h2 id="imgTitle">Immagine</h2>
+    <button class="icon-btn" id="btnImgClose" aria-label="Chiudi"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="pad img-body">
+    <div class="img-current hidden" id="imgCurrent"></div>
+    <div class="img-src">
+      <label class="btn"><svg class="i"><use href="#i-camera"/></svg>Foto o galleria<input type="file" id="imgFile" accept="image/*" hidden></label>
+      <button class="btn" id="btnImgPaste"><svg class="i"><use href="#i-clipboard"/></svg>Incolla immagine</button>
+    </div>
+    <h3>Cerca su Wikipedia</h3>
+    <div class="web-row"><input type="search" id="imgQuery" aria-label="Cosa cercare"><button class="btn primary" id="btnImgSearch">Cerca</button></div>
+    <div class="img-grid" id="imgResults"></div>
+  </div>
 </dialog>
 
 <dialog id="dlgBookmark" class="sheet wide">
@@ -864,6 +896,7 @@
   <button data-nb="link"><svg class="i"><use href="#i-link"/></svg>Collega</button>
   <button data-nb="label"><svg class="i"><use href="#i-tag"/></svg>Parola</button>
   <button data-nb="color"><svg class="i"><use href="#i-palette"/></svg>Colore</button>
+  <button data-nb="img"><svg class="i"><use href="#i-image"/></svg>Immagine</button>
   <button data-nb="up"><svg class="i"><use href="#i-up"/></svg>Su</button>
   <button data-nb="down"><svg class="i"><use href="#i-down"/></svg>Giù</button>
   <button data-nb="del"><svg class="i"><use href="#i-trash"/></svg>Togli</button>
@@ -878,10 +911,10 @@
 <style id="printPage"></style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
-<script src="mate.js?v=18" defer></script>
-<script src="fisica.js?v=18" defer></script>
-<script src="schede.js?v=18" defer></script>
-<script src="autori.js?v=18" defer></script>
-<script src="app.js?v=18" defer></script>
+<script src="mate.js?v=19" defer></script>
+<script src="fisica.js?v=19" defer></script>
+<script src="schede.js?v=19" defer></script>
+<script src="autori.js?v=19" defer></script>
+<script src="app.js?v=19" defer></script>
 </body>
 </html>

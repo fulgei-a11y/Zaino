@@ -1039,3 +1039,29 @@ input[type="search"] { font: inherit; font-size: 1rem; color: var(--ink); backgr
 .bm-body { padding: 0 20px 20px; }
 .bk-remind { margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--hl-yellow-s); display: flex; flex-direction: column; gap: 10px; line-height: 1.45; }
 .bk-remind .i { width: 18px; height: 18px; vertical-align: -3px; margin-right: 6px; }
+
+/* ---------- sicurezza: cestino, copie, cartella ---------- */
+.set-sub { font-size: .95rem; margin: 16px 0 4px; }
+.snap-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line, #e4e6ee); }
+.snap-row small { display: block; color: var(--muted, #5b6275); }
+#btnTrash { margin-top: 10px; }
+.pad { padding-left: 20px; padding-right: 20px; }
+#trashList li { display: flex; align-items: center; gap: 10px; }
+#trashList .t { flex: 1; }
+#dlgTrash { padding-bottom: 16px; }
+
+/* ---------- immagini nelle mappe ---------- */
+.node-bar { grid-template-columns: repeat(12, 1fr); }
+@media (max-width: 760px) { .node-bar { grid-template-columns: repeat(6, 1fr); } }
+.img-body { padding-bottom: 20px; }
+.img-body h3 { font-size: 1rem; margin: 16px 0 6px; }
+.img-src { display: flex; gap: 8px; flex-wrap: wrap; }
+.img-src .btn { cursor: pointer; }
+.img-current { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.img-current img { width: 110px; height: 80px; object-fit: cover; border-radius: 10px; }
+.img-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.img-hit { padding: 0; border: 2px solid transparent; border-radius: 10px; background: var(--page, #f4f5f9); cursor: pointer; overflow: hidden; display: flex; flex-direction: column; font: inherit; color: var(--ink); }
+.img-hit:hover, .img-hit:focus-visible { border-color: var(--pen); }
+.img-hit img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+.img-hit small { font-size: .72rem; padding: 4px 6px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sl-img { float: right; max-width: 34cqw; max-height: 42cqh; margin: 0 0 2cqh 3cqw; border-radius: 1.6cqw; object-fit: contain; }

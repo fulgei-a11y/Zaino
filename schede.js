@@ -14,7 +14,8 @@ const slides = {
     const MAX = 7; // righe per scheda: oltre, la scheda continua nella successiva
     const out = [];
     const branches = root.children;
-    out.push({ kind: "cover", title: root.text, items: branches.map(b => ({ text: b.text, sub: [] })), color: "#2c47c9", soft: "#e9edfc", note: notes.__intro });
+    const imgOf = (n) => (n.img && mapImages.cache.get(n.img)?.src) || null;
+    out.push({ kind: "cover", title: root.text, items: branches.map(b => ({ text: b.text, sub: [] })), color: "#2c47c9", soft: "#e9edfc", note: notes.__intro, img: imgOf(root) });
     branches.forEach((b, bi) => {
       const [soft, color] = BRANCH_COLORS[bi % BRANCH_COLORS.length];
       const flat = (n) => [n.text, ...n.children.flatMap(flat)];
@@ -30,7 +31,7 @@ const slides = {
       if (cur.length || !chunks.length) chunks.push(cur);
       chunks.forEach((ch, k) => out.push({
         kind: "branch", title: b.text + (k ? " (continua)" : ""), items: ch, color, soft, ai: b.ai,
-        note: k === chunks.length - 1 ? notes[b.text] : null, part: k
+        note: k === chunks.length - 1 ? notes[b.text] : null, part: k, img: k === 0 ? imgOf(b) : null
       }));
     });
     if (notes.__domande?.length) out.push({ kind: "questions", title: "Domande per ripassare", items: notes.__domande.map(q => ({ text: q, sub: [] })), color: "#1c2440", soft: "#f5f6fa" });
@@ -47,6 +48,7 @@ const slides = {
       <div class="sl-band"></div>
       <div class="sl-top"><span>${s.kind === "cover" ? "Schede di studio" : topic}</span><span>${n} / ${total}</span></div>
       <h2 class="sl-title">${escapeHtml(s.title)}</h2>
+      ${s.img ? `<img class="sl-img" src="${s.img}" alt="">` : ""}
       ${s.kind === "cover" ? `<div class="sl-index"><span class="sl-label">In queste schede</span>${list}</div>` : list}
       ${note}
     </div></div>`;
