@@ -2459,8 +2459,16 @@ async function deleteNotebookItem(id, type) {
 }
 
 function exportBackup() {
-  const data = { app: "studio-facile", version: 1, date: new Date().toISOString(),
-    notebook: store.get("notebook", []), decks: store.get("decks", []), plans: store.get("plans", []), errStats: store.get("errStats", {}) };
+  // schede degli autori e quiz già pronti: così non vanno rifatti (e non si ripagano) sull'altro dispositivo
+  const cache = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (/^sf\.(autore|quiz):/.test(k)) cache[k.slice(3)] = store.get(k.slice(3), null);
+  }
+  const data = { app: "studio-facile", version: 2, date: new Date().toISOString(),
+    notebook: store.get("notebook", []), decks: store.get("decks", []), plans: store.get("plans", []), kits: store.get("kits", []),
+    errStats: store.get("errStats", {}), cache };
+  store.set("lastBackup", Date.now());
   download(`zaino-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 1), "application/json");
 }
 async function importBackup(file) {
@@ -2475,12 +2483,14 @@ async function importBackup(file) {
     merge("notebook", data.notebook);
     merge("decks", data.decks);
     merge("plans", data.plans);
+    merge("kits", data.kits);
+    for (const [k, v] of Object.entries(data.cache || {})) if (/^(autore|quiz):/.test(k) && v && !store.get(k, null)) store.set(k, v);
     if (data.errStats) {
       const st = store.get("errStats", {});
       for (const [k, n] of Object.entries(data.errStats)) st[k] = Math.max(st[k] || 0, n);
       store.set("errStats", st);
     }
-    renderNotebook(); flash.refreshDecks();
+    renderNotebook(); flash.refreshDecks(); planner.render(); home.render();
     toast("Backup caricato");
   } catch { toast("Questo file non è un backup valido."); }
 }
@@ -2558,12 +2568,20 @@ const home = {
       ? `<h2>${icon("library")}Da riprendere</h2><ul>${nb.map(x => `<li><button class="p-item" data-open="${x.id}" data-type="${x.type}">${icon(ico[x.type] || "file")}<span>${escapeHtml(x.title)}<small>${x.subject ? escapeHtml(x.subject) + ", " : ""}${escapeHtml(x.date || "")}</small></span></button></li>`).join("")}</ul>
          <button class="btn small ghost" data-go="quaderno">Apri il quaderno</button>`
       : `<h2>${icon("library")}Il tuo quaderno</h2><p class="hint">Testi, mappe e flashcard che salvi li ritrovi qui, pronti da riprendere.</p>`;
+    // promemoria: un backup ogni due settimane, se c'è qualcosa da salvare
+    const last = store.get("lastBackup", 0), many = nb.length + store.get("decks", []).length;
+    if (many >= 3 && Date.now() - last > 14 * 86400000 && !sessionStorage.getItem("sf-bk-later")) {
+      r.insertAdjacentHTML("beforeend", `<div class="bk-remind"><span>${icon("download")}<b>Fai una copia di sicurezza</b> del quaderno: se il browser cancella i dati, non perdi niente.</span>
+        <div class="row gap"><button class="btn small primary" data-bk="now">Scarica backup</button><button class="btn small ghost" data-bk="later">Più tardi</button></div></div>`);
+    }
     r.classList.remove("hidden");
   },
   bind() {
     $("#homePanels").addEventListener("click", (e) => {
       const go = e.target.closest("[data-go]");
       if (go) { if (go.dataset.go === "piano") { showView("ripassa"); ripassa.tab("piano"); } else showView(go.dataset.go); return; }
+      const bk = e.target.closest("[data-bk]");
+      if (bk) { if (bk.dataset.bk === "now") exportBackup(); else sessionStorage.setItem("sf-bk-later", "1"); return this.render(); }
       const ko = e.target.closest("[data-kitopen]");
       if (ko) { const K = kit.find(ko.dataset.kitopen); if (K) kit.showDone(K); return; }
       const op = e.target.closest("[data-open]");
@@ -2962,7 +2980,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "17";
+const APP_VERSION = "18";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -3427,6 +3445,8 @@ function init() {
     if (c) { nbFilter = c.dataset.sub; renderNotebook(); }
   });
 
+  // chiedo al browser di non cancellare i dati di Zaino quando manca spazio
+  try { navigator.storage?.persist?.(); } catch { /* niente */ }
   web.bind();
   kit.bind();
 

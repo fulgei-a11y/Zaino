@@ -1037,3 +1037,5 @@ input[type="search"] { font: inherit; font-size: 1rem; color: var(--ink); backgr
 #kitForm label { display: block; margin-top: 10px; }
 #kitForm input, #kitForm select { width: 100%; margin-top: 4px; }
 .bm-body { padding: 0 20px 20px; }
+.bk-remind { margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--hl-yellow-s); display: flex; flex-direction: column; gap: 10px; line-height: 1.45; }
+.bk-remind .i { width: 18px; height: 18px; vertical-align: -3px; margin-right: 6px; }
