@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="theme-color" content="#2f6f6a">
+<title>Studio Facile</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@400;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo" aria-hidden="true">✦</span> Studio Facile</div>
+  <button class="icon-btn" id="btnSettings" aria-label="Impostazioni" title="Impostazioni">⚙️</button>
+</header>
+
+<main id="main">
+
+  <!-- ============ LEGGI ============ -->
+  <section class="view active" id="view-leggi" aria-label="Leggi">
+    <div class="card input-card">
+      <div class="row wrap gap">
+        <label class="btn big primary file-btn">
+          📷 Foto del libro
+          <input type="file" id="inPhoto" accept="image/*" capture="environment" hidden>
+        </label>
+        <label class="btn big file-btn">
+          🖼️ Da galleria / PDF
+          <input type="file" id="inFile" accept="image/*,application/pdf" multiple hidden>
+        </label>
+        <button class="btn big" id="btnPaste">📋 Incolla testo</button>
+      </div>
+      <textarea id="txtInput" class="hidden" rows="6" placeholder="Incolla o scrivi qui il testo…"></textarea>
+      <div class="row gap hidden" id="pasteActions">
+        <button class="btn primary" id="btnUseText">Usa questo testo</button>
+      </div>
+    </div>
+
+    <div class="card reader-card hidden" id="readerCard">
+      <div class="reader-toolbar">
+        <button class="btn round primary" id="btnPlay" aria-label="Leggi ad alta voce">▶️</button>
+        <button class="btn round" id="btnStop" aria-label="Ferma">⏹️</button>
+        <label class="speed">🐢 <input type="range" id="rngRate" min="0.6" max="1.5" step="0.05"> 🐇</label>
+        <button class="btn small" id="btnRuler" title="Righello di lettura">📏 Righello</button>
+        <button class="btn small" id="btnEdit" title="Modifica testo">✏️</button>
+        <button class="btn small" id="btnSave" title="Salva nel quaderno">💾</button>
+      </div>
+      <div id="reader" class="reader" tabindex="0"></div>
+      <div id="ruler" class="ruler hidden" aria-hidden="true"></div>
+    </div>
+
+    <div class="card hidden" id="toolsCard">
+      <h2>Cosa vuoi fare con questo testo?</h2>
+      <div class="grid-actions">
+        <button class="action" data-act="semplifica"><span>🪄</span>Semplifica</button>
+        <button class="action" data-act="riassunto"><span>📝</span>Riassunto</button>
+        <button class="action" data-act="parole"><span>🔑</span>Parole chiave</button>
+        <button class="action" data-act="mappa"><span>🗺️</span>Mappa</button>
+        <button class="action" data-act="flashcard"><span>🃏</span>Flashcard</button>
+        <button class="action" data-act="spiega"><span>💡</span>Spiegami</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="resultCard">
+      <div class="row between wrap gap">
+        <h2 id="resultTitle">Risultato</h2>
+        <div class="row gap">
+          <button class="btn small" id="btnResultRead">🔊 Ascolta</button>
+          <button class="btn small" id="btnResultToReader">⬆️ Leggi questo</button>
+        </div>
+      </div>
+      <div id="result" class="result"></div>
+    </div>
+  </section>
+
+  <!-- ============ MAPPA ============ -->
+  <section class="view" id="view-mappa" aria-label="Mappa">
+    <div class="card">
+      <div class="row between wrap gap">
+        <h2>Mappa concettuale</h2>
+        <div class="row gap wrap">
+          <button class="btn small" id="btnZoomOut" aria-label="Rimpicciolisci">➖</button>
+          <button class="btn small" id="btnZoomIn" aria-label="Ingrandisci">➕</button>
+          <button class="btn small" id="btnMapLayout">↔️ Forma</button>
+          <button class="btn small" id="btnMapPng">⬇️ Immagine</button>
+          <button class="btn small" id="btnMapSave">💾 Salva</button>
+        </div>
+      </div>
+      <p class="hint" id="mapHint">Crea una mappa dalla scheda <b>Leggi</b> (pulsante 🗺️ Mappa) oppure scrivi l'argomento qui sotto.</p>
+      <div class="row gap">
+        <input type="text" id="mapTopic" placeholder="Es. La Rivoluzione francese">
+        <button class="btn primary" id="btnMapTopic">Crea</button>
+      </div>
+    </div>
+    <div class="card map-card">
+      <div id="mapWrap" class="map-wrap"><div class="empty">La mappa comparirà qui.<br>Tocca un riquadro per ascoltarlo, tienilo premuto per modificarlo.</div></div>
+    </div>
+  </section>
+
+  <!-- ============ DETTA ============ -->
+  <section class="view" id="view-detta" aria-label="Detta">
+    <div class="card center">
+      <h2>Parla, io scrivo</h2>
+      <button class="mic" id="btnMic" aria-label="Avvia registrazione">🎙️</button>
+      <div id="micStatus" class="hint">Tocca il microfono per iniziare</div>
+    </div>
+    <div class="card">
+      <textarea id="txtDictation" rows="8" placeholder="Il testo dettato comparirà qui. Puoi anche modificarlo."></textarea>
+      <div class="row gap wrap">
+        <button class="btn" id="btnFix">✔️ Correggi errori</button>
+        <button class="btn" id="btnDictRead">🔊 Rileggi</button>
+        <button class="btn" id="btnCopy">📋 Copia</button>
+        <button class="btn" id="btnDictToReader">📖 Apri in Leggi</button>
+        <button class="btn" id="btnDictClear">🗑️ Svuota</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RIPASSA ============ -->
+  <section class="view" id="view-ripassa" aria-label="Ripassa">
+    <div class="card">
+      <div class="row between wrap gap">
+        <h2>Flashcard</h2>
+        <select id="selDeck" aria-label="Scegli mazzo"></select>
+      </div>
+      <p class="hint" id="deckHint">Crea un mazzo dalla scheda <b>Leggi</b> (pulsante 🃏 Flashcard).</p>
+    </div>
+    <div class="card flash-area hidden" id="flashArea">
+      <div class="progress"><div id="flashBar"></div></div>
+      <div class="flashcard" id="flashcard" tabindex="0">
+        <div class="face front" id="flashFront"></div>
+        <div class="face back" id="flashBack"></div>
+      </div>
+      <div class="row gap center-row">
+        <button class="btn round" id="btnFlashRead" aria-label="Ascolta">🔊</button>
+        <button class="btn big" id="btnFlip">Gira la carta</button>
+      </div>
+      <div class="row gap center-row hidden" id="flashJudge">
+        <button class="btn big bad" id="btnAgain">😕 Da ripassare</button>
+        <button class="btn big good" id="btnKnow">😃 La so!</button>
+      </div>
+      <div class="row gap center-row">
+        <button class="btn small" id="btnDeckDelete">🗑️ Elimina mazzo</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QUADERNO ============ -->
+  <section class="view" id="view-quaderno" aria-label="Quaderno">
+    <div class="card">
+      <h2>Il mio quaderno</h2>
+      <p class="hint">Testi e mappe salvati restano solo su questo dispositivo.</p>
+      <ul id="notebook" class="notebook"></ul>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="Sezioni">
+  <button class="tab active" data-view="leggi"><span>📖</span>Leggi</button>
+  <button class="tab" data-view="mappa"><span>🗺️</span>Mappa</button>
+  <button class="tab" data-view="detta"><span>🎙️</span>Detta</button>
+  <button class="tab" data-view="ripassa"><span>🃏</span>Ripassa</button>
+  <button class="tab" data-view="quaderno"><span>📚</span>Quaderno</button>
+</nav>
+
+<!-- ============ IMPOSTAZIONI ============ -->
+<dialog id="dlgSettings">
+  <form method="dialog" class="settings">
+    <h2>Impostazioni</h2>
+
+    <fieldset>
+      <legend>Chiavi gratuite</legend>
+      <label>Chiave Gemini <small>(da aistudio.google.com)</small>
+        <input type="password" id="keyGemini" autocomplete="off" spellcheck="false">
+      </label>
+      <label>Chiave Groq <small>(da console.groq.com)</small>
+        <input type="password" id="keyGroq" autocomplete="off" spellcheck="false">
+      </label>
+      <p class="hint">Le chiavi restano salvate solo su questo dispositivo.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Lettura</legend>
+      <label>Carattere
+        <select id="setFont">
+          <option value="Atkinson">Atkinson Hyperlegible</option>
+          <option value="Lexend">Lexend</option>
+          <option value="OpenDyslexic">OpenDyslexic</option>
+          <option value="Verdana">Verdana</option>
+        </select>
+      </label>
+      <label>Grandezza testo <input type="range" id="setSize" min="16" max="34" step="1"></label>
+      <label>Spazio tra lettere <input type="range" id="setLetter" min="0" max="0.25" step="0.01"></label>
+      <label>Spazio tra righe <input type="range" id="setLine" min="1.4" max="2.6" step="0.1"></label>
+      <label>Sfondo
+        <select id="setTheme">
+          <option value="crema">Crema</option>
+          <option value="azzurro">Azzurro</option>
+          <option value="verde">Verde chiaro</option>
+          <option value="bianco">Bianco</option>
+          <option value="scuro">Scuro</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="setSyllables"> Colora le sillabe alternate</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Voce</legend>
+      <label>Voce <select id="setVoice"></select></label>
+      <button type="button" class="btn small" id="btnVoiceTest">🔊 Prova voce</button>
+    </fieldset>
+
+    <details>
+      <summary>Avanzate (modelli)</summary>
+      <label>Modello Gemini <input type="text" id="modGemini" list="listGemini"></label>
+      <datalist id="listGemini"></datalist>
+      <label>Modello Groq (testo) <input type="text" id="modGroq" list="listGroq"></label>
+      <datalist id="listGroq"></datalist>
+      <label>Modello Groq (voce) <input type="text" id="modWhisper"></label>
+      <button type="button" class="btn small" id="btnLoadModels">🔄 Carica modelli disponibili</button>
+      <p class="hint" id="modelsInfo"></p>
+    </details>
+
+    <div class="row between">
+      <button type="button" class="btn small" id="btnExport">⬇️ Backup quaderno</button>
+      <button class="btn primary" value="ok">Fatto</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Sto lavorando…</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>
