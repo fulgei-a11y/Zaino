@@ -51,6 +51,7 @@
         <button class="btn small" id="btnEdit" title="Modifica testo">✏️</button>
         <button class="btn small" id="btnPick" title="Scegli una parte del testo">✂️ Scegli</button>
         <button class="btn small" id="btnSave" title="Salva nel quaderno">💾</button>
+        <button class="btn small" id="btnPrintText" title="Stampa" aria-label="Stampa">🖨️</button>
         <button class="btn small" id="btnClear" title="Chiudi questo testo">🗑️</button>
       </div>
       <p class="hint pick-hint hidden" id="pickHint">✂️ Tocca le frasi che vuoi usare. Tocca di nuovo per toglierle. Poi premi <b>Fatto</b>.</p>
@@ -91,6 +92,7 @@
         <button class="btn" id="btnResultMap">🗺️ Fai la mappa</button>
         <button class="btn" id="btnResultCards">🃏 Flashcard</button>
         <button class="btn" id="btnResultSave">💾 Salva</button>
+        <button class="btn" id="btnResultPrint">🖨️ Stampa</button>
       </div>
     </div>
   </section>
@@ -116,6 +118,7 @@
         <button class="btn small" id="btnZoomIn" aria-label="Ingrandisci">➕</button>
         <button class="btn small" id="btnMapLayout" aria-label="Cambia forma">↔️</button>
         <button class="btn small" id="btnMapSave" aria-label="Salva nel quaderno">💾</button>
+        <button class="btn small" id="btnMapPrint" aria-label="Stampa">🖨️</button>
         <button class="btn small" id="btnMapPng" aria-label="Scarica immagine">⬇️</button>
         <button class="btn small" id="btnMapOther" aria-label="Nuova mappa">🆕</button>
       </div>
@@ -167,6 +170,7 @@
         <button class="btn big good" id="btnKnow">😃 La so!</button>
       </div>
       <div class="row gap center-row">
+        <button class="btn small" id="btnDeckPrint">🖨️ Stampa</button>
         <button class="btn small" id="btnDeckDelete">🗑️ Elimina mazzo</button>
       </div>
     </div>
@@ -281,6 +285,9 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Sto lavorando…</div></div>
+
+<div id="printArea" aria-hidden="true"></div>
+<style id="printPage"></style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="app.js" defer></script>

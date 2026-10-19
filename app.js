@@ -1109,6 +1109,29 @@ const mindmap = {
     return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
   },
 
+  /** Riquadri e collegamenti in SVG. Per la stampa: colori chiari fissi e niente selezione. */
+  svgParts({ print = false } = {}) {
+    const dark = !print && settings.theme === "scuro";
+    const ACC = print ? "#2f6f6a" : "var(--accent)", ACC_INK = print ? "#ffffff" : "var(--accent-ink)";
+    let edges = "", boxes = "";
+    for (const { n, parent } of this.nodes) {
+      const fill = n._depth === 0 ? ACC : (dark ? n._color[1] : n._color[0]);
+      const stroke = n._depth === 0 ? ACC : n._color[1];
+      const ink = n._depth === 0 ? ACC_INK : (dark ? "#fff" : "#2b2a27");
+      if (parent) edges += `<path d="${this.edgePath(parent, n)}" fill="none" stroke="${stroke}" stroke-width="${n._depth === 1 ? 4 : 2.5}" stroke-linecap="round"/>`;
+      const tx = n._x + n._w / 2;
+      const ty0 = n._y + 10 + n._size;
+      const tspans = n._lines.map((l, i) => `<tspan x="${tx}" y="${ty0 + i * n._size * 1.3 - n._size * 0.15}">${escapeHtml(l)}</tspan>`).join("");
+      const dash = n.ai ? ` stroke-dasharray="8 5"` : "";
+      const sel = !print && n.id === this.selected ? " sel" : "";
+      boxes += `<g class="map-node${sel}" data-id="${n.id}" role="button" tabindex="0">
+        <rect x="${n._x}" y="${n._y}" width="${n._w}" height="${n._h}" rx="12" fill="${fill}" stroke="${stroke}" stroke-width="${n.ai ? 3 : 2}"${dash}/>
+        <text text-anchor="middle" font-family="Atkinson Hyperlegible, Verdana, sans-serif" font-size="${n._size}" font-weight="${n._bold ? 700 : 400}" fill="${ink}">${tspans}</text>
+      </g>`;
+    }
+    return { edges, boxes };
+  },
+
   draw({ center = false } = {}) {
     const wrap = $("#mapWrap");
     if (!this.root) return;
@@ -1120,22 +1143,7 @@ const mindmap = {
     }
     const { width, height } = this.computeLayout();
     this.size = { width, height };
-    const dark = settings.theme === "scuro";
-    let edges = "", boxes = "";
-    for (const { n, parent } of this.nodes) {
-      const fill = n._depth === 0 ? "var(--accent)" : (dark ? n._color[1] : n._color[0]);
-      const stroke = n._depth === 0 ? "var(--accent)" : n._color[1];
-      const ink = n._depth === 0 ? "var(--accent-ink)" : (dark ? "#fff" : "#2b2a27");
-      if (parent) edges += `<path d="${this.edgePath(parent, n)}" fill="none" stroke="${stroke}" stroke-width="${n._depth === 1 ? 4 : 2.5}" stroke-linecap="round"/>`;
-      const tx = n._x + n._w / 2;
-      const ty0 = n._y + 10 + n._size;
-      const tspans = n._lines.map((l, i) => `<tspan x="${tx}" y="${ty0 + i * n._size * 1.3 - n._size * 0.15}">${escapeHtml(l)}</tspan>`).join("");
-      const dash = n.ai ? ` stroke-dasharray="8 5"` : "";
-      boxes += `<g class="map-node${n.id === this.selected ? " sel" : ""}" data-id="${n.id}" role="button" tabindex="0">
-        <rect x="${n._x}" y="${n._y}" width="${n._w}" height="${n._h}" rx="12" fill="${fill}" stroke="${stroke}" stroke-width="${n.ai ? 3 : 2}"${dash}/>
-        <text text-anchor="middle" font-family="Atkinson Hyperlegible, Verdana, sans-serif" font-size="${n._size}" font-weight="${n._bold ? 700 : 400}" fill="${ink}">${tspans}</text>
-      </g>`;
-    }
+    const { edges, boxes } = this.svgParts();
     // zoom: all'inizio la mappa entra nello schermo (senza diventare illeggibile)
     if (this.zoom == null) { this.zoom = Math.max(0.55, Math.min(1, (wrap.clientWidth || 360) / width)); center = true; }
     const z = this.zoom;
@@ -1443,6 +1451,46 @@ async function importBackup(file) {
 }
 
 /* =========================================================
+   12b. STAMPA (mappe, testi, riassunti, flashcard)
+   ========================================================= */
+const printer = {
+  run(html, { title = "Studio Facile", landscape = false } = {}) {
+    const area = $("#printArea");
+    area.innerHTML = `<div class="print-head"><b>${escapeHtml(title)}</b><span>${todayLabel()}</span></div>` + html;
+    $("#printPage").textContent = `@page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 12mm; }`;
+    const oldTitle = document.title;
+    document.title = title; // diventa il nome del PDF se si sceglie "Salva come PDF"
+    const done = () => { document.title = oldTitle; removeEventListener("afterprint", done); };
+    addEventListener("afterprint", done);
+    (document.fonts?.ready || Promise.resolve()).then(() => setTimeout(() => window.print(), 80));
+  },
+
+  text(text, title) {
+    if (!text) return toast("Non c'è niente da stampare.");
+    this.run(`<div class="print-text">${mdToHtml(text)}</div>`, { title });
+  },
+
+  map() {
+    const m = mindmap;
+    if (!m.root) return toast("Prima crea una mappa.");
+    const { width, height } = m.size = m.computeLayout();
+    const { edges, boxes } = m.svgParts({ print: true });
+    const landscape = width >= height;
+    const svg = `<svg class="print-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">${edges}${boxes}</svg>`;
+    const legend = JSON.stringify(cleanMap(m.root)).includes('"ai":true') ? `<p class="print-note">Bordo tratteggiato = aggiunto dall'IA</p>` : "";
+    this.run(svg + legend, { title: m.root.text, landscape });
+  },
+
+  deck() {
+    const d = flash.deck;
+    if (!d) return toast("Scegli prima un mazzo.");
+    const rows = d.cards.map((c, i) => `<tr><td class="n">${i + 1}</td><td>${escapeHtml(c.q)}</td><td>${escapeHtml(c.a)}</td></tr>`).join("");
+    this.run(`<p class="print-note">Piega il foglio lungo la linea tratteggiata: leggi la domanda e prova a rispondere prima di guardare.</p>
+      <table class="print-cards"><thead><tr><th></th><th>Domanda</th><th>Risposta</th></tr></thead><tbody>${rows}</tbody></table>`, { title: d.title });
+  }
+};
+
+/* =========================================================
    13. NAVIGAZIONE E IMPOSTAZIONI (interfaccia)
    ========================================================= */
 function showView(name) {
@@ -1603,6 +1651,13 @@ function init() {
   addEventListener("touchmove", (e) => { if (ruler.on && e.target.closest?.("#reader")) ruler.moveTo(e.touches[0].clientY - 40); }, { passive: true });
   $("#btnEdit").addEventListener("click", () => reader.toggleEdit());
   $("#btnSave").addEventListener("click", saveCurrentText);
+  $("#btnPrintText").addEventListener("click", () => {
+    const first = (reader.text.split("\n").find(l => l.trim()) || "Testo").replace(/^#+\s*/, "").slice(0, 60);
+    printer.text(reader.picked.size ? reader.activeText() : reader.text, first);
+  });
+  $("#btnResultPrint").addEventListener("click", () => printer.text(lastResult, $("#resultTitle").textContent));
+  $("#btnMapPrint").addEventListener("click", () => printer.map());
+  $("#btnDeckPrint").addEventListener("click", () => printer.deck());
 
   // azioni
   $$(".action").forEach(b => b.addEventListener("click", () => runAction(b.dataset.act)));

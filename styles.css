@@ -310,7 +310,32 @@ dialog { overflow: auto; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+/* ---------- Stampa: si stampa solo ciò che è stato preparato in #printArea ---------- */
+#printArea { display: none; }
 @media print {
-  .topbar, .tabbar, .reader-toolbar, #toolsCard, .input-card { display: none !important; }
-  body { padding: 0; }
+  html, body { background: #fff !important; color: #111 !important; padding: 0 !important; overflow: visible !important; }
+  body > *:not(#printArea) { display: none !important; }
+  #printArea { display: block; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+.print-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: Lexend, sans-serif; color: #2f6f6a; font-size: 15pt;
+  border-bottom: 2px solid #2f6f6a; padding-bottom: 2mm; margin-bottom: 6mm;
+}
+.print-head span { font-size: 10pt; color: #555; }
+.print-text {
+  font-family: var(--read-font); font-size: calc(var(--read-size) * 0.78);
+  letter-spacing: var(--read-letter); word-spacing: calc(var(--read-letter) * 2.5); line-height: var(--read-line);
+}
+.print-text h3 { font-family: Lexend, sans-serif; color: #2f6f6a; margin: 1.1em 0 .3em; break-after: avoid; }
+.print-text p, .print-text li { break-inside: avoid; }
+.print-text strong { background: #fff3c4; padding: 0 2px; }
+.print-map { display: block; width: 100%; height: auto; max-height: 170mm; margin: 0 auto; }
+.print-note { font-size: 10pt; color: #555; margin: 3mm 0; }
+.print-cards { width: 100%; border-collapse: collapse; font-family: var(--read-font); font-size: 13pt; line-height: 1.6; }
+.print-cards th { text-align: left; font-family: Lexend, sans-serif; color: #2f6f6a; padding: 2mm; border-bottom: 2px solid #2f6f6a; }
+.print-cards td { padding: 3mm 2mm; vertical-align: top; border-bottom: 1px solid #ccc; break-inside: avoid; }
+.print-cards td.n { width: 8mm; color: #888; }
+.print-cards td:nth-child(2) { width: 46%; border-right: 2px dashed #999; padding-right: 4mm; }
+.print-cards td:nth-child(3) { padding-left: 4mm; }
