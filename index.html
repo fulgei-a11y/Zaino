@@ -17,6 +17,7 @@
 <body>
 <header class="topbar">
   <div class="brand"><span class="logo" aria-hidden="true">✦</span> Studio Facile</div>
+  <button class="timer-chip hidden" id="timerChip" aria-label="Timer di studio"></button>
   <button class="icon-btn" id="btnSettings" aria-label="Impostazioni" title="Impostazioni">⚙️</button>
 </header>
 
@@ -47,6 +48,7 @@
         <button class="btn round primary" id="btnPlay" aria-label="Leggi ad alta voce">▶️</button>
         <button class="btn round" id="btnStop" aria-label="Ferma">⏹️</button>
         <label class="speed">🐢 <input type="range" id="rngRate" min="0.6" max="1.5" step="0.05"> 🐇</label>
+        <select id="selLang" class="lang-sel" aria-label="Lingua della voce"></select>
         <button class="btn small" id="btnRuler" title="Righello di lettura" aria-label="Righello di lettura">📏</button>
         <button class="btn small" id="btnEdit" title="Modifica testo">✏️</button>
         <button class="btn small" id="btnPick" title="Scegli una parte del testo">✂️ Scegli</button>
@@ -69,13 +71,27 @@
         </div>
       </div>
       <p class="hint" id="pickTip">Vuoi usare solo una parte? Premi <b>✂️ Scegli</b> o seleziona il testo tenendo premuto.</p>
+      <h3 class="group-title">Per capire</h3>
       <div class="grid-actions">
         <button class="action" data-act="semplifica"><span>🪄</span>Semplifica</button>
-        <button class="action" data-act="riassunto"><span>📝</span>Riassunto</button>
-        <button class="action" data-act="parole"><span>🔑</span>Parole chiave</button>
-        <button class="action" data-act="mappa"><span>🗺️</span>Mappa</button>
-        <button class="action" data-act="flashcard"><span>🃏</span>Flashcard</button>
         <button class="action" data-act="spiega"><span>💡</span>Spiegami</button>
+        <button class="action" data-act="parole"><span>🔑</span>Parole chiave</button>
+        <button class="action" data-act="traduci"><span>🌍</span>Traduci</button>
+      </div>
+      <h3 class="group-title">Per studiare</h3>
+      <div class="grid-actions">
+        <button class="action" data-act="riassunto"><span>📝</span>Riassunto</button>
+        <button class="action" data-act="mappa"><span>🗺️</span>Mappa</button>
+        <button class="action" data-act="linea"><span>📅</span>Linea del tempo</button>
+        <button class="action" data-act="confronta"><span>⚖️</span>Confronta</button>
+      </div>
+      <h3 class="group-title">Per esercitarsi</h3>
+      <div class="grid-actions">
+        <button class="action" data-act="interroga"><span>🎤</span>Interrogami</button>
+        <button class="action" data-act="flashcard"><span>🃏</span>Flashcard</button>
+        <button class="action lang-only" data-act="vocaboli"><span>🔤</span>Vocaboli</button>
+        <button class="action" data-act="formulario"><span>📐</span>Formulario</button>
+        <button class="action" data-act="esercizio"><span>🧮</span>Esercizio passo passo</button>
       </div>
     </div>
 
@@ -137,6 +153,7 @@
     <div class="card">
       <textarea id="txtDictation" rows="8" placeholder="Il testo dettato comparirà qui. Puoi anche modificarlo."></textarea>
       <div class="row gap wrap">
+        <button class="btn primary" id="btnExplain">📚 Spiegami gli errori</button>
         <button class="btn" id="btnFix">✔️ Correggi errori</button>
         <button class="btn" id="btnDictRead">🔊 Rileggi</button>
         <button class="btn" id="btnCopy">📋 Copia</button>
@@ -144,10 +161,26 @@
         <button class="btn" id="btnDictClear">🗑️ Svuota</button>
       </div>
     </div>
+    <div class="card hidden" id="errCard">
+      <h2>Gli errori, spiegati</h2>
+      <ul class="err-list" id="errList"></ul>
+      <div class="row gap wrap">
+        <button class="btn primary" id="btnErrApply">✔️ Applica le correzioni</button>
+        <button class="btn" id="btnErrRead">🔊 Ascolta le spiegazioni</button>
+      </div>
+      <p class="hint" id="errStats"></p>
+    </div>
   </section>
 
   <!-- ============ RIPASSA ============ -->
   <section class="view" id="view-ripassa" aria-label="Ripassa">
+    <div class="seg" id="ripSeg" role="tablist">
+      <button data-rt="carte" class="on">🃏 Flashcard</button>
+      <button data-rt="interroga">🎤 Interrogami</button>
+      <button data-rt="piano">📅 Piano</button>
+    </div>
+
+    <div class="rip-pane" data-pane="carte">
     <div class="card">
       <div class="row between wrap gap">
         <h2>Flashcard</h2>
@@ -174,6 +207,65 @@
         <button class="btn small" id="btnDeckDelete">🗑️ Elimina mazzo</button>
       </div>
     </div>
+    </div>
+
+    <div class="rip-pane hidden" data-pane="interroga">
+      <div class="card">
+        <h2>Interrogazione simulata</h2>
+        <label class="field">Su cosa ti interrogo?
+          <select id="quizSource"></select>
+        </label>
+        <div class="row gap wrap">
+          <button class="btn big primary" id="btnQuizAsk">🎲 Fammi una domanda</button>
+          <button class="btn big" id="btnQuizExpose">📢 Esponi tutto l'argomento</button>
+        </div>
+      </div>
+      <div class="card hidden" id="quizQ">
+        <div class="row between gap">
+          <div class="quiz-question" id="quizQuestion"></div>
+          <button class="btn round" id="btnQuizRepeat" aria-label="Ripeti la domanda">🔊</button>
+        </div>
+        <button class="mic" id="btnQuizMic" aria-label="Rispondi a voce">🎙️</button>
+        <div id="quizMicStatus" class="hint center">Rispondi a voce, come in classe</div>
+        <textarea id="quizAnswer" rows="4" placeholder="…oppure scrivi qui la risposta"></textarea>
+        <div class="row gap wrap" style="margin-top:10px">
+          <button class="btn big primary" id="btnQuizCheck">✅ Com'è andata?</button>
+        </div>
+      </div>
+      <div class="card hidden" id="quizFeedback"></div>
+    </div>
+
+    <div class="rip-pane hidden" data-pane="piano">
+      <div class="card timer-card">
+        <div class="row between wrap gap">
+          <div>
+            <div class="timer-label" id="timerLabel">⏱️ Timer di studio</div>
+            <div class="timer-display" id="timerDisplay">25:00</div>
+          </div>
+          <div class="row gap wrap">
+            <select id="timerLen" aria-label="Durata">
+              <option value="15">15 min</option><option value="20">20 min</option><option value="25" selected>25 min</option><option value="30">30 min</option>
+            </select>
+            <button class="btn primary" id="btnTimer">▶️ Avvia</button>
+            <button class="btn" id="btnTimerStop" aria-label="Ferma">⏹️</button>
+          </div>
+        </div>
+        <p class="hint">Dopo ogni sessione ti avviso e parte una pausa di 5 minuti.</p>
+      </div>
+      <div class="card">
+        <h2>Piano verso la verifica</h2>
+        <label class="field">Materia <input type="text" id="planSubject" list="subjectsList" placeholder="Es. Storia"></label>
+        <label class="field">Data della verifica <input type="date" id="planDate"></label>
+        <label class="field">Cosa devo studiare?
+          <textarea id="planTopics" rows="4" placeholder="Es. capitoli 3 e 4: Rivoluzione francese, Napoleone, Congresso di Vienna"></textarea>
+        </label>
+        <label class="field">Quanto tempo al giorno?
+          <select id="planMinutes"><option value="20">20 minuti</option><option value="30">30 minuti</option><option value="45" selected>45 minuti</option><option value="60">1 ora</option><option value="90">1 ora e mezza</option></select>
+        </label>
+        <button class="btn big primary" id="btnPlanCreate">📅 Crea il piano</button>
+      </div>
+      <div id="planList"></div>
+    </div>
   </section>
 
   <!-- ============ QUADERNO ============ -->
@@ -181,6 +273,7 @@
     <div class="card">
       <h2>Il mio quaderno</h2>
       <p class="hint">Testi e mappe salvati restano solo su questo dispositivo.</p>
+      <div class="chips" id="nbFilter"></div>
       <ul id="notebook" class="notebook"></ul>
     </div>
   </section>
@@ -267,6 +360,7 @@
     <h2 id="askTitle"></h2>
     <p id="askMsg" class="hint"></p>
     <textarea id="askInput" rows="3" class="hidden"></textarea>
+    <label class="field hidden" id="askSubjWrap">Materia <input type="text" id="askSubject" list="subjectsList" placeholder="Es. Storia (facoltativa)"></label>
     <div id="askBtns" class="row gap wrap ask-btns"></div>
   </form>
 </dialog>
@@ -286,6 +380,7 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Sto lavorando…</div></div>
 
+<datalist id="subjectsList"></datalist>
 <div id="printArea" aria-hidden="true"></div>
 <style id="printPage"></style>
 

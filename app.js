@@ -35,7 +35,7 @@ function busy(on, text = "Sto lavorando…") {
 }
 /* Finestre dell'app al posto di prompt()/confirm() del browser,
    che sul telefono fanno saltare l'impaginazione. */
-function uiDialog({ title = "", message = "", input = null, buttons }) {
+function uiDialog({ title = "", message = "", input = null, subject = null, buttons }) {
   return new Promise((resolve) => {
     const d = $("#dlgAsk");
     $("#askTitle").textContent = title;
@@ -44,6 +44,9 @@ function uiDialog({ title = "", message = "", input = null, buttons }) {
     const ta = $("#askInput");
     ta.classList.toggle("hidden", input === null);
     ta.value = input ?? "";
+    $("#askSubjWrap").classList.toggle("hidden", subject === null);
+    $("#askSubject").value = subject ?? "";
+    if (subject !== null) fillSubjects();
     const box = $("#askBtns");
     box.innerHTML = "";
     let result = null;
@@ -56,13 +59,27 @@ function uiDialog({ title = "", message = "", input = null, buttons }) {
       box.appendChild(el);
     }
     ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); box.querySelector(".primary")?.click(); } };
-    d.onclose = () => resolve(input === null ? result : (result === null ? null : { choice: result, text: ta.value.trim() }));
+    d.onclose = () => resolve(input === null ? result : (result === null ? null : { choice: result, text: ta.value.trim(), subject: $("#askSubject").value.trim() }));
     d.showModal();
     if (input !== null) setTimeout(() => { ta.focus(); ta.select(); }, 50);
   });
 }
 const uiConfirm = (message, okLabel = "Sì", danger = false) =>
   uiDialog({ title: message, buttons: [{ label: "No", value: false }, { label: okLabel, value: true, primary: !danger, danger }] }).then(v => v === true);
+/** Chiede nome e materia prima di salvare nel quaderno. */
+const askSave = (title, value = "", subject = "") =>
+  uiDialog({ title, input: value, subject, buttons: [{ label: "Annulla", value: null }, { label: "💾 Salva", value: "ok", primary: true }] })
+    .then(r => (r && r.choice === "ok") ? { title: r.text || value, subject: r.subject } : null);
+
+const DEFAULT_SUBJECTS = ["Italiano", "Storia", "Geografia", "Matematica", "Fisica", "Chimica", "Scienze", "Inglese", "Francese", "Spagnolo", "Tedesco", "Latino", "Filosofia", "Arte", "Diritto", "Economia", "Informatica"];
+function allSubjects() {
+  const used = [...store.get("notebook", []), ...store.get("decks", []), ...store.get("plans", [])].map(x => x.subject).filter(Boolean);
+  return [...new Set([...used, ...DEFAULT_SUBJECTS])];
+}
+function fillSubjects() {
+  $("#subjectsList").innerHTML = allSubjects().map(x => `<option value="${escapeHtml(x)}">`).join("");
+}
+
 const uiPrompt = (title, value = "", message = "") =>
   uiDialog({ title, message, input: value, buttons: [{ label: "Annulla", value: null }, { label: "OK", value: "ok", primary: true }] })
     .then(r => (r && r.choice === "ok") ? r.text : null);
@@ -393,6 +410,93 @@ Regole:
 
 TESTO:
 ${t}`,
+  traduci: (t, from, to) => `Traduci questo testo ${from === "it" ? "dall'italiano" : "in italiano"}${to && to !== "it" ? " in " + LANGS[to].name.toLowerCase() : ""}, per una studentessa che lo deve studiare.
+Procedi paragrafo per paragrafo. Per ogni paragrafo scrivi:
+- prima una riga che inizia con "${LANGS[from]?.flag || ""} " seguita dal paragrafo originale;
+- poi una riga che inizia con "${LANGS[to]?.flag || "🇮🇹"} " seguita dalla traduzione, semplice e naturale.
+Lascia una riga vuota tra un paragrafo e l'altro. Metti in **grassetto** nella traduzione le parole più importanti. Nessun altro commento.
+
+TESTO:
+${t}`,
+  vocaboli: (t, lang) => `Questo testo è in ${LANGS[lang].name.toLowerCase()}. Crea flashcard di vocaboli per una studentessa italiana delle superiori.
+Rispondi SOLO con JSON: {"titolo": "argomento breve in italiano", "carte": [{"domanda": "parola o espressione in ${LANGS[lang].name.toLowerCase()}", "risposta": "traduzione italiana — breve esempio in ${LANGS[lang].name.toLowerCase()}"}]}
+Regole: da 10 a 20 carte; scegli parole utili e importanti del testo (anche verbi ed espressioni), non quelle banali; per i verbi irregolari indica le forme principali.
+
+TESTO:
+${t}`,
+  formulario: (t) => `Crea un formulario di una pagina da questo testo di matematica, fisica, chimica o scienze, da usare durante lo studio e le verifiche.
+Formato:
+## (argomento)
+- **nome della formula**: formula
+  - cosa significa ogni lettera, con l'unità di misura
+  - quando si usa (una frase)
+## Formule inverse
+- (le formule inverse più utili)
+## Attenzione a
+- (2-4 errori tipici da evitare)
+Scrivi le formule in modo leggibile, con simboli come ², ³, √, ·, /, Δ, π, ≈, ≤, ≥ (niente LaTeX). Se il testo non contiene formule, fai uno schema dei concetti e delle definizioni da ricordare.
+
+TESTO:
+${t}`,
+  esercizio: (t) => `Questo è un esercizio (di matematica, fisica, chimica, grammatica o altro). Aiuta la studentessa a risolverlo DA SOLA, passo per passo, come farebbe un buon insegnante.
+Rispondi SOLO con JSON:
+{"esercizio": "testo dell'esercizio, ricopiato in breve", "dati": ["dato 1", "dato 2"], "passi": [{"titolo": "titolo breve del passo", "spiegazione": "cosa fare e perché, con il calcolo di questo passo"}], "risultato": "risultato finale con unità di misura", "controllo": "come verificare che il risultato sia sensato"}
+Regole: da 3 a 7 passi; frasi brevi; formule leggibili (², √, ·, niente LaTeX); se ci sono più esercizi, risolvi solo il primo.
+
+TESTO:
+${t}`,
+  linea: (t) => `Crea una linea del tempo con gli eventi di questo testo, in ordine cronologico.
+Rispondi SOLO con JSON: {"titolo": "argomento", "eventi": [{"data": "1789 (o 14 luglio 1789, o III sec. a.C.)", "titolo": "evento in max 8 parole", "dettaglio": "una frase semplice su perché è importante"}]}
+Regole: da 4 a 15 eventi; solo eventi con una data o un periodo; se il testo non contiene date, metti le fasi o i passaggi nell'ordine in cui avvengono e scrivi nel campo "data" la parola "Fase 1", "Fase 2"...
+
+TESTO:
+${t}`,
+  confronta: (t) => `Trova nel testo gli elementi più utili da confrontare (es. due popoli, due personaggi, due periodi, due processi, due teorie) e crea una tabella di confronto per lo studio.
+Rispondi SOLO con JSON: {"titolo": "Confronto tra X e Y", "colonne": ["X", "Y"], "righe": [{"aspetto": "es. governo", "valori": ["per X", "per Y"]}]}
+Regole: da 2 a 4 colonne; da 4 a 8 righe; celle brevi (max 12 parole), parole chiave; "valori" ha sempre lo stesso numero di elementi di "colonne".
+
+TESTO:
+${t}`,
+  domanda: (t, gia) => `Sei un insegnante che interroga una studentessa delle superiori su questo testo.
+Fai UNA sola domanda aperta, chiara e breve, come in una vera interrogazione orale. Alterna domande di definizione, di spiegazione ("perché…", "come…") e di collegamento.
+${gia.length ? "NON ripetere queste domande già fatte:\n- " + gia.join("\n- ") : ""}
+Rispondi SOLO con JSON: {"domanda": "..."}
+
+TESTO:
+${t}`,
+  valuta: (t, domanda, risposta) => `Sei un insegnante gentile ma preciso. Una studentessa con dislessia ha risposto A VOCE a una domanda di interrogazione (la risposta è trascritta automaticamente: ignora errori di trascrizione, ripetizioni e punteggiatura).
+Valuta il CONTENUTO confrontandolo con il testo studiato. Sii incoraggiante e concreto.
+Rispondi SOLO con JSON:
+{"livello": "ottimo" | "buono" | "sufficiente" | "da rivedere", "bene": ["cosa ha detto di giusto"], "manca": ["concetto importante che non ha detto"], "errori": ["affermazione sbagliata → versione corretta"], "risposta_modello": "come avrebbe potuto rispondere, in 3-5 frasi semplici", "consiglio": "un consiglio pratico per migliorare l'esposizione"}
+
+TESTO STUDIATO:
+${t}
+
+DOMANDA: ${domanda}
+
+RISPOSTA DELLA STUDENTESSA:
+${risposta}`,
+  piano: (materia, argomenti, giorni, minuti) => `Crea un piano di studio per una studentessa con dislessia che deve prepararsi a una verifica di ${materia}.
+Argomenti da studiare:
+${argomenti}
+
+Giorni disponibili (formato AAAA-MM-GG): ${giorni.join(", ")}
+Tempo al giorno: circa ${minuti} minuti, divisi in sessioni da 20-25 minuti con pause.
+Regole:
+- distribuisci gli argomenti in modo equilibrato, prima i più difficili;
+- per ogni argomento prevedi attività attive: leggere con la sintesi vocale, fare la mappa, flashcard, interrogazione simulata;
+- l'ultimo giorno è solo ripasso generale (mappe, flashcard, interrogazione);
+- se i giorni sono pochi, concentra l'essenziale;
+- attività brevi e concrete (max 12 parole ciascuna).
+Rispondi SOLO con JSON: {"sessioni": [{"data": "AAAA-MM-GG", "attivita": ["...", "..."]}]}`,
+  spiegaErrori: (t) => `Trova gli errori di ortografia, grammatica e punteggiatura in questo testo scritto da una studentessa con dislessia e disortografia.
+Per ogni errore spiega la regola in modo semplice e gentile, con un trucco per ricordarla.
+Rispondi SOLO con JSON:
+{"errori": [{"sbagliato": "parola o pezzo sbagliato, esattamente come è scritto", "corretto": "versione giusta", "tipo": "accenti" | "apostrofo" | "h" | "doppie" | "maiuscole" | "punteggiatura" | "lettere scambiate" | "parole unite o staccate" | "grammatica" | "altro", "regola": "spiegazione breve con un trucco"}], "testo_corretto": "tutto il testo corretto"}
+Se non ci sono errori, "errori" è una lista vuota.
+
+TESTO:
+${t}`,
   correggi: (t) => `Correggi gli errori di ortografia, grammatica, punteggiatura e le maiuscole in questo testo dettato.
 Non cambiare il contenuto, lo stile o le parole scelte, se non per correggere errori.
 Se capisci che la persona ha dettato la punteggiatura a voce (es. "virgola", "punto", "a capo"), trasformala nei segni giusti.
@@ -448,30 +552,62 @@ function syllabify(word) {
 /* =========================================================
    5. SINTESI VOCALE
    ========================================================= */
+/* ---------- Lingua del testo (per scegliere la voce giusta) ---------- */
+const LANGS = {
+  it: { name: "Italiano", flag: "🇮🇹", bcp: "it-IT" },
+  en: { name: "Inglese", flag: "🇬🇧", bcp: "en-GB" },
+  fr: { name: "Francese", flag: "🇫🇷", bcp: "fr-FR" },
+  es: { name: "Spagnolo", flag: "🇪🇸", bcp: "es-ES" },
+  de: { name: "Tedesco", flag: "🇩🇪", bcp: "de-DE" }
+};
+const STOPWORDS = {
+  it: "il lo gli di che non per una sono con del della dei nel anche questo come più ma è perché alla delle essere",
+  en: "the and of to is that it you was for are with this have from they not but what which their were been would",
+  fr: "le les des est et que une pour dans pas qui sur avec être sont mais nous vous ils elle cette aux du ce",
+  es: "el los las que y en un una por para con es está pero como más sus del al muy también fue son este",
+  de: "der die das und ist nicht ein eine zu mit den sich auch auf für von dem des im sie es wird werden"
+};
+const STOP_SETS = Object.fromEntries(Object.entries(STOPWORDS).map(([k, v]) => [k, new Set(v.split(" "))]));
+function detectLang(text) {
+  const words = (text || "").toLowerCase().match(/[a-zà-ÿäöüß']+/g) || [];
+  const score = {};
+  for (const w of words.slice(0, 600)) for (const k in STOP_SETS) if (STOP_SETS[k].has(w)) score[k] = (score[k] || 0) + 1;
+  let best = "it", max = 0;
+  for (const k in score) if (score[k] > max) { max = score[k]; best = k; }
+  return max >= 2 ? best : "it";
+}
+
 const tts = {
-  voices: [],
+  voices: [],      // voci italiane (per le impostazioni)
+  all: [],         // tutte le voci del dispositivo
   speaking: false,
   onStop: null,
   loadVoices() {
-    const all = speechSynthesis.getVoices();
-    this.voices = all.filter(v => v.lang && v.lang.toLowerCase().startsWith("it"));
-    if (!this.voices.length) this.voices = all;
+    this.all = speechSynthesis.getVoices();
+    this.voices = this.all.filter(v => v.lang && v.lang.toLowerCase().startsWith("it"));
+    if (!this.voices.length) this.voices = this.all;
     const sel = $("#setVoice");
     sel.innerHTML = `<option value="">Automatica (la migliore disponibile)</option>` +
       this.voices.map(v => `<option value="${escapeHtml(v.name)}">${escapeHtml(v.name)}${v.localService ? "" : " ☁️"}</option>`).join("");
     sel.value = settings.voice;
   },
-  pickVoice() {
-    if (settings.voice) { const v = this.voices.find(v => v.name === settings.voice); if (v) return v; }
-    const prefs = [/natural|neural|premium|enhanced/i, /google/i, /elsa|isabella|alice|federica|paola|luca/i];
-    for (const re of prefs) { const v = this.voices.find(v => re.test(v.name)); if (v) return v; }
-    return this.voices[0];
+  pickVoice(lang = "it") {
+    const prefs = [/natural|neural|premium|enhanced/i, /google/i];
+    if (lang === "it") {
+      if (settings.voice) { const v = this.voices.find(v => v.name === settings.voice); if (v) return v; }
+      for (const re of [...prefs, /elsa|isabella|alice|federica|paola|luca/i]) { const v = this.voices.find(v => re.test(v.name)); if (v) return v; }
+      return this.voices[0];
+    }
+    const pool = this.all.filter(v => v.lang && v.lang.toLowerCase().startsWith(lang));
+    if (lang === "en") pool.sort((a, b) => (/GB|UK/i.test(b.lang + b.name) ? 1 : 0) - (/GB|UK/i.test(a.lang + a.name) ? 1 : 0));
+    for (const re of prefs) { const v = pool.find(v => re.test(v.name)); if (v) return v; }
+    return pool[0] || null;
   },
-  utter(text) {
+  utter(text, lang = "it") {
     const u = new SpeechSynthesisUtterance(text);
-    const v = this.pickVoice();
+    const v = this.pickVoice(lang);
     if (v) u.voice = v;
-    u.lang = v?.lang || "it-IT";
+    u.lang = v?.lang || LANGS[lang]?.bcp || "it-IT";
     u.rate = settings.rate;
     return u;
   },
@@ -482,11 +618,12 @@ const tts = {
     speechSynthesis.cancel();
     if (this.onStop) { const f = this.onStop; this.onStop = null; f(); }
   },
-  /** Legge un testo qualsiasi (risultati, carte, mappe). */
-  say(text, onEnd) {
+  /** Legge un testo qualsiasi (risultati, carte, mappe). La lingua, se non indicata, la riconosce da sola. */
+  say(text, onEnd, lang) {
     this.stop();
-    const clean = text.replace(/[#*_`>\[\]]/g, " ").replace(/\s+/g, " ").trim();
+    const clean = (text || "").replace(/[#*_`>\[\]]/g, " ").replace(/\s+/g, " ").trim();
     if (!clean) return;
+    const lg = lang || detectLang(clean);
     const chunks = splitSentences(clean);
     this.speaking = true;
     const my = this.session;
@@ -494,7 +631,7 @@ const tts = {
     const next = () => {
       if (my !== this.session) return;
       if (!this.speaking || i >= chunks.length) { this.speaking = false; onEnd?.(); return; }
-      const u = this.utter(chunks[i++]);
+      const u = this.utter(chunks[i++], lg);
       u.onend = next;
       u.onerror = () => { if (my !== this.session) return; this.speaking = false; onEnd?.(); };
       speechSynthesis.speak(u);
@@ -515,18 +652,34 @@ const reader = {
 
   picked: new Set(),   // frasi scelte: gli strumenti useranno solo quelle
   picking: false,
+  subject: "",         // materia (se il testo viene dal quaderno)
+  lang: "it",          // lingua della voce (riconosciuta da sola, si può cambiare)
 
   load(text, { keepPosition = false } = {}) {
     this.text = text.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
     if (!keepPosition) this.idx = 0;
     store.set("current", this.text);
     this.render();
+    this.setLang(detectLang(this.text));
+    this.subject = "";
     this.setPicked(new Set());
     if (this.picking) this.togglePick();
     const has = !!this.text;
     $("#readerCard").classList.toggle("hidden", !has);
     $("#toolsCard").classList.toggle("hidden", !has);
     if (!has) $("#resultCard").classList.add("hidden");
+  },
+
+  /** Un titolo per il testo aperto: la prima riga. */
+  title() {
+    return (this.text.split("\n").find(l => l.trim()) || "Testo").replace(/^#+\s*/, "").slice(0, 60);
+  },
+
+  setLang(lang) {
+    this.lang = LANGS[lang] ? lang : "it";
+    $("#selLang").value = this.lang;
+    const foreign = this.lang !== "it";
+    $$(".action.lang-only").forEach(b => b.classList.toggle("dim", !foreign));
   },
 
   /** Il testo su cui lavorano gli strumenti: la parte scelta, oppure tutto. */
@@ -648,7 +801,7 @@ const reader = {
       if (this.idx >= this.sentences.length) { this.idx = 0; this.playing = false; tts.speaking = false; this.mark(-1); this.updateBtn(); return; }
       const s = this.sentences[this.idx];
       this.mark(this.idx);
-      const u = tts.utter(s.text);
+      const u = tts.utter(s.text, this.lang);
       u.onboundary = (e) => {
         if (e.name && e.name !== "word") return;
         const w = s.words.find(w => e.charIndex >= w.start && e.charIndex < w.end);
@@ -826,13 +979,96 @@ function mdToHtml(md) {
 }
 
 let lastResult = "";
-const ACT_LABELS = { semplifica: "Testo semplificato", riassunto: "Riassunto", parole: "Parole chiave", spiega: "Spiegazione" };
+const ACT_LABELS = {
+  semplifica: "Testo semplificato", riassunto: "Riassunto", parole: "Parole chiave", spiega: "Spiegazione",
+  traduci: "Traduzione", formulario: "Formulario", esercizio: "Esercizio passo passo",
+  linea: "Linea del tempo", confronta: "Confronto"
+};
+const BUSY_TEXT = {
+  spiega: "Preparo la spiegazione…", traduci: "Traduco…", formulario: "Preparo il formulario…",
+  esercizio: "Studio l'esercizio…", linea: "Metto in ordine le date…", confronta: "Preparo il confronto…"
+};
+
+/** Mostra un risultato: html per lo schermo, md (testo semplice) per ascoltarlo e riusarlo. */
+function showResult(title, html, md) {
+  lastResult = md;
+  $("#resultTitle").textContent = title;
+  $("#result").innerHTML = html;
+  $("#resultCard").classList.remove("hidden");
+  $("#resultCard").scrollIntoView({ behavior: "smooth" });
+}
+
+function makeDeck(data, lang = "it") {
+  const cards = (data.carte || data.cards || []).filter(c => c.domanda && c.risposta).map(c => ({ q: c.domanda, a: c.risposta, box: 0 }));
+  if (!cards.length) throw new Error("Non sono riuscito a creare le carte. Riprova.");
+  const deck = { id: uid(), title: data.titolo || "Flashcard", date: todayLabel(), cards, lang, subject: reader.subject || "" };
+  const decks = store.get("decks", []);
+  decks.unshift(deck);
+  store.set("decks", decks);
+  flash.refreshDecks(deck.id);
+  showView("ripassa");
+  ripassa.tab("carte");
+  toast(`Creato il mazzo con ${cards.length} carte!`);
+}
+
+/* ---------- Disegno dei risultati speciali ---------- */
+function renderTimeline(d) {
+  const ev = (d.eventi || []).filter(e => e.titolo);
+  if (!ev.length) throw new Error("Nel testo non ho trovato date o fasi da mettere in ordine.");
+  const html = `<ol class="timeline">${ev.map(e => `<li><div class="tl-date">${escapeHtml(String(e.data || ""))}</div>
+    <div class="tl-body"><b>${escapeHtml(e.titolo)}</b>${e.dettaglio ? `<p>${escapeHtml(e.dettaglio)}</p>` : ""}</div></li>`).join("")}</ol>`;
+  const md = ev.map(e => `## ${e.data} — ${e.titolo}\n${e.dettaglio || ""}`).join("\n\n");
+  return { title: d.titolo ? "Linea del tempo: " + d.titolo : "Linea del tempo", html, md };
+}
+function renderCompare(d) {
+  const cols = d.colonne || [];
+  const rows = (d.righe || []).filter(r => r.aspetto && Array.isArray(r.valori));
+  if (cols.length < 2 || !rows.length) throw new Error("Nel testo non ho trovato cose da confrontare.");
+  const html = `<div class="table-wrap"><table class="compare"><thead><tr><th></th>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => `<tr><th>${escapeHtml(r.aspetto)}</th>${cols.map((_, i) => `<td>${escapeHtml(String(r.valori[i] ?? ""))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const md = rows.map(r => `## ${r.aspetto}\n` + cols.map((c, i) => `- **${c}**: ${r.valori[i] ?? ""}`).join("\n")).join("\n\n");
+  return { title: d.titolo || "Confronto", html, md };
+}
+function renderExercise(d) {
+  const steps = (d.passi || []).filter(p => p.spiegazione || p.titolo);
+  if (!steps.length) throw new Error("Non sono riuscito a capire l'esercizio. Prova con una foto più chiara.");
+  const html = `<div class="exercise">
+    <div class="ex-box"><b>Esercizio</b><p>${escapeHtml(d.esercizio || "")}</p>
+      ${(d.dati || []).length ? `<b>Dati</b><ul>${d.dati.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : ""}</div>
+    <p class="hint no-print">Prova a fare ogni passo da sola, poi apri il passo dopo per controllare.</p>
+    ${steps.map((p, i) => `<div class="ex-step${i ? " hidden" : ""}" data-step="${i}">
+      <div class="ex-num">Passo ${i + 1} di ${steps.length}</div><b>${escapeHtml(p.titolo || "")}</b><p>${escapeHtml(p.spiegazione || "")}</p></div>`).join("")}
+    <div class="ex-final hidden"><b>🏁 Risultato</b><p>${escapeHtml(d.risultato || "")}</p>
+      ${d.controllo ? `<b>✔️ Controllo</b><p>${escapeHtml(d.controllo)}</p>` : ""}</div>
+    <div class="row gap wrap no-print ex-ctrl">
+      <button class="btn primary" data-ex="next">👉 Passo successivo</button>
+      <button class="btn" data-ex="all">Mostra tutto</button>
+    </div></div>`;
+  const md = `Esercizio: ${d.esercizio || ""}\n\n` + steps.map((p, i) => `## Passo ${i + 1}: ${p.titolo || ""}\n${p.spiegazione || ""}`).join("\n\n") +
+    `\n\n## Risultato\n${d.risultato || ""}` + (d.controllo ? `\n\n## Controllo\n${d.controllo}` : "");
+  return { title: "Esercizio passo passo", html, md };
+}
+function exerciseControl(which) {
+  const hidden = $$("#result .ex-step.hidden, #result .ex-final.hidden");
+  if (which === "all") hidden.forEach(e => e.classList.remove("hidden"));
+  else if (hidden[0]) { hidden[0].classList.remove("hidden"); hidden[0].scrollIntoView({ behavior: "smooth", block: "center" }); tts.say(hidden[0].innerText); }
+  if (!$$("#result .ex-step.hidden, #result .ex-final.hidden").length) $("#result .ex-ctrl")?.remove();
+}
+
+async function chooseTargetLang() {
+  return uiDialog({
+    title: "In quale lingua traduco?",
+    buttons: [{ label: "Annulla", value: null }, ...["en", "fr", "es", "de"].map(k => ({ label: `${LANGS[k].flag} ${LANGS[k].name}`, value: k, primary: k === "en" }))]
+  });
+}
 
 async function runAction(act, source) {
   const text = source || reader.activeText();
   if (!text) return;
   reader.pause();
+  const part = !source && reader.picked.size ? " (parte scelta)" : "";
   try {
+    if (act === "interroga") { showView("ripassa"); ripassa.tab("interroga"); return quiz.setSource(text, reader.title()); }
     if (act === "mappa") {
       busy(true, "Sto creando la mappa…");
       const data = parseJSON(await ask({ prompt: PROMPTS.mappa(text), system: SYSTEM_TUTOR, json: true }));
@@ -842,25 +1078,31 @@ async function runAction(act, source) {
     }
     if (act === "flashcard") {
       busy(true, "Sto preparando le flashcard…");
-      const data = parseJSON(await ask({ prompt: PROMPTS.flashcard(text), system: SYSTEM_TUTOR, json: true }));
-      const cards = (data.carte || data.cards || []).filter(c => c.domanda && c.risposta).map(c => ({ q: c.domanda, a: c.risposta, box: 0 }));
-      if (!cards.length) throw new Error("Non sono riuscito a creare le carte. Riprova.");
-      const deck = { id: uid(), title: data.titolo || "Flashcard", date: todayLabel(), cards };
-      const decks = store.get("decks", []);
-      decks.unshift(deck);
-      store.set("decks", decks);
-      flash.refreshDecks(deck.id);
-      showView("ripassa");
-      toast(`Creato il mazzo con ${cards.length} carte!`);
-      return;
+      return makeDeck(parseJSON(await ask({ prompt: PROMPTS.flashcard(text), system: SYSTEM_TUTOR, json: true })));
     }
-    busy(true, act === "spiega" ? "Preparo la spiegazione…" : "Ci sto pensando…");
+    if (act === "vocaboli") {
+      const lang = source ? detectLang(text) : reader.lang;
+      if (lang === "it") return toast("«Vocaboli» serve per i testi in inglese, francese, spagnolo o tedesco. Se il testo è straniero, scegli la lingua con il menu 🇮🇹 nel lettore.", 7000);
+      busy(true, "Scelgo i vocaboli…");
+      return makeDeck(parseJSON(await ask({ prompt: PROMPTS.vocaboli(text, lang), json: true })), lang);
+    }
+    if (act === "traduci") {
+      const from = source ? detectLang(text) : reader.lang;
+      const to = from === "it" ? await chooseTargetLang() : "it";
+      if (!to) return;
+      busy(true, BUSY_TEXT.traduci);
+      const out = await ask({ prompt: PROMPTS.traduci(text, from, to), temperature: 0.2 });
+      return showResult(ACT_LABELS.traduci + part, `<div class="translation">${mdToHtml(out)}</div>`, out);
+    }
+    if (act === "linea" || act === "confronta" || act === "esercizio") {
+      busy(true, BUSY_TEXT[act]);
+      const data = parseJSON(await ask({ prompt: PROMPTS[act](text), system: SYSTEM_TUTOR, json: true, temperature: 0.2 }));
+      const r = act === "linea" ? renderTimeline(data) : act === "confronta" ? renderCompare(data) : renderExercise(data);
+      return showResult(r.title + part, r.html, r.md);
+    }
+    busy(true, BUSY_TEXT[act] || "Ci sto pensando…");
     const out = await ask({ prompt: PROMPTS[act](text), system: SYSTEM_TUTOR });
-    lastResult = out;
-    $("#resultTitle").textContent = (ACT_LABELS[act] || "Risultato") + (!source && reader.picked.size ? " (parte scelta)" : "");
-    $("#result").innerHTML = mdToHtml(out);
-    $("#resultCard").classList.remove("hidden");
-    $("#resultCard").scrollIntoView({ behavior: "smooth" });
+    showResult((ACT_LABELS[act] || "Risultato") + part, mdToHtml(out), out);
   } catch (e) {
     toast(e.message || "Qualcosa non ha funzionato. Riprova.", 6000);
   } finally {
@@ -1216,13 +1458,17 @@ const mindmap = {
     c.toBlob(b => download(`mappa-${slug(this.root.text)}.png`, b), "image/png");
   },
 
-  save() {
+  subject: "",
+  async save() {
     if (!this.root) return toast("Prima crea una mappa.");
-    const nb = store.get("notebook", []);
-    const item = { id: this.savedId || uid(), type: "mappa", title: this.root.text, date: todayLabel(), data: cleanMap(this.root) };
-    const i = nb.findIndex(x => x.id === item.id);
-    if (i >= 0) nb[i] = item; else nb.unshift(item);
-    if (store.set("notebook", nb)) { this.savedId = item.id; toast("Mappa salvata nel quaderno 📚"); }
+    let subject = this.subject;
+    if (!this.savedId) {
+      const r = await askSave("Salva la mappa", this.root.text, this.subject || reader.subject);
+      if (!r) return;
+      subject = this.subject = r.subject;
+    }
+    const item = { id: this.savedId || uid(), type: "mappa", title: this.root.text, subject, date: todayLabel(), data: cleanMap(this.root) };
+    if (notebookPut(item)) { this.savedId = item.id; toast("Mappa salvata nel quaderno 📚"); }
   }
 };
 const slug = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "mappa";
@@ -1230,51 +1476,103 @@ const slug = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").rep
 /* =========================================================
    10. DETTATURA
    ========================================================= */
-const dictation = {
-  rec: null, chunks: [], stream: null, t0: 0, timer: null, undo: null,
-
-  async toggle() {
-    if (this.rec && this.rec.state === "recording") return this.rec.stop();
-    if (!settings.keyGroq) { openSettings(); return toast("Per dettare serve la chiave Groq."); }
+/** Registratore riutilizzabile: un pulsante microfono, una scritta di stato, e cosa fare col testo. */
+function makeRecorder(btn, statusEl, onText, idleMsg) {
+  const r = { rec: null, chunks: [], stream: null, t0: 0, timer: null };
+  r.toggle = async () => {
+    if (r.rec && r.rec.state === "recording") return r.rec.stop();
+    if (!settings.keyGroq) { openSettings(); return toast("Per usare il microfono serve la chiave Groq."); }
+    tts.stop();
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      r.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
     } catch {
       return toast("Non riesco a usare il microfono. Controlla i permessi del browser.", 5000);
     }
     const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find(t => window.MediaRecorder?.isTypeSupported?.(t)) || "";
-    this.rec = new MediaRecorder(this.stream, type ? { mimeType: type } : undefined);
-    this.chunks = [];
-    this.rec.ondataavailable = (e) => e.data.size && this.chunks.push(e.data);
-    this.rec.onstop = () => this.finish();
-    this.rec.start();
-    this.t0 = Date.now();
-    $("#btnMic").classList.add("rec");
-    $("#btnMic").setAttribute("aria-label", "Ferma registrazione");
-    this.timer = setInterval(() => {
-      const s = Math.floor((Date.now() - this.t0) / 1000);
-      $("#micStatus").textContent = `🔴 Ti ascolto… ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} — tocca per finire`;
-      if (s >= 600) this.rec.stop(); // massimo 10 minuti per registrazione
+    r.rec = new MediaRecorder(r.stream, type ? { mimeType: type } : undefined);
+    r.chunks = [];
+    r.rec.ondataavailable = (e) => e.data.size && r.chunks.push(e.data);
+    r.rec.onstop = () => r.finish();
+    r.rec.start();
+    r.t0 = Date.now();
+    btn.classList.add("rec");
+    btn.setAttribute("aria-label", "Ferma registrazione");
+    r.timer = setInterval(() => {
+      const sec = Math.floor((Date.now() - r.t0) / 1000);
+      statusEl.textContent = `🔴 Ti ascolto… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")} — tocca per finire`;
+      if (sec >= 600) r.rec.stop(); // massimo 10 minuti per registrazione
     }, 300);
-  },
-
-  async finish() {
-    clearInterval(this.timer);
-    this.stream?.getTracks().forEach(t => t.stop());
-    $("#btnMic").classList.remove("rec");
-    $("#btnMic").setAttribute("aria-label", "Avvia registrazione");
-    const blob = new Blob(this.chunks, { type: this.rec.mimeType || "audio/webm" });
-    if (blob.size < 1200) { $("#micStatus").textContent = "Registrazione troppo corta. Riprova."; return; }
-    $("#micStatus").textContent = "✍️ Sto scrivendo…";
+  };
+  r.finish = async () => {
+    clearInterval(r.timer);
+    r.stream?.getTracks().forEach(t => t.stop());
+    btn.classList.remove("rec");
+    btn.setAttribute("aria-label", "Avvia registrazione");
+    const blob = new Blob(r.chunks, { type: r.rec.mimeType || "audio/webm" });
+    if (blob.size < 1200) { statusEl.textContent = "Registrazione troppo corta. Riprova."; return; }
+    statusEl.textContent = "✍️ Sto scrivendo…";
     try {
-      const text = await transcribe(blob);
+      onText(await transcribe(blob));
+      statusEl.textContent = idleMsg;
+    } catch (e) {
+      statusEl.textContent = "Tocca il microfono per riprovare";
+      toast(e.message, 6000);
+    }
+  };
+  return r;
+}
+
+const dictation = {
+  undo: null,
+  rec: null,
+  toggle() {
+    this.rec ||= makeRecorder($("#btnMic"), $("#micStatus"), (text) => {
       const ta = $("#txtDictation");
       ta.value = (ta.value.trim() ? ta.value.trim() + " " : "") + text;
       store.set("dictation", ta.value);
-      $("#micStatus").textContent = "Fatto! Tocca il microfono per continuare a dettare.";
-    } catch (e) {
-      $("#micStatus").textContent = "Tocca il microfono per riprovare";
-      toast(e.message, 6000);
-    }
+    }, "Fatto! Tocca il microfono per continuare a dettare.");
+    return this.rec.toggle();
+  },
+
+  /** Trova gli errori e li spiega, invece di correggerli in silenzio. */
+  async explain() {
+    const t = $("#txtDictation").value.trim();
+    if (!t) return toast("Prima detta o scrivi qualcosa.");
+    try {
+      busy(true, "Cerco gli errori e preparo le spiegazioni…");
+      const d = parseJSON(await ask({ prompt: PROMPTS.spiegaErrori(t), json: true, temperature: 0.1 }));
+      const errs = (d.errori || []).filter(e => e.sbagliato && e.corretto && e.sbagliato !== e.corretto);
+      this.fixed = d.testo_corretto || "";
+      const stats = store.get("errStats", {});
+      errs.forEach(e => { const k = e.tipo || "altro"; stats[k] = (stats[k] || 0) + 1; });
+      store.set("errStats", stats);
+      const card = $("#errCard");
+      card.classList.remove("hidden");
+      $("#errList").innerHTML = errs.length
+        ? errs.map(e => `<li><span class="err-bad">${escapeHtml(e.sbagliato)}</span> → <span class="err-good">${escapeHtml(e.corretto)}</span>
+            <small class="err-type">${escapeHtml(e.tipo || "")}</small><p>${escapeHtml(e.regola || "")}</p></li>`).join("")
+        : `<li class="hint">🎉 Non ho trovato errori. Brava!</li>`;
+      $("#btnErrApply").classList.toggle("hidden", !errs.length || !this.fixed);
+      this.renderStats();
+      card.scrollIntoView({ behavior: "smooth" });
+    } catch (e) { toast(e.message || "Non sono riuscito a controllare il testo. Riprova.", 6000); }
+    finally { busy(false); }
+  },
+  applyFix() {
+    if (!this.fixed) return;
+    this.undo = $("#txtDictation").value;
+    $("#txtDictation").value = this.fixed;
+    store.set("dictation", this.fixed);
+    $("#btnFix").textContent = "↩️ Annulla correzione";
+    $("#btnFix").dataset.undo = "1";
+    $("#btnErrApply").classList.add("hidden");
+    toast("Correzioni applicate ✔️");
+  },
+  renderStats() {
+    const stats = Object.entries(store.get("errStats", {})).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    $("#errStats").innerHTML = stats.length
+      ? `<b>I tuoi errori più frequenti:</b> ` + stats.map(([k, n]) => `<span class="chip">${escapeHtml(k)} · ${n}</span>`).join(" ")
+      : "";
   },
 
   async fix() {
@@ -1372,7 +1670,7 @@ const flash = {
   read() {
     if (!this.deck || this.finished) return;
     const c = this.deck.cards[this.queue[0]];
-    tts.say(this.flipped ? c.a : c.q);
+    tts.say(this.flipped ? c.a : c.q, null, this.flipped ? undefined : (this.deck.lang || "it"));
   },
 
   async remove() {
@@ -1383,43 +1681,340 @@ const flash = {
 };
 
 /* =========================================================
+   11b. RIPASSA: sezioni, interrogazione, piano, timer
+   ========================================================= */
+const ripassa = {
+  current: "carte",
+  tab(name) {
+    this.current = name;
+    $$("#ripSeg button").forEach(b => b.classList.toggle("on", b.dataset.rt === name));
+    $$(".rip-pane").forEach(p => p.classList.toggle("hidden", p.dataset.pane !== name));
+    if (name === "interroga") quiz.fillSources();
+    if (name === "piano") planner.render();
+  }
+};
+
+/* ---------- Interrogazione simulata ---------- */
+const quiz = {
+  source: "", title: "", question: "", asked: [], rec: null,
+
+  fillSources(selectValue) {
+    const sel = $("#quizSource");
+    const texts = store.get("notebook", []).filter(x => x.type === "testo");
+    const opts = [];
+    if (this.source && !texts.some(t => t.data === this.source) && this.source !== reader.text) opts.push(["custom", "📝 " + (this.title || "Testo scelto")]);
+    if (reader.text) opts.push(["reader", "📖 Testo aperto: " + reader.title()]);
+    texts.forEach(t => opts.push(["nb:" + t.id, `📚 ${t.subject ? t.subject + " · " : ""}${t.title}`]));
+    sel.innerHTML = opts.length ? opts.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("")
+      : `<option value="">Prima apri un testo in Leggi o salvane uno nel quaderno</option>`;
+    if (selectValue) sel.value = selectValue;
+  },
+
+  /** Testo su cui interrogare, in base alla scelta nel menu. */
+  pick() {
+    const v = $("#quizSource").value;
+    if (v === "custom") return { text: this.source, title: this.title };
+    if (v === "reader") return { text: reader.activeText(), title: reader.title() };
+    if (v.startsWith("nb:")) {
+      const t = store.get("notebook", []).find(x => x.id === v.slice(3));
+      if (t) return { text: t.data, title: t.title };
+    }
+    return null;
+  },
+
+  setSource(text, title) {
+    this.source = text; this.title = title; this.asked = [];
+    this.fillSources(text === reader.activeText() ? "reader" : "custom");
+    toast("Pronta? Premi «Fammi una domanda» 🎤");
+  },
+
+  async next(expose = false) {
+    const src = this.pick();
+    if (!src?.text) return toast("Scegli prima su cosa vuoi essere interrogata.");
+    if (src.text !== this.source) { this.source = src.text; this.title = src.title; this.asked = []; }
+    try {
+      if (expose) this.question = `Esponi l'argomento «${src.title}»: di cosa parla, i concetti principali e come sono collegati.`;
+      else {
+        busy(true, "Preparo una domanda…");
+        const d = parseJSON(await ask({ prompt: PROMPTS.domanda(src.text, this.asked.slice(-8)), json: true, temperature: 0.8 }));
+        this.question = d.domanda || "Di cosa parla questo argomento?";
+      }
+      this.asked.push(this.question);
+      $("#quizQuestion").textContent = this.question;
+      $("#quizAnswer").value = "";
+      $("#quizFeedback").classList.add("hidden");
+      $("#quizQ").classList.remove("hidden");
+      $("#quizQ").scrollIntoView({ behavior: "smooth" });
+      tts.say(this.question, null, "it");
+    } catch (e) { toast(e.message || "Non sono riuscito a fare la domanda. Riprova.", 6000); }
+    finally { busy(false); }
+  },
+
+  mic() {
+    this.rec ||= makeRecorder($("#btnQuizMic"), $("#quizMicStatus"), (text) => {
+      const ta = $("#quizAnswer");
+      ta.value = (ta.value.trim() ? ta.value.trim() + " " : "") + text;
+    }, "Puoi continuare a parlare, oppure premi «Com'è andata?»");
+    this.rec.toggle();
+  },
+
+  async check() {
+    const answer = $("#quizAnswer").value.trim();
+    if (!answer) return toast("Prima rispondi a voce 🎙️ o scrivi la risposta.");
+    try {
+      busy(true, "Ascolto la tua risposta…");
+      const d = parseJSON(await ask({ prompt: PROMPTS.valuta(this.source, this.question, answer), json: true, temperature: 0.3 }));
+      const LV = { ottimo: ["🌟", "Ottimo!", "good"], buono: ["👍", "Buona risposta", "good"], sufficiente: ["🙂", "Sufficiente", "mid"], "da rivedere": ["📖", "Da rivedere", "bad"] };
+      const [ico, label, cls] = LV[d.livello] || LV.sufficiente;
+      const list = (arr, cls2) => (arr || []).length ? `<ul class="${cls2}">${arr.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : "";
+      $("#quizFeedback").innerHTML = `
+        <div class="quiz-level ${cls}">${ico} ${label}</div>
+        ${(d.bene || []).length ? `<h3>✅ Cosa hai detto bene</h3>${list(d.bene, "fb-good")}` : ""}
+        ${(d.manca || []).length ? `<h3>➕ Cosa mancava</h3>${list(d.manca, "fb-miss")}` : ""}
+        ${(d.errori || []).length ? `<h3>✏️ Da correggere</h3>${list(d.errori, "fb-err")}` : ""}
+        ${d.risposta_modello ? `<h3>💬 Una risposta completa</h3><p class="model">${escapeHtml(d.risposta_modello)}</p>` : ""}
+        ${d.consiglio ? `<p class="tip">💡 ${escapeHtml(d.consiglio)}</p>` : ""}
+        <div class="row gap wrap">
+          <button class="btn" id="btnFbRead">🔊 Ascolta</button>
+          <button class="btn" id="btnFbRetry">🔁 Riprova questa</button>
+          <button class="btn primary" id="btnFbNext">🎲 Altra domanda</button>
+        </div>`;
+      const fb = $("#quizFeedback");
+      fb.classList.remove("hidden");
+      fb.scrollIntoView({ behavior: "smooth" });
+      $("#btnFbRead").onclick = () => tts.say(fb.innerText.replace(/🔊 Ascolta|🔁 Riprova questa|🎲 Altra domanda/g, ""), null, "it");
+      $("#btnFbRetry").onclick = () => { $("#quizAnswer").value = ""; fb.classList.add("hidden"); $("#quizQ").scrollIntoView({ behavior: "smooth" }); };
+      $("#btnFbNext").onclick = () => this.next();
+    } catch (e) { toast(e.message || "Non sono riuscito a valutare. Riprova.", 6000); }
+    finally { busy(false); }
+  }
+};
+
+/* ---------- Piano verso la verifica ---------- */
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const dayLabel = (iso) => new Date(iso + "T12:00").toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+const daysBetween = (a, b) => Math.round((new Date(b + "T12:00") - new Date(a + "T12:00")) / 86400000);
+
+const planner = {
+  async create() {
+    const subject = $("#planSubject").value.trim() || "la materia";
+    const date = $("#planDate").value;
+    const topics = $("#planTopics").value.trim();
+    const minutes = Number($("#planMinutes").value);
+    const today = isoDay(new Date());
+    if (!date) return toast("Scegli la data della verifica.");
+    if (date <= today) return toast("La data della verifica deve essere dopo oggi.");
+    if (!topics) return toast("Scrivi cosa devi studiare.");
+    const days = [];
+    for (let d = new Date(today + "T12:00"); isoDay(d) < date && days.length < 30; d.setDate(d.getDate() + 1)) days.push(isoDay(d));
+    let sessions;
+    try {
+      busy(true, "Preparo il piano…");
+      const out = parseJSON(await ask({ prompt: PROMPTS.piano(subject, topics, days, minutes), json: true, temperature: 0.3 }));
+      sessions = (out.sessioni || []).map((x, i) => ({ date: days.includes(x.data) ? x.data : days[Math.min(i, days.length - 1)], items: (x.attivita || []).map(t => ({ t: String(t), done: false })) }))
+        .filter(x => x.items.length);
+      if (!sessions.length) throw new Error();
+    } catch {
+      sessions = this.simplePlan(topics, days);
+      toast("Ho creato un piano semplice senza IA: puoi comunque usarlo.");
+    } finally { busy(false); }
+    // unisco eventuali giorni doppi e metto in ordine
+    const byDay = {};
+    sessions.forEach(x => { (byDay[x.date] ||= []).push(...x.items); });
+    const plan = { id: uid(), subject, date, minutes, topics, created: today,
+      sessions: Object.keys(byDay).sort().map(d => ({ date: d, items: byDay[d] })) };
+    const plans = store.get("plans", []);
+    plans.unshift(plan);
+    store.set("plans", plans);
+    $("#planTopics").value = "";
+    this.render();
+    $("#planList").scrollIntoView({ behavior: "smooth" });
+  },
+
+  /** Piano di riserva, senza IA: un argomento al giorno e ripasso finale. */
+  simplePlan(topics, days) {
+    const parts = topics.split(/\n|;|,(?![^(]*\))/).map(x => x.trim()).filter(Boolean);
+    const study = days.length > 1 ? days.slice(0, -1) : days;
+    const sessions = study.map(d => ({ date: d, items: [] }));
+    parts.forEach((p, i) => {
+      const s = sessions[i % sessions.length];
+      s.items.push({ t: `Leggi e ascolta: ${p}`, done: false }, { t: `Fai la mappa: ${p}`, done: false });
+    });
+    if (days.length > 1) sessions.push({ date: days[days.length - 1], items: [
+      { t: "Ripassa tutte le mappe", done: false }, { t: "Flashcard di tutti gli argomenti", done: false }, { t: "Interrogazione simulata", done: false }] });
+    return sessions.filter(s => s.items.length);
+  },
+
+  render() {
+    const plans = store.get("plans", []);
+    const today = isoDay(new Date());
+    const box = $("#planList");
+    if (!plans.length) { box.innerHTML = ""; return; }
+    // prima le verifiche future, poi quelle passate
+    plans.sort((a, b) => (a.date < today) - (b.date < today) || a.date.localeCompare(b.date));
+    box.innerHTML = plans.map(p => {
+      const all = p.sessions.flatMap(s => s.items);
+      const done = all.filter(i => i.done).length;
+      const left = daysBetween(today, p.date);
+      const when = left > 1 ? `tra ${left} giorni` : left === 1 ? "domani!" : left === 0 ? "oggi!" : "passata";
+      return `<div class="card plan${left < 0 ? " past" : ""}" data-plan="${p.id}">
+        <div class="row between wrap gap">
+          <h2>📅 ${escapeHtml(p.subject)} — ${escapeHtml(when)}</h2>
+          <div class="row gap"><button class="btn small" data-pp="print" aria-label="Stampa">🖨️</button><button class="btn small" data-pp="del" aria-label="Elimina">🗑️</button></div>
+        </div>
+        <p class="hint">Verifica: ${escapeHtml(dayLabel(p.date))} · ${done} attività fatte su ${all.length}</p>
+        <div class="progress"><div style="width:${all.length ? done / all.length * 100 : 0}%"></div></div>
+        ${p.sessions.map((s, si) => `<div class="plan-day${s.date === today ? " today" : s.date < today ? " gone" : ""}">
+          <div class="plan-date">${s.date === today ? "👉 Oggi" : escapeHtml(dayLabel(s.date))}</div>
+          ${s.items.map((it, ii) => `<label class="plan-item"><input type="checkbox" data-si="${si}" data-ii="${ii}"${it.done ? " checked" : ""}> <span>${escapeHtml(it.t)}</span></label>`).join("")}
+        </div>`).join("")}
+      </div>`;
+    }).join("");
+  },
+
+  toggle(planId, si, ii, done) {
+    const plans = store.get("plans", []);
+    const p = plans.find(x => x.id === planId);
+    if (!p) return;
+    p.sessions[si].items[ii].done = done;
+    store.set("plans", plans);
+    const all = p.sessions.flatMap(s => s.items);
+    if (all.every(i => i.done)) toast("🎉 Piano completato! Sei pronta per la verifica.", 5000);
+    this.render();
+  },
+
+  async remove(planId) {
+    if (!(await uiConfirm("Eliminare questo piano?", "Elimina", true))) return;
+    store.set("plans", store.get("plans", []).filter(x => x.id !== planId));
+    this.render();
+  },
+
+  print(planId) {
+    const p = store.get("plans", []).find(x => x.id === planId);
+    if (!p) return;
+    const html = p.sessions.map(s => `<h3>${escapeHtml(dayLabel(s.date))}</h3><ul class="print-check">${s.items.map(i => `<li>${i.done ? "☑" : "☐"} ${escapeHtml(i.t)}</li>`).join("")}</ul>`).join("");
+    printer.run(`<div class="print-text"><p>Verifica: <b>${escapeHtml(dayLabel(p.date))}</b></p>${html}</div>`, { title: "Piano di studio: " + p.subject });
+  }
+};
+
+/* ---------- Timer di studio (studio + pausa) ---------- */
+const timer = {
+  end: 0, left: 0, phase: "idle", tick: null,   // phase: idle | study | break | paused-study | paused-break
+  fmt(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; },
+  start(phase = "study", minutes) {
+    const m = minutes ?? (phase === "study" ? Number($("#timerLen").value) : 5);
+    this.phase = phase;
+    this.end = Date.now() + m * 60000;
+    clearInterval(this.tick);
+    this.tick = setInterval(() => this.update(), 500);
+    this.update();
+  },
+  toggle() {
+    if (this.phase === "idle") return this.start("study");
+    if (this.phase.startsWith("paused-")) { const ph = this.phase.slice(7); this.phase = ph; this.end = Date.now() + this.left; this.tick = setInterval(() => this.update(), 500); return this.update(); }
+    this.left = this.end - Date.now(); this.phase = "paused-" + this.phase; clearInterval(this.tick); this.update();
+  },
+  stop() { clearInterval(this.tick); this.phase = "idle"; this.update(); },
+  update() {
+    const running = this.phase === "study" || this.phase === "break";
+    const ms = running ? this.end - Date.now() : this.phase === "idle" ? Number($("#timerLen").value) * 60000 : this.left;
+    const t = this.fmt(ms);
+    const label = { idle: "⏱️ Timer di studio", study: "📚 Studio", break: "☕ Pausa", "paused-study": "⏸️ Studio in pausa", "paused-break": "⏸️ Pausa ferma" }[this.phase];
+    $("#timerDisplay").textContent = t;
+    $("#timerLabel").textContent = label;
+    $("#btnTimer").textContent = running ? "⏸️ Pausa" : this.phase === "idle" ? "▶️ Avvia" : "▶️ Riprendi";
+    const chip = $("#timerChip");
+    chip.classList.toggle("hidden", this.phase === "idle");
+    chip.textContent = (this.phase.includes("break") ? "☕ " : "📚 ") + t;
+    if (running && ms <= 0) this.ring();
+  },
+  ring() {
+    clearInterval(this.tick);
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 0.35, 0.7].forEach(d => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 660; o.connect(g); g.connect(ac.destination);
+        g.gain.setValueAtTime(0.25, ac.currentTime + d); g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d + 0.3); o.start(ac.currentTime + d); o.stop(ac.currentTime + d + 0.3); });
+    } catch { /* niente suono */ }
+    navigator.vibrate?.([300, 150, 300]);
+    if (this.phase === "study") {
+      toast("⏰ Bravissima! Ora 5 minuti di pausa: alzati e muoviti un po'.", 7000);
+      tts.say("Bravissima! Ora cinque minuti di pausa.", null, "it");
+      this.start("break", 5);
+    } else {
+      toast("⏰ Fine pausa! Quando sei pronta, premi Avvia.", 7000);
+      tts.say("Fine della pausa. Quando sei pronta, ricomincia.", null, "it");
+      this.stop();
+    }
+  }
+};
+
+/* =========================================================
    12. QUADERNO
    ========================================================= */
-async function saveCurrentText() {
-  if (!reader.text) return;
-  const firstLine = reader.text.split("\n").find(l => l.trim()) || "Testo";
-  const suggested = firstLine.replace(/^#+\s*/, "").slice(0, 60);
-  const title = await uiPrompt("Dai un nome a questo testo", suggested);
-  if (title === null) return;
+/** Aggiunge (o aggiorna) un elemento nel quaderno. */
+function notebookPut(item) {
   const nb = store.get("notebook", []);
-  nb.unshift({ id: uid(), type: "testo", title: title.trim() || suggested, date: todayLabel(), data: reader.text });
-  if (store.set("notebook", nb)) toast("Salvato nel quaderno 📚");
+  const i = nb.findIndex(x => x.id === item.id);
+  if (i >= 0) nb[i] = item; else nb.unshift(item);
+  return store.set("notebook", nb);
 }
 
+async function saveCurrentText() {
+  if (!reader.text) return;
+  const r = await askSave("Salva nel quaderno", reader.title(), reader.subject);
+  if (!r) return;
+  reader.subject = r.subject;
+  if (notebookPut({ id: uid(), type: "testo", title: r.title, subject: r.subject, date: todayLabel(), data: reader.text })) toast("Salvato nel quaderno 📚");
+}
+
+let nbFilter = "";
 function renderNotebook() {
   const nb = store.get("notebook", []);
   const decks = store.get("decks", []);
   const items = [
     ...nb,
-    ...decks.map(d => ({ id: d.id, type: "flashcard", title: d.title, date: d.date || "" }))
+    ...decks.map(d => ({ id: d.id, type: "flashcard", title: d.title, date: d.date || "", subject: d.subject || "" }))
   ];
+  // filtro per materia
+  const subs = [...new Set(items.map(x => x.subject).filter(Boolean))].sort();
+  if (nbFilter && !subs.includes(nbFilter) && nbFilter !== "-") nbFilter = "";
+  const hasNone = items.some(x => !x.subject);
+  $("#nbFilter").innerHTML = subs.length
+    ? [["", "Tutto"], ...subs.map(x => [x, x]), ...(hasNone ? [["-", "Senza materia"]] : [])]
+        .map(([v, l]) => `<button class="chip${v === nbFilter ? " on" : ""}" data-sub="${escapeHtml(v)}">${escapeHtml(l)}</button>`).join("")
+    : "";
+  const shown = items.filter(x => !nbFilter || (nbFilter === "-" ? !x.subject : x.subject === nbFilter));
   const icons = { testo: "📄", mappa: "🗺️", flashcard: "🃏" };
   const ul = $("#notebook");
   if (!items.length) { ul.innerHTML = `<li class="hint">Ancora vuoto. Salva un testo con 💾 o una mappa.</li>`; return; }
-  ul.innerHTML = items.map(it => `
+  ul.innerHTML = shown.map(it => `
     <li data-id="${it.id}" data-type="${it.type}">
       <span aria-hidden="true">${icons[it.type]}</span>
-      <span class="t">${escapeHtml(it.title)}<small>${it.type} · ${escapeHtml(it.date || "")}</small></span>
+      <span class="t">${escapeHtml(it.title)}<small>${it.subject ? `<span class="tag">${escapeHtml(it.subject)}</span> ` : ""}${it.type} · ${escapeHtml(it.date || "")}</small></span>
+      <button class="btn small" data-tag aria-label="Cambia materia">🏷️</button>
       <button class="btn small" data-del aria-label="Elimina">🗑️</button>
     </li>`).join("");
 }
 
+async function tagNotebookItem(id, type) {
+  const key = type === "flashcard" ? "decks" : "notebook";
+  const list = store.get(key, []);
+  const it = list.find(x => x.id === id);
+  if (!it) return;
+  const r = await uiDialog({ title: "Di che materia è?", input: null, subject: it.subject || "",
+    buttons: [{ label: "Annulla", value: null }, { label: "OK", value: "ok", primary: true }] });
+  if (r !== "ok") return;
+  it.subject = $("#askSubject").value.trim();
+  store.set(key, list);
+  renderNotebook();
+}
+
 function openNotebookItem(id, type) {
-  if (type === "flashcard") { flash.refreshDecks(id); return showView("ripassa"); }
+  if (type === "flashcard") { flash.refreshDecks(id); showView("ripassa"); return ripassa.tab("carte"); }
   const it = store.get("notebook", []).find(x => x.id === id);
   if (!it) return;
-  if (type === "testo") { reader.load(it.data); showView("leggi"); }
-  if (type === "mappa") { mindmap.load(it.data, it.id); showView("mappa"); }
+  if (type === "testo") { reader.load(it.data); reader.subject = it.subject || ""; showView("leggi"); }
+  if (type === "mappa") { mindmap.load(it.data, it.id); mindmap.subject = it.subject || ""; showView("mappa"); }
 }
 
 async function deleteNotebookItem(id, type) {
@@ -1431,7 +2026,7 @@ async function deleteNotebookItem(id, type) {
 
 function exportBackup() {
   const data = { app: "studio-facile", version: 1, date: new Date().toISOString(),
-    notebook: store.get("notebook", []), decks: store.get("decks", []) };
+    notebook: store.get("notebook", []), decks: store.get("decks", []), plans: store.get("plans", []), errStats: store.get("errStats", {}) };
   download(`studio-facile-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 1), "application/json");
 }
 async function importBackup(file) {
@@ -1445,6 +2040,12 @@ async function importBackup(file) {
     };
     merge("notebook", data.notebook);
     merge("decks", data.decks);
+    merge("plans", data.plans);
+    if (data.errStats) {
+      const st = store.get("errStats", {});
+      for (const [k, n] of Object.entries(data.errStats)) st[k] = Math.max(st[k] || 0, n);
+      store.set("errStats", st);
+    }
     renderNotebook(); flash.refreshDecks();
     toast("Backup caricato ✅");
   } catch { toast("Questo file non è un backup valido."); }
@@ -1643,6 +2244,8 @@ function init() {
     selTimer = setTimeout(() => reader.fromSelection(), 350);
   });
   $("#btnPick").addEventListener("click", () => reader.togglePick());
+  $("#selLang").innerHTML = Object.entries(LANGS).map(([k, l]) => `<option value="${k}">${l.flag} ${l.name}</option>`).join("");
+  $("#selLang").addEventListener("change", (e) => { reader.setLang(e.target.value); if (reader.playing) reader.play(reader.idx); });
   $("#btnClear").addEventListener("click", () => reader.clear());
   $("#btnPickClear").addEventListener("click", () => { reader.setPicked(new Set()); getSelection().removeAllRanges(); });
   $("#btnPickRead").addEventListener("click", () => tts.say(reader.activeText()));
@@ -1655,22 +2258,27 @@ function init() {
     const first = (reader.text.split("\n").find(l => l.trim()) || "Testo").replace(/^#+\s*/, "").slice(0, 60);
     printer.text(reader.picked.size ? reader.activeText() : reader.text, first);
   });
-  $("#btnResultPrint").addEventListener("click", () => printer.text(lastResult, $("#resultTitle").textContent));
+  $("#btnResultPrint").addEventListener("click", () => {
+    // stampo quello che si vede, con tutti i passi aperti e senza pulsanti
+    const box = $("#result").cloneNode(true);
+    box.querySelectorAll(".hidden").forEach(e => e.classList.remove("hidden"));
+    box.querySelectorAll(".no-print, button").forEach(e => e.remove());
+    printer.run(`<div class="print-text">${box.innerHTML}</div>`, { title: $("#resultTitle").textContent });
+  });
   $("#btnMapPrint").addEventListener("click", () => printer.map());
   $("#btnDeckPrint").addEventListener("click", () => printer.deck());
 
   // azioni
   $$(".action").forEach(b => b.addEventListener("click", () => runAction(b.dataset.act)));
   $("#btnResultRead").addEventListener("click", () => tts.say(lastResult));
+  $("#result").addEventListener("click", (e) => { const b = e.target.closest("[data-ex]"); if (b) exerciseControl(b.dataset.ex); });
   $("#btnResultMap").addEventListener("click", () => runAction("mappa", lastResult));
   $("#btnResultCards").addEventListener("click", () => runAction("flashcard", lastResult));
   $("#btnResultSave").addEventListener("click", async () => {
-    const title = await uiPrompt("Dai un nome a questo " + $("#resultTitle").textContent.toLowerCase(), $("#resultTitle").textContent);
-    if (title === null) return;
-    const nb = store.get("notebook", []);
+    const r = await askSave("Salva nel quaderno", $("#resultTitle").textContent, reader.subject);
+    if (!r) return;
     const text = lastResult.replace(/\*\*/g, "").replace(/^##\s*/gm, "# ").replace(/^[-*•]\s+/gm, "• ");
-    nb.unshift({ id: uid(), type: "testo", title: title || "Risultato", date: todayLabel(), data: text });
-    if (store.set("notebook", nb)) toast("Salvato nel quaderno 📚");
+    if (notebookPut({ id: uid(), type: "testo", title: r.title, subject: r.subject, date: todayLabel(), data: text })) toast("Salvato nel quaderno 📚");
   });
   $("#btnResultToReader").addEventListener("click", () => {
     reader.load(lastResult.replace(/\*\*/g, "").replace(/^##\s*/gm, "# ").replace(/^[-*•]\s+/gm, ""));
@@ -1759,12 +2367,50 @@ function init() {
   $("#btnFlashRead").addEventListener("click", () => flash.read());
   $("#btnDeckDelete").addEventListener("click", () => flash.remove());
 
+  // ripassa: sezioni, interrogazione, piano, timer
+  $("#ripSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-rt]"); if (b) ripassa.tab(b.dataset.rt); });
+  $("#btnQuizAsk").addEventListener("click", () => quiz.next());
+  $("#btnQuizExpose").addEventListener("click", () => quiz.next(true));
+  $("#btnQuizRepeat").addEventListener("click", () => tts.say(quiz.question, null, "it"));
+  $("#btnQuizMic").addEventListener("click", () => quiz.mic());
+  $("#btnQuizCheck").addEventListener("click", () => quiz.check());
+  $("#btnPlanCreate").addEventListener("click", () => planner.create());
+  $("#planList").addEventListener("change", (e) => {
+    const c = e.target.closest("input[data-si]");
+    if (c) planner.toggle(c.closest("[data-plan]").dataset.plan, +c.dataset.si, +c.dataset.ii, c.checked);
+  });
+  $("#planList").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pp]");
+    if (!b) return;
+    const id = b.closest("[data-plan]").dataset.plan;
+    b.dataset.pp === "del" ? planner.remove(id) : planner.print(id);
+  });
+  $("#btnTimer").addEventListener("click", () => timer.toggle());
+  $("#btnTimerStop").addEventListener("click", () => timer.stop());
+  $("#timerLen").addEventListener("change", () => timer.update());
+  $("#timerChip").addEventListener("click", () => { showView("ripassa"); ripassa.tab("piano"); });
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 7);
+  $("#planDate").value = isoDay(tomorrow);
+  $("#planDate").min = isoDay(new Date());
+
+  // dettatura: errori spiegati
+  $("#btnExplain").addEventListener("click", () => dictation.explain());
+  $("#btnErrApply").addEventListener("click", () => dictation.applyFix());
+  $("#btnErrRead").addEventListener("click", () => tts.say($("#errList").innerText, null, "it"));
+  dictation.renderStats();
+
   // quaderno
   $("#notebook").addEventListener("click", (e) => {
     const li = e.target.closest("li[data-id]");
     if (!li) return;
     if (e.target.closest("[data-del]")) deleteNotebookItem(li.dataset.id, li.dataset.type);
+    else if (e.target.closest("[data-tag]")) tagNotebookItem(li.dataset.id, li.dataset.type);
     else openNotebookItem(li.dataset.id, li.dataset.type);
+  });
+
+  $("#nbFilter").addEventListener("click", (e) => {
+    const c = e.target.closest("[data-sub]");
+    if (c) { nbFilter = c.dataset.sub; renderNotebook(); }
   });
 
   // ripristino del lavoro in corso
