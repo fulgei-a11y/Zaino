@@ -1106,3 +1106,22 @@ input[type="search"] { font: inherit; font-size: 1rem; color: var(--ink); backgr
 .zm-flash { background: var(--hl-yellow) !important; transition: background .4s; border-radius: 4px; }
 .zoom-bar { padding: 0 18px; }
 .zoom-view { padding: 10px 18px 8px; }
+
+/* ---------- Professori ---------- */
+#profList .chip small { opacity: .75; }
+#profCard h3 { margin: 18px 0 6px; font-size: 1.02rem; }
+.prof-archive { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.prof-archive > li { padding: 10px 12px; border-radius: 12px; background: var(--page, #f4f5f9); }
+.pa-head { display: flex; align-items: center; gap: 8px; } .pa-head b { flex: 1; }
+.pa-voto { font-weight: 700; color: var(--pen); }
+.prof-archive ul { margin: 6px 0 0; padding-left: 1.2em; line-height: 1.5; }
+.pa-err { margin: 6px 0 0; font-size: .92rem; color: #8a3b2f; }
+.prof-style { margin-top: 8px; } .prof-style h3 { margin: 14px 0 6px; }
+.pf-types { list-style: none; padding: 0; display: grid; gap: 8px; }
+.pf-freq { display: inline-block; font-size: .75rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-right: 8px; background: var(--page, #eef0f6); }
+.pf-freq.f-spesso { background: var(--hl-pink-s); } .pf-freq.f-a { background: var(--hl-yellow-s); }
+.pq-body { padding-bottom: 18px; } .pq-body label { display: block; margin-top: 10px; } .pq-body label small { display: block; color: var(--muted, #5b6275); font-weight: 400; }
+.pq-body input, .pq-body select, .pq-body textarea { width: 100%; margin-top: 4px; }
+.pq-body .row > label { flex: 1 1 140px; }
+.pq-mic { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.mic.small { width: 48px; height: 48px; margin: 0; flex: none; } .mic.small .i { width: 22px; height: 22px; }

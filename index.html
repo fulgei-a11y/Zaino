@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow">
-<meta name="zaino-version" content="23">
+<meta name="zaino-version" content="24">
 <meta name="theme-color" content="#f5f6fa">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Zaino">
@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@300;400;500;600;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=23">
+<link rel="stylesheet" href="styles.css?v=24">
 </head>
 <body>
 
@@ -583,6 +583,7 @@
       <button data-rt="carte" class="on"><svg class="i"><use href="#i-cards"/></svg>Flashcard</button>
       <button data-rt="interroga"><svg class="i"><use href="#i-chat"/></svg>Interrogami</button>
       <button data-rt="spiega"><svg class="i"><use href="#i-present"/></svg>Spiegalo tu</button>
+      <button data-rt="prof"><svg class="i"><use href="#i-people"/></svg>Professori</button>
       <button data-rt="piano"><svg class="i"><use href="#i-calendar"/></svg>Piano</button>
     </div>
 
@@ -661,6 +662,32 @@
         <div class="btn-row"><button class="btn primary" id="btnSpCheck"><svg class="i"><use href="#i-check"/></svg>Com'è andata?</button></div>
       </div>
       <div class="card hidden" id="spResult"></div>
+    </div>
+
+    <div class="rip-pane hidden" data-pane="prof">
+      <div class="card">
+        <h2>I tuoi professori</h2>
+        <p class="hint">Dopo ogni interrogazione o verifica annota cosa ti hanno chiesto. Zaino capisce come interroga ogni professore e ti allena con domande nel suo stile.</p>
+        <div class="chips" id="profList"></div>
+        <div class="btn-row"><button class="btn small" id="btnProfAdd"><svg class="i"><use href="#i-plus"/></svg>Aggiungi un professore</button></div>
+      </div>
+      <div class="card hidden" id="profCard">
+        <div class="row between gap"><h2 id="profName"></h2><button class="icon-btn" id="btnProfDel" aria-label="Togli il professore"><svg class="i"><use href="#i-trash"/></svg></button></div>
+        <p class="hint" id="profCount"></p>
+        <div class="btn-row">
+          <button class="btn primary" id="btnProfNote"><svg class="i"><use href="#i-mic"/></svg>Annota un'interrogazione</button>
+          <label class="btn"><svg class="i"><use href="#i-camera"/></svg>Fotografa una verifica corretta<input type="file" id="profPhoto" accept="image/*" hidden></label>
+        </div>
+        <h3>Allenati con le sue domande</h3>
+        <label class="field">Su quale argomento?<select id="profSource"></select></label>
+        <div class="btn-row">
+          <button class="btn primary" id="btnProfTrain"><svg class="i"><use href="#i-chat"/></svg>Interrogami come lui o lei</button>
+          <button class="btn" id="btnProfStyle"><svg class="i"><use href="#i-sparkles"/></svg>Come interroga?</button>
+        </div>
+        <div id="profStyle" class="prof-style"></div>
+        <h3>Archivio</h3>
+        <ul class="prof-archive" id="profArchive"></ul>
+      </div>
     </div>
 
     <div class="rip-pane hidden" data-pane="piano">
@@ -833,6 +860,24 @@
   <div id="kitDone" class="hidden"></div>
 </dialog>
 
+<dialog id="dlgProfQ" class="sheet">
+  <div class="sheet-head"><h2>Annota un'interrogazione</h2></div>
+  <div class="pad pq-body">
+    <div class="row gap wrap">
+      <label>Tipo <select id="pqTipo"><option>Interrogazione</option><option>Verifica scritta</option></select></label>
+      <label>Voto <input type="text" id="pqVoto" placeholder="facoltativo" inputmode="decimal"></label>
+    </div>
+    <label>Argomento <input type="text" id="pqTopic" placeholder="es. Kant, la Critica della ragion pura"></label>
+    <label>Cosa ti ha chiesto? <small>Racconta pure a voce, metto io in ordine le domande</small></label>
+    <div class="pq-mic"><button class="mic small" id="pqMic" aria-label="Avvia registrazione"><svg class="i"><use href="#i-mic"/></svg></button><span id="pqMicStatus" class="mic-status">Tocca il microfono e racconta cosa ti ha chiesto.</span></div>
+    <textarea id="pqText" rows="5" placeholder="Es. Mi ha chiesto la differenza tra fenomeno e noumeno, poi di fare un esempio di giudizio sintetico a priori…"></textarea>
+    <label>Dove hai perso punti? <small>Facoltativo: cosa ti ha corretto o detto il professore</small></label>
+    <div class="pq-mic"><button class="mic small" id="pqMicErr" aria-label="Avvia registrazione"><svg class="i"><use href="#i-mic"/></svg></button><span id="pqMicErrStatus" class="mic-status"></span></div>
+    <textarea id="pqErr" rows="3"></textarea>
+    <div class="btn-row"><button class="btn" id="btnPqCancel">Annulla</button><button class="btn primary" id="btnPqSave"><svg class="i"><use href="#i-check"/></svg>Salva</button></div>
+  </div>
+</dialog>
+
 <dialog id="dlgTrash" class="sheet">
   <div class="sheet-head">
     <h2>Cestino</h2>
@@ -942,10 +987,10 @@
 <style id="printPage"></style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
-<script src="mate.js?v=23" defer></script>
-<script src="fisica.js?v=23" defer></script>
-<script src="schede.js?v=23" defer></script>
-<script src="autori.js?v=23" defer></script>
-<script src="app.js?v=23" defer></script>
+<script src="mate.js?v=24" defer></script>
+<script src="fisica.js?v=24" defer></script>
+<script src="schede.js?v=24" defer></script>
+<script src="autori.js?v=24" defer></script>
+<script src="app.js?v=24" defer></script>
 </body>
 </html>

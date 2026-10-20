@@ -451,6 +451,42 @@ Non inventare informazioni che non sono nel testo, salvo quando ti viene chiesto
 Formato consentito: righe che iniziano con "## " per i titoli, righe che iniziano con "- " per gli elenchi, **grassetto** per le parole chiave. Nient'altro.`;
 
 const PROMPTS = {
+  profEstrai: (t, prof, materia) => `Una studentessa racconta (trascrizione automatica, ignora gli errori di trascrizione) cosa le ha chiesto ${prof} di ${materia || "una materia"} in un'interrogazione o verifica.
+Estrai le informazioni. Rispondi SOLO con JSON:
+{"argomento": "argomento in poche parole",
+ "domande": ["ogni domanda fatta, riformulata in modo chiaro e completo"],
+ "errori": [{"domanda": "...", "cosa_mancava": "dove ha perso punti o cosa le ha detto il professore"}],
+ "voto": "il voto se lo dice, altrimenti null"}
+"errori" solo se lei dice dove ha sbagliato o cosa le hanno corretto.
+
+RACCONTO:
+"""${t}"""`,
+  profFoto: (prof, materia) => `Questa è la foto di una verifica corretta da ${prof} (${materia || "materia"}). Leggi le domande e le correzioni (segni, commenti, punteggi).
+Rispondi SOLO con JSON:
+{"argomento": "argomento in poche parole",
+ "domande": ["ogni domanda o esercizio, scritto in modo chiaro"],
+ "errori": [{"domanda": "...", "cosa_mancava": "dove ha perso punti, secondo le correzioni del professore"}],
+ "voto": "il voto se si legge, altrimenti null"}`,
+  profStile: (prof, materia, storico) => `Ecco l'archivio delle domande che ${prof} (${materia || "materia"}) ha fatto a una studentessa delle superiori con dislessia, con gli errori segnati.
+Analizza come interroga questo professore, per aiutarla a prepararsi. Rispondi SOLO con JSON:
+{"stile": "2-3 frasi: come fa le domande (definizioni? collegamenti? esempi? date? confronti? ragionamento?)",
+ "tipi_di_domanda": [{"tipo": "es. definizione, collegamento tra autori, esempio pratico", "esempio": "una sua domanda di quel tipo", "frequenza": "spesso | a volte | raramente"}],
+ "temi_frequenti": ["argomenti o richieste che tornano spesso"],
+ "punti_deboli": ["dove lei perde punti più spesso, dalle correzioni"],
+ "consigli": ["3 consigli pratici per prepararsi a QUESTO professore"]}
+Basati solo sull'archivio; se le domande sono poche, dillo nello stile e sii prudente.
+
+ARCHIVIO:
+${storico}`,
+  profDomande: (prof, materia, storico, testo) => `Prepara 6 domande di interrogazione sul TESTO, come le farebbe ${prof} (${materia || "materia"}), imitando il suo stile come risulta dall'ARCHIVIO delle sue domande passate.
+Insisti un po' sui punti dove la studentessa ha perso punti in passato. Domande chiare, una alla volta, in italiano.
+Rispondi SOLO con JSON: {"domande": ["...", "..."]}
+
+ARCHIVIO:
+${storico}
+
+TESTO:
+"""${testo}"""`,
   zoom: (t) => `Prepara una vista "a zoom" di questo testo per una studentessa con dislessia: la legge PRIMA del testo intero, per capirne subito il senso e la struttura.
 Rispondi SOLO con JSON:
 {"frase": "il succo di tutto il testo in UNA frase di massimo 25 parole",
@@ -2186,6 +2222,7 @@ const ripassa = {
     $$(".rip-pane").forEach(p => p.classList.toggle("hidden", p.dataset.pane !== name));
     if (name === "interroga") quiz.fillSources();
     if (name === "spiega") spiega.fill();
+    if (name === "prof") prof.render();
     if (name === "piano") planner.render();
   }
 };
@@ -2266,6 +2303,162 @@ const zoom = {
     $("#zoomView").addEventListener("click", click);
   }
 };
+
+/* ---------- Le domande dei professori ---------- */
+const prof = {
+  current: null, rec: null, recErr: null,
+  list() { return store.get("profs", []); },
+  entries(id) { return store.get("profQ", []).filter(e => e.profId === id).sort((a, b) => b.date.localeCompare(a.date)); },
+  storico(id) {
+    return this.entries(id).map(e => `- ${e.date} · ${e.tipo}${e.argomento ? " su " + e.argomento : ""}${e.voto ? " · voto " + e.voto : ""}\n` +
+      (e.domande || []).map(q => `  domanda: ${q}`).join("\n") + ((e.errori || []).length ? "\n" + e.errori.map(x => `  errore: ${x.domanda} → ${x.cosa_mancava}`).join("\n") : "")).join("\n");
+  },
+  render() {
+    const ps = this.list();
+    $("#profList").innerHTML = ps.length ? ps.map(p => `<button class="chip${p.id === this.current ? " on" : ""}" data-prof="${p.id}">${escapeHtml(p.name)}${p.subject ? ` <small>· ${escapeHtml(p.subject)}</small>` : ""}</button>`).join("")
+      : `<p class="hint">Ancora nessun professore. Aggiungi quelli che interrogano di più.</p>`;
+    const p = ps.find(x => x.id === this.current);
+    $("#profCard").classList.toggle("hidden", !p);
+    if (!p) return;
+    $("#profName").textContent = p.name + (p.subject ? ` · ${p.subject}` : "");
+    const es = this.entries(p.id);
+    const nQ = es.reduce((n, e) => n + (e.domande || []).length, 0);
+    $("#profCount").textContent = es.length ? `${es.length} ${es.length === 1 ? "interrogazione o verifica annotata" : "interrogazioni e verifiche annotate"}, ${nQ} domande` : "Ancora niente di annotato: comincia dalla prossima interrogazione.";
+    $("#profArchive").innerHTML = es.map(e => `<li><div class="pa-head"><b>${escapeHtml(dayLabel(e.date))} · ${escapeHtml(e.tipo)}${e.argomento ? ": " + escapeHtml(e.argomento) : ""}</b>${e.voto ? `<span class="pa-voto">${escapeHtml(String(e.voto))}</span>` : ""}
+        <button class="icon-btn" data-pdel="${e.id}" aria-label="Elimina">${icon("trash")}</button></div>
+      <ul>${(e.domande || []).map(q => `<li>${escapeHtml(q)}</li>`).join("")}</ul>
+      ${(e.errori || []).length ? `<p class="pa-err"><b>Punti persi:</b> ${e.errori.map(x => escapeHtml(`${x.domanda}: ${x.cosa_mancava}`)).join(" · ")}</p>` : ""}</li>`).join("");
+    const st = store.get("profStyle:" + p.id, null);
+    $("#profStyle").innerHTML = st && st.n === es.length ? this.styleHtml(st.d) : "";
+    sourceSelect($("#profSource"));
+  },
+  styleHtml(d) {
+    const L = (x) => Array.isArray(x) ? x : [];
+    return `<h3>Come interroga</h3><p>${escapeHtml(d.stile || "")}</p>
+      ${L(d.tipi_di_domanda).length ? `<ul class="pf-types">${L(d.tipi_di_domanda).map(t => `<li><span class="pf-freq f-${escapeHtml((t.frequenza || "").split(" ")[0])}">${escapeHtml(t.frequenza || "")}</span><b>${escapeHtml(t.tipo || "")}</b>${t.esempio ? `<br><span class="hint">«${escapeHtml(t.esempio)}»</span>` : ""}</li>`).join("")}</ul>` : ""}
+      ${L(d.temi_frequenti).length ? `<h3>Chiede spesso</h3><div class="chips">${L(d.temi_frequenti).map(t => `<span class="chip on">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+      ${L(d.punti_deboli).length ? `<h3>Dove perdi punti</h3><ul>${L(d.punti_deboli).map(t => `<li>${escapeHtml(t)}</li>`).join("")}</ul>` : ""}
+      ${L(d.consigli).length ? `<div class="sp-tip"><b>Per prepararti con questo professore:</b><ul>${L(d.consigli).map(t => `<li>${escapeHtml(t)}</li>`).join("")}</ul></div>` : ""}`;
+  },
+  async add() {
+    const r = await uiDialog({ title: "Nuovo professore", message: "Come lo chiami? Per esempio «Prof.ssa Rossi». Poi scegli la materia.", input: "", subject: "",
+      buttons: [{ label: "Annulla", value: null }, { label: "Aggiungi", value: "ok", primary: true }] });
+    if (!r || r.choice !== "ok" || !r.text) return;
+    const p = { id: uid(), name: r.text, subject: r.subject || "" };
+    store.set("profs", [...this.list(), p]);
+    this.current = p.id; this.render();
+  },
+  async remove() {
+    const p = this.list().find(x => x.id === this.current); if (!p) return;
+    if (!(await uiConfirm(`Togliere ${p.name} e tutto il suo archivio?`, "Togli", true))) return;
+    store.set("profs", this.list().filter(x => x.id !== p.id));
+    store.set("profQ", store.get("profQ", []).filter(e => e.profId !== p.id));
+    this.current = null; this.render();
+  },
+  openNote() {
+    $("#pqTipo").value = "Interrogazione"; $("#pqTopic").value = ""; $("#pqText").value = ""; $("#pqErr").value = ""; $("#pqVoto").value = "";
+    $("#dlgProfQ").showModal();
+  },
+  async saveNote() {
+    const p = this.list().find(x => x.id === this.current); if (!p) return;
+    const text = $("#pqText").value.trim(), err = $("#pqErr").value.trim();
+    if (!text) return toast("Scrivi o detta almeno una domanda.");
+    let d = { argomento: $("#pqTopic").value.trim(), domande: text.split(/\n+/).map(x => x.trim()).filter(Boolean), errori: [], voto: $("#pqVoto").value.trim() || null };
+    try {
+      busy(true, "Metto in ordine le domande…");
+      const out = parseJSON(await ask({ prompt: PROMPTS.profEstrai(text + (err ? "\nDove ho perso punti: " + err : ""), p.name, p.subject), json: true, temperature: 0.1 }));
+      if (Array.isArray(out.domande) && out.domande.length) d = { argomento: d.argomento || out.argomento || "", domande: out.domande, errori: out.errori || [], voto: d.voto || out.voto || null };
+    } catch { if (err) d.errori = [{ domanda: "", cosa_mancava: err }]; }
+    finally { busy(false); }
+    this.store({ ...d, tipo: $("#pqTipo").value });
+    $("#dlgProfQ").close();
+  },
+  async photo(file) {
+    const p = this.list().find(x => x.id === this.current); if (!p || !file) return;
+    try {
+      busy(true, "Leggo la verifica corretta…");
+      const img = await imageToBase64(file);
+      const d = parseJSON(await ask({ prompt: PROMPTS.profFoto(p.name, p.subject), images: [img], json: true, temperature: 0.1 }));
+      if (!Array.isArray(d.domande) || !d.domande.length) throw new Error("Non sono riuscito a leggere le domande. Prova con una foto più vicina e dritta.");
+      this.store({ ...d, tipo: "Verifica scritta" });
+    } catch (e) { toast(e.message || "Non sono riuscito a leggere la foto.", 6000); }
+    finally { busy(false); }
+  },
+  store(d) {
+    const e = { id: uid(), profId: this.current, date: isoDay(new Date()), tipo: d.tipo, argomento: d.argomento || "", domande: d.domande || [], errori: (d.errori || []).filter(x => x && (x.cosa_mancava || x.domanda)), voto: d.voto || null };
+    store.set("profQ", [e, ...store.get("profQ", [])]);
+    toast(`Annotate ${e.domande.length} domande.`);
+    this.render();
+  },
+  async analyze() {
+    const p = this.list().find(x => x.id === this.current); if (!p) return;
+    const es = this.entries(p.id);
+    if (!es.length) return toast("Prima annota almeno un'interrogazione o una verifica.");
+    try {
+      busy(true, `Studio come interroga ${p.name}…`);
+      const d = parseJSON(await ask({ prompt: PROMPTS.profStile(p.name, p.subject, this.storico(p.id)), json: true, temperature: 0.2, claude: true }));
+      store.set("profStyle:" + p.id, { n: es.length, d });
+      this.render();
+      $("#profStyle").scrollIntoView({ behavior: "smooth" });
+    } catch (e) { toast(e.message || "Non sono riuscito ad analizzare l'archivio.", 6000); }
+    finally { busy(false); }
+  },
+  async train() {
+    const p = this.list().find(x => x.id === this.current); if (!p) return;
+    const src = pickSource($("#profSource"));
+    if (!src?.text) return toast("Scegli l'argomento su cui allenarti.");
+    if (!this.entries(p.id).length) return toast("Prima annota qualche sua domanda: così imito il suo stile.");
+    try {
+      busy(true, `Preparo le domande come le farebbe ${p.name}…`);
+      const d = parseJSON(await ask({ prompt: PROMPTS.profDomande(p.name, p.subject, this.storico(p.id), src.text.slice(0, 30000)), json: true, temperature: 0.5, claude: true }));
+      const qs = (d.domande || []).filter(Boolean);
+      if (!qs.length) throw new Error();
+      busy(false);
+      showView("ripassa"); ripassa.tab("interroga");
+      quiz.setSource(src.text, src.title);
+      quiz.queue = qs; quiz.queueBy = p.name;
+      quiz.next();
+    } catch (e) { busy(false); toast(e.message || "Non sono riuscito a preparare le domande.", 6000); }
+  },
+  bind() {
+    $("#profList").addEventListener("click", (e) => { const b = e.target.closest("[data-prof]"); if (b) { this.current = b.dataset.prof; this.render(); } });
+    $("#btnProfAdd").addEventListener("click", () => this.add());
+    $("#btnProfDel").addEventListener("click", () => this.remove());
+    $("#btnProfNote").addEventListener("click", () => this.openNote());
+    $("#profPhoto").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; this.photo(f); });
+    $("#btnProfStyle").addEventListener("click", () => this.analyze());
+    $("#btnProfTrain").addEventListener("click", () => this.train());
+    $("#profArchive").addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-pdel]"); if (!b) return;
+      if (!(await uiConfirm("Eliminare questa annotazione?", "Elimina", true))) return;
+      store.set("profQ", store.get("profQ", []).filter(x => x.id !== b.dataset.pdel)); this.render();
+    });
+    $("#btnPqSave").addEventListener("click", () => this.saveNote());
+    $("#btnPqCancel").addEventListener("click", () => { this.rec?.cancel(); this.recErr?.cancel(); $("#dlgProfQ").close(); });
+    const append = (sel) => (t) => { const ta = $(sel); ta.value = (ta.value.trim() ? ta.value.trim() + "\n" : "") + t; };
+    this.rec = makeRecorder($("#pqMic"), $("#pqMicStatus"), append("#pqText"), "Tocca il microfono e racconta cosa ti ha chiesto.");
+    this.recErr = makeRecorder($("#pqMicErr"), $("#pqMicErrStatus"), append("#pqErr"), "");
+    $("#pqMic").addEventListener("click", () => this.rec.toggle());
+    $("#pqMicErr").addEventListener("click", () => this.recErr.toggle());
+  }
+};
+
+/** Menu dei testi su cui lavorare: testo aperto e testi del quaderno. */
+function sourceSelect(sel) {
+  const keep = sel.value;
+  const texts = store.get("notebook", []).filter(x => x.type === "testo");
+  const opts = [];
+  if (reader.text) opts.push(["reader", "Testo aperto in Studia: " + reader.title()]);
+  texts.forEach(t => opts.push(["nb:" + t.id, `${t.subject ? t.subject + ": " : ""}${t.title}`]));
+  sel.innerHTML = opts.length ? opts.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("") : `<option value="">Prima apri un testo in Studia o salvane uno nel quaderno</option>`;
+  if (keep && opts.some(o => o[0] === keep)) sel.value = keep;
+}
+function pickSource(sel) {
+  const v = sel.value;
+  if (v === "reader") return { text: reader.activeText(), title: reader.title() };
+  if (v.startsWith("nb:")) { const t = store.get("notebook", []).find(x => x.id === v.slice(3)); if (t) return { text: t.data, title: t.title }; }
+  return null;
+}
 
 /* ---------- Spiegalo tu: esposizione libera, senza limiti di tempo ---------- */
 const spiega = {
@@ -2412,7 +2605,10 @@ const quiz = {
     if (src.text !== this.source) { this.source = src.text; this.title = src.title; this.asked = []; }
     try {
       if (expose) this.question = `Esponi l'argomento «${src.title}»: di cosa parla, i concetti principali e come sono collegati.`;
-      else {
+      else if (this.queue?.length) {
+        this.question = this.queue.shift();
+        toast(this.queue.length ? `Domanda nello stile di ${this.queueBy} (ne restano ${this.queue.length})` : `Ultima domanda nello stile di ${this.queueBy}`, 4000);
+      } else {
         busy(true, "Preparo una domanda…");
         const d = parseJSON(await ask({ prompt: PROMPTS.domanda(src.text, this.asked.slice(-8)), json: true, temperature: 0.8 }));
         this.question = d.domanda || "Di cosa parla questo argomento?";
@@ -2859,7 +3055,8 @@ async function buildBackup({ images = true } = {}) {
   }
   const data = { app: "studio-facile", version: 3, date: new Date().toISOString(),
     notebook: store.get("notebook", []), decks: store.get("decks", []), plans: store.get("plans", []), kits: store.get("kits", []),
-    trash: store.get("trash", []), currentMap: store.get("currentMap", null), errStats: store.get("errStats", {}), cache };
+    trash: store.get("trash", []), currentMap: store.get("currentMap", null), errStats: store.get("errStats", {}), cache,
+    profs: store.get("profs", []), profQ: store.get("profQ", []), spiegaHist: store.get("spiegaHist", {}) };
   if (images) {
     // le immagini delle mappe (salvate, in uso e nel cestino)
     const ids = new Set();
@@ -2882,6 +3079,9 @@ async function mergeBackup(data) {
   merge("decks", data.decks);
   merge("plans", data.plans);
   merge("kits", data.kits);
+  merge("profs", data.profs);
+  merge("profQ", data.profQ);
+  if (data.spiegaHist && !Object.keys(store.get("spiegaHist", {})).length) store.set("spiegaHist", data.spiegaHist);
   for (const [k, v] of Object.entries(data.cache || {})) if (/^(autore|quiz):/.test(k) && v && !store.get(k, null)) store.set(k, v);
   for (const [id, im] of Object.entries(data.images || {})) if (!(await idb.get("img:" + id))) await idb.set("img:" + id, im);
   if (data.errStats) {
@@ -2896,7 +3096,7 @@ async function mergeBackup(data) {
 /* ---------- copie automatiche giornaliere (ultimi 7 giorni, su questo dispositivo) ---------- */
 const autosave = {
   timer: null,
-  KEYS: /^(notebook|decks|plans|kits|trash|currentMap|errStats|autore:|quiz:)/,
+  KEYS: /^(notebook|decks|plans|kits|trash|currentMap|errStats|profs|profQ|spiegaHist|autore:|quiz:)/,
   init() {
     onStoreChange = (key) => { if (this.KEYS.test(key)) this.schedule(); };
     setTimeout(() => this.run(), 4000);
@@ -3305,6 +3505,7 @@ const GUIDE = [
     ["image", "Immagini nelle mappe", "Tocca un riquadro e premi «Immagine»: una foto, un'immagine copiata o una cercata su Wikipedia. Si vede nella mappa, in stampa e nelle schede."],
     ["download", "Il lavoro è al sicuro", "Zaino tiene da solo una copia al giorno per 7 giorni, e quello che elimini resta nel cestino del quaderno per 30 giorni. Sul computer può salvare tutto da solo in una cartella di Google Drive o OneDrive (Impostazioni → Quaderno)."],
     ["layers", "Preparo la verifica", "Un tasto solo, sotto il testo: riassunto, mappa, flashcard, le domande più probabili con le risposte e il piano fino alla data. Tutto finisce nel quaderno e in Ripassa."],
+    ["people", "Professori", "In Ripassa: dopo ogni interrogazione detta cosa ti hanno chiesto, o fotografa la verifica corretta. Zaino capisce come interroga ogni professore, dove perdi punti, e ti allena con domande nel suo stile."],
     ["present", "Spiegalo tu", "In Ripassa: spieghi a voce un argomento, senza limiti di tempo. Poi vedi quanta parte hai spiegato, cosa mancava, gli errori, le parole tecniche e i progressi tra un tentativo e l'altro."],
     ["chat", "4. Mettiti alla prova", "In Ripassa: flashcard, interrogazione a voce e piano verso la verifica."]
   ]],
@@ -3551,7 +3752,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "23";
+const APP_VERSION = "24";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -3975,6 +4176,7 @@ function init() {
   $("#btnQuizAsk").addEventListener("click", () => quiz.next());
   $("#btnQuizExpose").addEventListener("click", () => { const src = quiz.pick(); ripassa.tab("spiega"); if (src?.text) spiega.setSource(src.text, src.title); spiega.start(); });
   spiega.bind();
+  prof.bind();
   zoom.bind();
   $("#btnQuizRepeat").addEventListener("click", () => tts.say(quiz.question, null, "it"));
   $("#btnQuizMic").addEventListener("click", () => quiz.mic());
