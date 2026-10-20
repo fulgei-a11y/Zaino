@@ -490,6 +490,32 @@ Non inventare informazioni che non sono nel testo, salvo quando ti viene chiesto
 Formato consentito: righe che iniziano con "## " per i titoli, righe che iniziano con "- " per gli elenchi, **grassetto** per le parole chiave. Nient'altro.`;
 
 const PROMPTS = {
+  palazzoLuoghi: (t) => `Una studentessa ha descritto a voce un percorso che conosce bene (casa sua o un tragitto), per usarlo con il metodo dei loci.
+Estrai i luoghi IN ORDINE, uno per ogni punto preciso del percorso (es. "porta d'ingresso", "attaccapanni", "divano"). Togli parole come "poi", "dopo", "c'è".
+Rispondi SOLO con JSON: {"luoghi": ["...", "..."]}
+
+DESCRIZIONE:
+"""${t}"""`,
+  palazzoCammino: (luoghi, richiesta, testo) => `Sei un esperto di tecniche di memoria. Aiuta una studentessa delle superiori con dislessia a memorizzare una SEQUENZA con il metodo dei loci, usando il suo percorso personale.
+COSA DEVE RICORDARE: ${richiesta}
+${testo ? `Prendi gli elementi della sequenza dal TESTO qui sotto (sono la fonte giusta).` : `Se è una sequenza nota della scuola (stadi, fasi, opere, elenchi), usa gli elementi corretti; se non sei sicuro, usa solo quello che è scritto nella richiesta.`}
+LUOGHI DEL PERCORSO, in ordine: ${luoghi.map((l, i) => `${i + 1}. ${l}`).join("; ")}
+
+Rispondi SOLO con JSON:
+{"titolo": "titolo breve della sequenza",
+ "elementi": [{"luogo": "il luogo, copiato identico dall'elenco", "cosa": "l'elemento da ricordare, in poche parole", "spiegazione": "una frase semplice su cosa significa", "immagine": "la scena da immaginare in quel luogo"}]}
+Regole:
+- un elemento per luogo, nell'ordine dei luoghi e nell'ordine giusto della sequenza; usa solo i luoghi che servono;
+- l'immagine è in seconda persona ("apri la porta e vedi…"), 2-3 frasi, concreta, piena di dettagli da vedere, sentire e toccare, esagerata o buffa, con movimento: così si ricorda;
+- l'immagine deve contenere un aggancio chiaro alla parola chiave dell'elemento (un oggetto, un gioco di parole, un personaggio) e legarsi al luogo;
+- niente scene violente, paurose o inadatte;
+- gli elementi devono essere corretti: è materia di studio.${testo ? `
+
+TESTO:
+"""${testo}"""` : ""}`,
+  palazzoUnaImmagine: (luogo, cosa, spiegazione) => `Inventa una nuova scena da immaginare per ricordare «${cosa}» (${spiegazione}) nel luogo «${luogo}», con il metodo dei loci.
+Seconda persona, 2-3 frasi, concreta, esagerata o buffa, con un aggancio chiaro alla parola chiave; niente di violento o pauroso; diversa dalla solita.
+Rispondi SOLO con JSON: {"immagine": "..."}`,
   profEstrai: (t, prof, materia) => `Una studentessa racconta (trascrizione automatica, ignora gli errori di trascrizione) cosa le ha chiesto ${prof} di ${materia || "una materia"} in un'interrogazione o verifica.
 Estrai le informazioni. Rispondi SOLO con JSON:
 {"argomento": "argomento in poche parole",
@@ -1416,6 +1442,7 @@ async function runAction(act, source) {
   const part = !source && reader.picked.size ? " (parte scelta)" : "";
   try {
     if (act === "interroga") { showView("ripassa"); ripassa.tab("interroga"); return quiz.setSource(text, reader.title()); }
+    if (act === "palazzo") return palazzo.fromReader();
     if (act === "mappa") {
       busy(true, "Sto creando la mappa…");
       const data = parseJSON(await askChecked("mappa", text, { prompt: PROMPTS.mappa(text), system: SYSTEM_TUTOR, json: true }));
@@ -2265,6 +2292,7 @@ const ripassa = {
     if (name === "interroga") quiz.fillSources();
     if (name === "spiega") spiega.fill();
     if (name === "prof") prof.render();
+    if (name === "palazzo") palazzo.render();
     if (name === "piano") planner.render();
   }
 };
@@ -2526,6 +2554,252 @@ function pickSource(sel) {
   if (v.startsWith("nb:")) { const t = store.get("notebook", []).find(x => x.id === v.slice(3)); if (t) return { text: t.data, title: t.title }; }
   return null;
 }
+
+/* ---------- Cosa c'è di nuovo: alla prima apertura dopo un aggiornamento ---------- */
+const NEWS = [
+  { v: 27, icon: "home", title: "Palazzo della memoria", text: "Le sequenze da ricordare diventano una passeggiata a voce nei posti di casa tua.", go: "palazzo" },
+  { v: 26, icon: "library", title: "Il Quaderno è in basso", text: "Tutto quello che salvi, a portata di dito. E «Preparo la verifica» ti dice cosa ha salvato.", go: "quaderno" },
+  { v: 25, icon: "volume", title: "I tuoi audio", text: "Carica un memo vocale: diventa testo, domande dei professori o una spiegazione da valutare.", go: "leggi" },
+  { v: 24, icon: "people", title: "Le domande dei professori", text: "Annota cosa ti chiedono: Zaino impara come interrogano e ti allena con domande come le loro.", go: "prof" },
+  { v: 23, icon: "present", title: "Spiegalo tu", text: "Spiega a voce, senza fretta: vedi quanto hai coperto, cosa mancava e i tuoi progressi.", go: "spiega" },
+  { v: 23, icon: "layers", title: "Testo a zoom", text: "Sopra ogni testo: il succo in una frase, poi i punti, poi tutto. Tocca un punto per saltare lì.", go: "zoom" },
+  { v: 22, icon: "feather", title: "Letteratura latina", text: "35 autori per età, generi letterari e schede con una frase in latino.", go: "latino" },
+  { v: 21, icon: "people", title: "Scienze umane complete", text: "145 autori di pedagogia, psicologia, sociologia e antropologia, divisi per scuola.", go: "umane" },
+  { v: 19, icon: "image", title: "Immagini nelle mappe", text: "Una foto o un'immagine da Wikipedia dentro ogni riquadro.", go: "mappa" },
+  { v: 19, icon: "download", title: "Il lavoro è al sicuro", text: "Cestino per 30 giorni, una copia automatica al giorno e, sul computer, il salvataggio in una cartella.", go: "settings" },
+  { v: 17, icon: "layers", title: "Preparo la verifica", text: "Riassunto, mappa, flashcard, domande probabili e piano, in un passo solo.", go: "leggi" },
+  { v: 13, icon: "globe", title: "Testo da un sito o da Wikipedia", text: "Incolla un link o cerca un argomento: arriva solo il testo, pulito.", go: "web" }
+];
+const news = {
+  pending() {
+    const seen = Number(store.get("newsSeen", 0));
+    return NEWS.filter(n => n.v > seen);
+  },
+  maybeShow() {
+    if (!store.get("welcomed", false)) { store.set("newsSeen", Number(APP_VERSION)); return; }   // chi inizia ora vede la presentazione
+    if (!settings.keyGemini && !settings.keyGroq && !settings.keyClaude) return;                   // prima le chiavi, le novità dopo
+    const list = this.pending();
+    if (list.length) setTimeout(() => this.open(list), 700);
+    else store.set("newsSeen", Number(APP_VERSION));
+  },
+  open(list = NEWS) {
+    const shown = list.slice(0, 7);
+    $("#newsBody").innerHTML = `<p class="hint">${list.length > 1 ? "Ecco cosa è arrivato in Zaino. Tocca «Provalo» per andarci subito." : "Una novità in Zaino:"}</p>
+      <ul class="news-list">${shown.map((n, i) => `<li><span class="tile">${icon(n.icon)}</span><div><b>${escapeHtml(n.title)}</b><p>${escapeHtml(n.text)}</p></div>
+        <button class="btn small" data-news="${NEWS.indexOf(n)}">Provalo</button></li>`).join("")}</ul>
+      ${list.length > shown.length ? `<p class="hint">…e altre ${list.length - shown.length}: le trovi tutte nella guida (il punto di domanda in alto).</p>` : ""}
+      <div class="btn-row"><button class="btn primary" id="btnNewsOk">Ho capito</button></div>`;
+    $("#dlgNews").showModal();
+  },
+  go(n) {
+    $("#dlgNews").close();
+    const t = n.go;
+    if (["palazzo", "spiega", "prof", "interroga", "carte", "piano"].includes(t)) { showView("ripassa"); return ripassa.tab(t); }
+    if (t === "settings") return openSettings();
+    if (t === "web") { showView("leggi"); return web.showBox(); }
+    if (t === "zoom") { showView("leggi"); return toast(reader.text ? "Sopra il testo trovi «Vista»: prova «In una frase»." : "Apri un testo: sopra troverai «Vista» con «In una frase» e «I punti».", 6000); }
+    if (t === "leggi" && !reader.text) { showView("leggi"); return toast("Porta qui un testo: foto, PDF, audio o link.", 5000); }
+    showView(t);
+  },
+  bind() {
+    $("#dlgNews").addEventListener("click", (e) => {
+      if (e.target.closest("#btnNewsOk")) return $("#dlgNews").close();
+      const b = e.target.closest("[data-news]"); if (b) this.go(NEWS[+b.dataset.news]);
+    });
+    $("#dlgNews").addEventListener("close", () => store.set("newsSeen", Number(APP_VERSION)));
+    $("#btnGuideNews")?.addEventListener("click", () => { $("#dlgGuide").close(); this.open(NEWS); });
+  }
+};
+
+/* ---------- Palazzo della memoria (metodo dei loci, sul percorso di casa sua) ---------- */
+const palazzo = {
+  rec: null, recWhat: null, walk: null, step: 0, auto: false, quizMode: false, score: { ok: 0, no: 0 },
+  palazzi() { return store.get("palazzi", []); },
+  walks() { return store.get("passeggiate", []); },
+  render() {
+    const ps = this.palazzi(), ws = this.walks();
+    $("#palList").innerHTML = ps.length ? ps.map(p => `<div class="pal-row"><span>${icon("map")}<b>${escapeHtml(p.name)}</b><small>${p.luoghi.length} luoghi</small></span>
+        <button class="btn small ghost" data-pal-edit="${p.id}">Modifica</button></div>`).join("")
+      : `<p class="hint">Prima crea il tuo percorso: per esempio i posti di casa tua, nell'ordine in cui li incontri entrando.</p>`;
+    $("#palNewCard").classList.toggle("hidden", !ps.length);
+    $("#palWhich").innerHTML = ps.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (${p.luoghi.length} luoghi)</option>`).join("");
+    $("#palUseText").closest("label").classList.toggle("hidden", !reader.text);
+    $("#palWalks").innerHTML = ws.length ? ws.map(w => `<li><button class="pal-walk" data-walk="${w.id}"><b>${escapeHtml(w.titolo)}</b>
+        <small>${w.elementi.length} posti · ${escapeHtml(this.palazzi().find(p => p.id === w.palazzoId)?.name || "")}${w.best != null ? ` · ricordati ${w.best} su ${w.elementi.length}` : ""}</small></button>
+        <button class="icon-btn" data-walk-del="${w.id}" aria-label="Elimina">${icon("trash")}</button></li>`).join("")
+      : `<li class="hint">Le passeggiate che crei restano qui, per ripassarle quando vuoi.</li>`;
+  },
+  /* -- il percorso -- */
+  edit(id) {
+    const p = this.palazzi().find(x => x.id === id);
+    this.editing = p?.id || null;
+    $("#palName").value = p?.name || (this.palazzi().length ? "" : "Casa mia");
+    $("#palPlaces").value = p ? p.luoghi.join("\n") : "";
+    $("#btnPalDelete").classList.toggle("hidden", !p);
+    $("#dlgPal").showModal();
+  },
+  async cleanPlaces() {
+    const t = $("#palPlaces").value.trim();
+    if (!t) return;
+    // una riga per luogo: se ha dettato tutto di seguito, li separo io
+    if (t.split("\n").length >= 3 && !/ poi | dopo /i.test(t)) return;
+    try {
+      busy(true, "Metto in ordine i luoghi…");
+      const d = parseJSON(await ask({ prompt: PROMPTS.palazzoLuoghi(t), json: true, temperature: 0 }));
+      if (Array.isArray(d.luoghi) && d.luoghi.length) $("#palPlaces").value = d.luoghi.join("\n");
+    } catch { $("#palPlaces").value = t.split(/[,;\n]| poi | dopo /i).map(x => x.trim()).filter(Boolean).join("\n"); }
+    finally { busy(false); }
+  },
+  async savePalace() {
+    await this.cleanPlaces();
+    const luoghi = $("#palPlaces").value.split("\n").map(x => x.trim()).filter(Boolean);
+    if (luoghi.length < 3) return toast("Servono almeno 3 luoghi, uno per riga.");
+    const name = $("#palName").value.trim() || "Il mio percorso";
+    const ps = this.palazzi();
+    if (this.editing) { const p = ps.find(x => x.id === this.editing); p.name = name; p.luoghi = luoghi; }
+    else ps.push({ id: uid(), name, luoghi });
+    store.set("palazzi", ps);
+    $("#dlgPal").close(); this.render();
+    toast(`Percorso salvato: ${luoghi.length} luoghi.`);
+  },
+  async deletePalace() {
+    if (!(await uiConfirm("Eliminare questo percorso? Le passeggiate fatte su questo percorso restano.", "Elimina", true))) return;
+    store.set("palazzi", this.palazzi().filter(p => p.id !== this.editing));
+    $("#dlgPal").close(); this.render();
+  },
+  /* -- una nuova passeggiata -- */
+  fromReader() {
+    showView("ripassa"); ripassa.tab("palazzo");
+    if (!this.palazzi().length) { toast("Prima crea il tuo percorso, poi ci mettiamo quello che vuoi ricordare.", 5000); return this.edit(); }
+    $("#palUseText").checked = true;
+    $("#palWhat").focus();
+  },
+  async create() {
+    const p = this.palazzi().find(x => x.id === $("#palWhich").value);
+    const what = $("#palWhat").value.trim();
+    if (!p) return toast("Scegli il percorso.");
+    if (!what) return toast("Scrivi o detta cosa vuoi ricordare (es. «gli 8 stadi di Erikson»).");
+    const testo = $("#palUseText").checked && reader.text ? reader.activeText().slice(0, 30000) : "";
+    try {
+      busy(true, "Costruisco la passeggiata…");
+      const d = parseJSON(await ask({ prompt: PROMPTS.palazzoCammino(p.luoghi, what, testo), json: true, temperature: 0.8, quality: true }));
+      let el = (d.elementi || []).filter(x => x.cosa && x.immagine);
+      if (!el.length) throw new Error();
+      // ogni elemento su un luogo del percorso, nell'ordine
+      el = el.slice(0, p.luoghi.length).map((x, i) => ({ ...x, luogo: p.luoghi[i] }));
+      if ((d.elementi || []).length > p.luoghi.length) toast(`La sequenza è più lunga del percorso: ho usato i primi ${p.luoghi.length} elementi. Aggiungi luoghi per metterli tutti.`, 7000);
+      const w = { id: uid(), palazzoId: p.id, titolo: d.titolo || what, richiesta: what, subject: reader.subject || "", date: isoDay(new Date()), elementi: el, best: null };
+      store.set("passeggiate", [w, ...this.walks()]);
+      $("#palWhat").value = "";
+      this.render(); this.open(w.id);
+    } catch (e) { toast(e.message && e.message.length > 3 ? e.message : "Non sono riuscito a costruire la passeggiata. Riprova.", 6000); }
+    finally { busy(false); }
+  },
+  /* -- la passeggiata -- */
+  open(id) {
+    const w = this.walks().find(x => x.id === id); if (!w) return;
+    this.walk = w; this.step = 0; this.quizMode = false; this.auto = false; this.score = { ok: 0, no: 0 };
+    $("#dlgWalk").showModal();
+    this.show();
+  },
+  show() {
+    const w = this.walk, n = w.elementi.length, i = this.step;
+    const box = $("#walkBody");
+    $("#walkTitle").textContent = w.titolo;
+    if (i >= n) {
+      const tot = this.score.ok + this.score.no;
+      if (this.quizMode && tot) { w.best = Math.max(w.best || 0, this.score.ok); this.saveWalk(); }
+      box.innerHTML = this.quizMode
+        ? `<div class="walk-end"><b>${this.score.ok} su ${n}</b><p>${this.score.ok === n ? "Perfetto: il palazzo funziona!" : "Rifai la passeggiata e riprova: ogni volta le immagini restano più impresse."}</p></div>
+           <div class="btn-row"><button class="btn primary" data-w="walk">${icon("play")}Rifai la passeggiata</button><button class="btn" data-w="quiz">${icon("repeat")}Riprova</button></div>`
+        : `<div class="walk-end"><b>Fine della passeggiata</b><p>Ora chiudi gli occhi e ripercorri il percorso da sola. Poi mettiti alla prova.</p></div>
+           <div class="btn-row"><button class="btn primary" data-w="quiz">${icon("check")}Mettimi alla prova</button><button class="btn" data-w="walk">${icon("play")}Rifalla</button><button class="btn" data-w="list">${icon("list")}Tutti i posti</button><button class="btn" data-w="save">${icon("bookmark")}Salva nel quaderno</button></div>`;
+      return;
+    }
+    const e = w.elementi[i];
+    const dots = w.elementi.map((_, k) => `<span class="${k < i ? "done" : k === i ? "now" : ""}"></span>`).join("");
+    box.innerHTML = `<div class="walk-dots">${dots}</div>
+      <div class="walk-place"><small>${i + 1} di ${n}</small>${escapeHtml(e.luogo)}</div>
+      ${this.quizMode
+        ? `<p class="walk-q">Cosa c'è qui?</p>
+           <div class="walk-reveal hidden" id="walkReveal"><p class="walk-cosa">${escapeHtml(e.cosa)}</p><p class="hint">${escapeHtml(e.spiegazione || "")}</p><p class="walk-img">${escapeHtml(e.immagine)}</p></div>
+           <div class="btn-row" id="walkQBtns"><button class="btn primary" data-w="reveal">Mostra</button></div>`
+        : `<p class="walk-img">${escapeHtml(e.immagine)}</p>
+           <div class="walk-cosa-box"><p class="walk-cosa">${escapeHtml(e.cosa)}</p><p class="hint">${escapeHtml(e.spiegazione || "")}</p></div>
+           <div class="btn-row">
+             <button class="btn" data-w="prev" ${i ? "" : "disabled"}>‹ Indietro</button>
+             <button class="btn" data-w="say">${icon("volume")}Ascolta</button>
+             <button class="btn primary" data-w="next">Avanti ›</button>
+           </div>
+           <div class="btn-row walk-tools">
+             <button class="btn small ghost" data-w="auto">${this.auto ? icon("pause") + "Ferma la guida" : icon("play") + "Guida a voce, da sola"}</button>
+             <button class="btn small ghost" data-w="newimg">${icon("sparkles")}Un'altra immagine</button>
+             <button class="btn small ghost" data-w="myimg">${icon("pencil")}La invento io</button>
+           </div>`}`;
+    if (!this.quizMode && this.auto) this.say(() => { if (this.auto && this.walk === w && this.step === i) setTimeout(() => { if (this.auto && this.step === i) { this.step++; this.show(); } }, 2500); });
+  },
+  say(onEnd) { const e = this.walk.elementi[this.step]; if (e) tts.say(`${e.luogo}. ${e.immagine} Ricorda: ${e.cosa}.`, onEnd, "it"); },
+  saveWalk() { store.set("passeggiate", this.walks().map(x => x.id === this.walk.id ? this.walk : x)); this.render(); },
+  async action(a) {
+    const w = this.walk; if (!w) return;
+    if (a === "next") { tts.stop(); this.step++; return this.show(); }
+    if (a === "prev") { tts.stop(); this.step = Math.max(0, this.step - 1); return this.show(); }
+    if (a === "say") return this.say();
+    if (a === "auto") { this.auto = !this.auto; if (!this.auto) tts.stop(); return this.show(); }
+    if (a === "walk") { this.quizMode = false; this.step = 0; return this.show(); }
+    if (a === "quiz") { tts.stop(); this.auto = false; this.quizMode = true; this.step = 0; this.score = { ok: 0, no: 0 }; return this.show(); }
+    if (a === "reveal") {
+      $("#walkReveal").classList.remove("hidden");
+      $("#walkQBtns").innerHTML = `<button class="btn" data-w="no">Non lo ricordavo</button><button class="btn primary" data-w="ok">${icon("check")}Lo sapevo</button>`;
+      return;
+    }
+    if (a === "ok" || a === "no") { this.score[a]++; this.step++; return this.show(); }
+    if (a === "list") {
+      $("#walkBody").innerHTML = `<ol class="walk-list">${w.elementi.map(e => `<li><b>${escapeHtml(e.luogo)}</b> → ${escapeHtml(e.cosa)}<br><span class="hint">${escapeHtml(e.immagine)}</span></li>`).join("")}</ol>
+        <div class="btn-row"><button class="btn primary" data-w="quiz">${icon("check")}Mettimi alla prova</button></div>`;
+      return;
+    }
+    if (a === "save") {
+      const md = [`# ${w.titolo}`, "Palazzo della memoria: ripercorri i luoghi in ordine.", ...w.elementi.map((e, i) => `# ${i + 1}. ${e.luogo}: ${e.cosa}\n\n${e.immagine}`)].join("\n\n");
+      if (notebookPut({ id: "pal-" + w.id, type: "testo", title: "Palazzo: " + w.titolo, subject: w.subject || "", date: todayLabel(), data: md })) toast("Passeggiata salvata nel quaderno");
+      return;
+    }
+    const e = w.elementi[this.step]; if (!e) return;
+    if (a === "newimg") {
+      try {
+        busy(true, "Invento un'altra immagine…");
+        const d = parseJSON(await ask({ prompt: PROMPTS.palazzoUnaImmagine(e.luogo, e.cosa, e.spiegazione || ""), json: true, temperature: 1 }));
+        if (d.immagine) { e.immagine = d.immagine; this.saveWalk(); this.show(); }
+      } catch { toast("Non sono riuscito a inventarne un'altra. Riprova."); }
+      finally { busy(false); }
+    }
+    if (a === "myimg") {
+      const t = await uiPrompt(`La tua immagine per «${e.cosa}» in «${e.luogo}»`, e.immagine, "Le immagini inventate da te si ricordano ancora meglio.");
+      if (t) { e.immagine = t; this.saveWalk(); this.show(); }
+    }
+  },
+  bind() {
+    $("#btnPalNew").addEventListener("click", () => this.edit());
+    $("#palList").addEventListener("click", (e) => { const b = e.target.closest("[data-pal-edit]"); if (b) this.edit(b.dataset.palEdit); });
+    $("#btnPalSave").addEventListener("click", () => this.savePalace());
+    $("#btnPalCancel").addEventListener("click", () => { this.rec?.cancel(); $("#dlgPal").close(); });
+    $("#btnPalDelete").addEventListener("click", () => this.deletePalace());
+    $("#btnPalCreate").addEventListener("click", () => this.create());
+    $("#palWalks").addEventListener("click", async (e) => {
+      const d = e.target.closest("[data-walk-del]");
+      if (d) { if (await uiConfirm("Eliminare questa passeggiata?", "Elimina", true)) { store.set("passeggiate", this.walks().filter(x => x.id !== d.dataset.walkDel)); this.render(); } return; }
+      const b = e.target.closest("[data-walk]"); if (b) this.open(b.dataset.walk);
+    });
+    $("#walkBody").addEventListener("click", (e) => { const b = e.target.closest("[data-w]"); if (b && !b.disabled) this.action(b.dataset.w); });
+    $("#btnWalkClose").addEventListener("click", () => { this.auto = false; tts.stop(); $("#dlgWalk").close(); });
+    $("#dlgWalk").addEventListener("close", () => { this.auto = false; tts.stop(); });
+    const append = (sel, sep) => (t) => { const ta = $(sel); ta.value = (ta.value.trim() ? ta.value.trim() + sep : "") + t; };
+    this.rec = makeRecorder($("#palMic"), $("#palMicStatus"), append("#palPlaces", "\n"), "Tocca il microfono e racconta il percorso, un posto dopo l'altro.");
+    $("#palMic").addEventListener("click", () => this.rec.toggle());
+    this.recWhat = makeRecorder($("#palWhatMic"), $("#palWhatStatus"), append("#palWhat", " "), "");
+    $("#palWhatMic").addEventListener("click", () => this.recWhat.toggle());
+  }
+};
 
 /* ---------- Spiegalo tu: esposizione libera, senza limiti di tempo ---------- */
 const spiega = {
@@ -3134,7 +3408,8 @@ async function buildBackup({ images = true } = {}) {
   const data = { app: "studio-facile", version: 3, date: new Date().toISOString(),
     notebook: store.get("notebook", []), decks: store.get("decks", []), plans: store.get("plans", []), kits: store.get("kits", []),
     trash: store.get("trash", []), currentMap: store.get("currentMap", null), errStats: store.get("errStats", {}), cache,
-    profs: store.get("profs", []), profQ: store.get("profQ", []), spiegaHist: store.get("spiegaHist", {}) };
+    profs: store.get("profs", []), profQ: store.get("profQ", []), spiegaHist: store.get("spiegaHist", {}),
+    palazzi: store.get("palazzi", []), passeggiate: store.get("passeggiate", []) };
   if (images) {
     // le immagini delle mappe (salvate, in uso e nel cestino)
     const ids = new Set();
@@ -3159,6 +3434,8 @@ async function mergeBackup(data) {
   merge("kits", data.kits);
   merge("profs", data.profs);
   merge("profQ", data.profQ);
+  merge("palazzi", data.palazzi);
+  merge("passeggiate", data.passeggiate);
   if (data.spiegaHist && !Object.keys(store.get("spiegaHist", {})).length) store.set("spiegaHist", data.spiegaHist);
   for (const [k, v] of Object.entries(data.cache || {})) if (/^(autore|quiz):/.test(k) && v && !store.get(k, null)) store.set(k, v);
   for (const [id, im] of Object.entries(data.images || {})) if (!(await idb.get("img:" + id))) await idb.set("img:" + id, im);
@@ -3174,7 +3451,7 @@ async function mergeBackup(data) {
 /* ---------- copie automatiche giornaliere (ultimi 7 giorni, su questo dispositivo) ---------- */
 const autosave = {
   timer: null,
-  KEYS: /^(notebook|decks|plans|kits|trash|currentMap|errStats|profs|profQ|spiegaHist|autore:|quiz:)/,
+  KEYS: /^(notebook|decks|plans|kits|trash|currentMap|errStats|profs|profQ|spiegaHist|palazzi|passeggiate|autore:|quiz:)/,
   init() {
     onStoreChange = (key) => { if (this.KEYS.test(key)) this.schedule(); };
     setTimeout(() => this.run(), 4000);
@@ -3594,6 +3871,7 @@ const GUIDE = [
     ["image", "Immagini nelle mappe", "Tocca un riquadro e premi «Immagine»: una foto, un'immagine copiata o una cercata su Wikipedia. Si vede nella mappa, in stampa e nelle schede."],
     ["download", "Il lavoro è al sicuro", "Zaino tiene da solo una copia al giorno per 7 giorni, e quello che elimini resta nel cestino del quaderno per 30 giorni. Sul computer può salvare tutto da solo in una cartella di Google Drive o OneDrive (Impostazioni → Quaderno)."],
     ["layers", "Preparo la verifica", "Un tasto solo, sotto il testo: riassunto, mappa, flashcard, le domande più probabili con le risposte e il piano fino alla data. Tutto viene salvato da solo nel quaderno (tasto «Apri il quaderno» alla fine) e in Ripassa."],
+    ["home", "Palazzo della memoria", "In Ripassa: detti una volta il percorso di casa tua; poi ogni sequenza da ricordare (stadi, fasi, opere in ordine) diventa una passeggiata a voce con immagini buffe, una per stanza. Il metodo dei loci, già usato da Cicerone."],
     ["people", "Professori", "In Ripassa: dopo ogni interrogazione detta cosa ti hanno chiesto, o fotografa la verifica corretta. Zaino capisce come interroga ogni professore, dove perdi punti, e ti allena con domande nel suo stile."],
     ["present", "Spiegalo tu", "In Ripassa: spieghi a voce un argomento, senza limiti di tempo. Poi vedi quanta parte hai spiegato, cosa mancava, gli errori, le parole tecniche e i progressi tra un tentativo e l'altro."],
     ["chat", "4. Mettiti alla prova", "In Ripassa: flashcard, interrogazione a voce e piano verso la verifica."]
@@ -3841,7 +4119,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "26";
+const APP_VERSION = "27";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -4266,6 +4544,7 @@ function init() {
   $("#btnQuizExpose").addEventListener("click", () => { const src = quiz.pick(); ripassa.tab("spiega"); if (src?.text) spiega.setSource(src.text, src.title); spiega.start(); });
   spiega.bind();
   prof.bind();
+  palazzo.bind();
   zoom.bind();
   $("#btnQuizRepeat").addEventListener("click", () => tts.say(quiz.question, null, "it"));
   $("#btnQuizMic").addEventListener("click", () => quiz.mic());
@@ -4336,6 +4615,7 @@ function init() {
   // primo avvio: chiedo le chiavi
   if (!store.get("welcomed", false)) setTimeout(() => welcome.open(), 300);
   else if (!settings.keyGemini && !settings.keyGroq) setTimeout(() => { openSettings(); toast("Inserisci le chiavi gratuite di Gemini e Groq per iniziare.", 5000); }, 400);
+  news.bind(); news.maybeShow();
 
   // funziona anche come app installata; quando arriva una versione nuova la pagina si ricarica da sola
   if ("serviceWorker" in navigator && location.protocol === "https:") {

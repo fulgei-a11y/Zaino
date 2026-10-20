@@ -1135,3 +1135,34 @@ input[type="search"] { font: inherit; font-size: 1rem; color: var(--ink); backgr
 .kit-saved > .i { width: 26px; height: 26px; color: #2e8b57; flex: none; }
 .kit-saved > div { flex: 1 1 160px; } .kit-saved small { display: block; color: var(--muted, #5b6275); }
 .notebook li.nb-new { background: var(--hl-yellow-s); border-radius: 12px; }
+
+/* ---------- Palazzo della memoria ---------- */
+.pal-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line, #e4e6ee); }
+.pal-row span { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .pal-row small { color: var(--muted, #5b6275); }
+.pal-walks { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.pal-walks li { display: flex; align-items: center; gap: 6px; }
+.pal-walk { flex: 1; text-align: left; padding: 12px; font: inherit; color: var(--ink); background: var(--page, #f4f5f9); border: 1.5px solid transparent; border-radius: 12px; cursor: pointer; }
+.pal-walk:hover, .pal-walk:focus-visible { border-color: var(--pen); }
+.pal-walk small { display: block; color: var(--muted, #5b6275); margin-top: 2px; }
+#palNewCard .field textarea { width: 100%; margin-top: 4px; }
+.walk-body { padding-bottom: 20px; }
+.walk-dots { display: flex; gap: 5px; flex-wrap: wrap; margin: 2px 0 14px; }
+.walk-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--line, #d8dbe6); }
+.walk-dots span.done { background: var(--hl-mint); } .walk-dots span.now { background: var(--pen); transform: scale(1.25); }
+.walk-place { font-size: 1.6rem; font-weight: 700; line-height: 1.25; margin-bottom: 12px; }
+.walk-place small { display: block; font-size: .8rem; font-weight: 600; color: var(--muted, #5b6275); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.walk-img { font-family: var(--read-font, inherit); font-size: 1.15rem; line-height: 1.75; background: var(--hl-yellow-s); padding: 14px 16px; border-radius: 14px; margin: 0 0 12px; }
+.walk-cosa-box { border-left: 4px solid var(--pen); padding: 2px 0 2px 12px; margin-bottom: 8px; }
+.walk-cosa { font-size: 1.15rem; font-weight: 700; margin: 0 0 2px; }
+.walk-q { font-size: 1.2rem; font-weight: 600; }
+.walk-tools { margin-top: 2px; }
+.walk-end { text-align: center; padding: 12px 0; } .walk-end b { font-size: 1.6rem; display: block; margin-bottom: 6px; }
+.walk-list { line-height: 1.55; padding-left: 1.3em; } .walk-list li { margin-bottom: 10px; }
+/* ---------- Cosa c'è di nuovo ---------- */
+.news-body { padding-bottom: 20px; }
+.news-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 10px; }
+.news-list li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 10px; border-radius: 14px; background: var(--page, #f4f5f9); }
+.news-list .tile { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--hl-yellow-s); color: var(--pen); }
+.news-list b { display: block; } .news-list p { margin: 2px 0 0; font-size: .9rem; color: var(--muted, #5b6275); line-height: 1.4; }
+@media (max-width: 420px) { .news-list li { grid-template-columns: auto 1fr; } .news-list li .btn { grid-column: 2; justify-self: start; } }
+.walk-body .btn-row .btn.primary[data-w=next] { margin-left: auto; }
