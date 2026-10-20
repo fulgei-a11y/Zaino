@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow">
-<meta name="zaino-version" content="24">
+<meta name="zaino-version" content="25">
 <meta name="theme-color" content="#f5f6fa">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Zaino">
@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@300;400;500;600;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=24">
+<link rel="stylesheet" href="styles.css?v=25">
 </head>
 <body>
 
@@ -137,8 +137,8 @@
       </label>
       <label class="source">
         <span class="tile"><svg class="i"><use href="#i-image"/></svg></span>
-        <span class="s-txt"><b><span class="lg">Carica foto o PDF</span><span class="sh">Carica</span></b><small>Dalla galleria o dai file</small></span>
-        <input type="file" id="inFile" accept="image/*,application/pdf" multiple hidden>
+        <span class="s-txt"><b><span class="lg">Carica foto, PDF o audio</span><span class="sh">Carica</span></b><small>Foto, PDF o un tuo audio</small></span>
+        <input type="file" id="inFile" accept="image/*,application/pdf,audio/*,.m4a,.mp3,.opus,.ogg,.wav,.aac" multiple hidden>
       </label>
       <button class="source" id="btnPaste">
         <span class="tile"><svg class="i"><use href="#i-clipboard"/></svg></span>
@@ -658,6 +658,7 @@
         <p class="sp-remind hidden" id="spRemind"></p>
         <button class="mic" id="btnSpMic" aria-label="Avvia registrazione"><svg class="i"><use href="#i-mic"/></svg></button>
         <div id="spMicStatus" class="mic-status">Tocca il microfono e spiega con calma. Quando hai finito, toccalo di nuovo.</div>
+        <label class="btn small sp-audio"><svg class="i"><use href="#i-volume"/></svg>…oppure carica la spiegazione che hai registrato<input type="file" id="spAudio" accept="audio/*,.m4a,.mp3,.opus,.ogg,.wav,.aac" hidden></label>
         <textarea id="spText" rows="6" placeholder="Qui compare quello che dici (puoi anche scrivere o correggere)"></textarea>
         <div class="btn-row"><button class="btn primary" id="btnSpCheck"><svg class="i"><use href="#i-check"/></svg>Com'è andata?</button></div>
       </div>
@@ -677,6 +678,7 @@
         <div class="btn-row">
           <button class="btn primary" id="btnProfNote"><svg class="i"><use href="#i-mic"/></svg>Annota un'interrogazione</button>
           <label class="btn"><svg class="i"><use href="#i-camera"/></svg>Fotografa una verifica corretta<input type="file" id="profPhoto" accept="image/*" hidden></label>
+          <label class="btn"><svg class="i"><use href="#i-volume"/></svg>Carica un tuo audio<input type="file" id="profAudio" accept="audio/*,.m4a,.mp3,.opus,.ogg,.wav,.aac" hidden></label>
         </div>
         <h3>Allenati con le sue domande</h3>
         <label class="field">Su quale argomento?<select id="profSource"></select></label>
@@ -870,6 +872,7 @@
     <label>Argomento <input type="text" id="pqTopic" placeholder="es. Kant, la Critica della ragion pura"></label>
     <label>Cosa ti ha chiesto? <small>Racconta pure a voce, metto io in ordine le domande</small></label>
     <div class="pq-mic"><button class="mic small" id="pqMic" aria-label="Avvia registrazione"><svg class="i"><use href="#i-mic"/></svg></button><span id="pqMicStatus" class="mic-status">Tocca il microfono e racconta cosa ti ha chiesto.</span></div>
+    <label class="btn small pq-audio"><svg class="i"><use href="#i-volume"/></svg>…oppure carica un audio che hai registrato<input type="file" id="pqAudio" accept="audio/*,.m4a,.mp3,.opus,.ogg,.wav,.aac" hidden></label>
     <textarea id="pqText" rows="5" placeholder="Es. Mi ha chiesto la differenza tra fenomeno e noumeno, poi di fare un esempio di giudizio sintetico a priori…"></textarea>
     <label>Dove hai perso punti? <small>Facoltativo: cosa ti ha corretto o detto il professore</small></label>
     <div class="pq-mic"><button class="mic small" id="pqMicErr" aria-label="Avvia registrazione"><svg class="i"><use href="#i-mic"/></svg></button><span id="pqMicErrStatus" class="mic-status"></span></div>
@@ -987,10 +990,10 @@
 <style id="printPage"></style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
-<script src="mate.js?v=24" defer></script>
-<script src="fisica.js?v=24" defer></script>
-<script src="schede.js?v=24" defer></script>
-<script src="autori.js?v=24" defer></script>
-<script src="app.js?v=24" defer></script>
+<script src="mate.js?v=25" defer></script>
+<script src="fisica.js?v=25" defer></script>
+<script src="schede.js?v=25" defer></script>
+<script src="autori.js?v=25" defer></script>
+<script src="app.js?v=25" defer></script>
 </body>
 </html>

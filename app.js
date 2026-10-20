@@ -425,7 +425,11 @@ function parseJSON(text) {
 
 async function transcribe(blob) {
   if (!settings.keyGroq) throw new AIError("Per la dettatura serve la chiave Groq (in Impostazioni).", -1);
-  const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
+  // l'estensione dice al servizio che formato è: la prendo dal nome del file, se c'è
+  const fromName = (blob.name || "").toLowerCase().match(/\.(\w+)$/)?.[1];
+  const known = { mp3: "mp3", mpeg: "mp3", mpga: "mp3", m4a: "m4a", mp4: "m4a", aac: "m4a", wav: "wav", ogg: "ogg", oga: "ogg", opus: "ogg", webm: "webm", flac: "flac" };
+  const t = blob.type || "";
+  const ext = known[fromName] || (t.includes("mpeg") ? "mp3" : t.includes("wav") ? "wav" : t.includes("flac") ? "flac" : t.includes("mp4") || t.includes("m4a") || t.includes("aac") ? "m4a" : t.includes("ogg") || t.includes("opus") ? "ogg" : "webm");
   const fd = new FormData();
   fd.append("file", blob, "registrazione." + ext);
   fd.append("model", settings.modWhisper || DEFAULTS.modWhisper);
@@ -441,6 +445,41 @@ async function transcribe(blob) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new AIError(friendlyError("Groq", res.status, data?.error?.message), res.status);
   return (data.text || "").trim();
+}
+
+/** Trascrive un file audio caricato dal telefono (memo vocale, nota di WhatsApp…).
+    I file grandi vengono divisi in pezzi da 10 minuti. */
+async function transcribeFile(file, onStatus = () => {}) {
+  if (!settings.keyGroq) { openSettings(); throw new AIError("Per trascrivere l'audio serve la chiave Groq (in Impostazioni).", -1); }
+  if (file.size <= 24e6) { onStatus("Trascrivo l'audio…"); return transcribe(file); }
+  onStatus("L'audio è lungo: lo preparo…");
+  let pcm;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+    const buf = await ctx.decodeAudioData(await file.arrayBuffer());
+    ctx.close?.();
+    const off = new OfflineAudioContext(1, Math.ceil(buf.duration * 16000), 16000);
+    const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
+    pcm = (await off.startRendering()).getChannelData(0);
+  } catch { throw new AIError("Questo audio è troppo lungo o in un formato che non riesco ad aprire. Prova con un audio più corto.", 1); }
+  const SEG = 16000 * 600, parts = [];
+  const n = Math.ceil(pcm.length / SEG);
+  for (let k = 0; k < n; k++) {
+    onStatus(`Trascrivo l'audio: parte ${k + 1} di ${n}…`);
+    parts.push(await transcribe(wavBlob(pcm.subarray(k * SEG, (k + 1) * SEG), 16000)));
+  }
+  return parts.join(" ");
+}
+function wavBlob(samples, rate) {
+  const b = new ArrayBuffer(44 + samples.length * 2), v = new DataView(b);
+  const w = (o, str) => [...str].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + samples.length * 2, true); w(8, "WAVE"); w(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, samples[i])) * 0x7fff, true);
+  const blob = new Blob([b], { type: "audio/wav" }); blob.name = "parte.wav";
+  return blob;
 }
 
 /* ---------- Istruzioni per l'IA ---------- */
@@ -1217,7 +1256,10 @@ async function handleFiles(files) {
     let k = 0;
     for (const f of files) {
       k++;
-      if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
+      if (f.type.startsWith("audio/") || /\.(m4a|mp3|wav|ogg|opus|aac|webm|flac)$/i.test(f.name)) {
+        busy(true, "Trascrivo l'audio…");
+        pieces.push(await transcribeFile(f, (m) => busy(true, m)));
+      } else if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
         busy(true, "Apro il PDF…");
         pieces.push(await pdfToText(f));
       } else {
@@ -2373,6 +2415,18 @@ const prof = {
     this.store({ ...d, tipo: $("#pqTipo").value });
     $("#dlgProfQ").close();
   },
+  async audio(file) {
+    if (!file) return;
+    try {
+      busy(true, "Trascrivo il tuo audio…");
+      const t = await transcribeFile(file, (m) => busy(true, m));
+      if (!t.trim()) throw new Error("Nell'audio non ho sentito parole. Riprova con un altro file.");
+      const ta = $("#pqText"); ta.value = (ta.value.trim() ? ta.value.trim() + "\n" : "") + t.trim();
+      if (!$("#dlgProfQ").open) $("#dlgProfQ").showModal();
+      toast("Ho scritto il tuo audio: controlla e premi Salva.", 5000);
+    } catch (e) { toast(e.message || "Non sono riuscito a trascrivere l'audio.", 6000); }
+    finally { busy(false); }
+  },
   async photo(file) {
     const p = this.list().find(x => x.id === this.current); if (!p || !file) return;
     try {
@@ -2426,6 +2480,9 @@ const prof = {
     $("#btnProfDel").addEventListener("click", () => this.remove());
     $("#btnProfNote").addEventListener("click", () => this.openNote());
     $("#profPhoto").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; this.photo(f); });
+    const onAudio = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f && !$("#dlgProfQ").open) this.openNote(); this.audio(f); };
+    $("#profAudio").addEventListener("change", onAudio);
+    $("#pqAudio").addEventListener("change", onAudio);
     $("#btnProfStyle").addEventListener("click", () => this.analyze());
     $("#btnProfTrain").addEventListener("click", () => this.train());
     $("#profArchive").addEventListener("click", async (e) => {
@@ -2562,6 +2619,16 @@ const spiega = {
       toast("Ho scritto quello che hai detto. Puoi continuare a parlare o premere «Com'è andata?».", 5000);
     }, "Tocca il microfono e spiega con calma. Quando hai finito, toccalo di nuovo.", { maxSec: 1800 });
     $("#btnSpMic").addEventListener("click", () => this.rec.toggle());
+    $("#spAudio").addEventListener("change", async (e) => {
+      const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+      try {
+        busy(true, "Trascrivo la tua spiegazione…");
+        const t = await transcribeFile(f, (m) => busy(true, m));
+        const ta = $("#spText"); ta.value = (ta.value ? ta.value.trim() + " " : "") + t.trim();
+        toast("Ho scritto la tua spiegazione. Premi «Com'è andata?».", 5000);
+      } catch (err) { toast(err.message || "Non sono riuscito a trascrivere l'audio.", 6000); }
+      finally { busy(false); }
+    });
   }
 };
 
@@ -3752,7 +3819,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "24";
+const APP_VERSION = "25";
 
 /* =========================================================
    TESTO DA UN SITO WEB
