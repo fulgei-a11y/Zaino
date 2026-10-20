@@ -1128,3 +1128,10 @@ input[type="search"] { font: inherit; font-size: 1rem; color: var(--ink); backgr
 .pq-audio, .sp-audio { display: inline-flex; margin: 4px 0 8px; cursor: pointer; }
 .sp-audio { margin-left: auto; margin-right: auto; }
 #spTalk { text-align: left; }
+
+/* ---------- quaderno in basso, salvataggi visibili ---------- */
+@media (max-width: 420px) { .tab { font-size: .62rem; } .tab .i { width: 22px; height: 22px; } .tab.active::before { width: 32px; } }
+.kit-saved { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px; margin-bottom: 12px; border-radius: 12px; background: var(--hl-mint-s); }
+.kit-saved > .i { width: 26px; height: 26px; color: #2e8b57; flex: none; }
+.kit-saved > div { flex: 1 1 160px; } .kit-saved small { display: block; color: var(--muted, #5b6275); }
+.notebook li.nb-new { background: var(--hl-yellow-s); border-radius: 12px; }

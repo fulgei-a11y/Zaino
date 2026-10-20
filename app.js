@@ -2309,14 +2309,23 @@ const zoom = {
     v.innerHTML = level === 1
       ? `<p class="zm-frase">${escapeHtml(d.frase)}</p>
          ${(d.parole_chiave || []).length ? `<div class="chips">${d.parole_chiave.map(k => `<span class="chip on">${escapeHtml(k)}</span>`).join("")}</div>` : ""}
-         <div class="btn-row"><button class="btn" data-zs="say">${icon("volume")}Ascolta</button><button class="btn primary" data-z="2">Allarga: i punti principali ›</button></div>`
+         <div class="btn-row"><button class="btn" data-zs="say">${icon("volume")}Ascolta</button><button class="btn" data-zs="save">${icon("bookmark")}Salva nel quaderno</button><button class="btn primary" data-z="2">Allarga: i punti principali ›</button></div>`
       : `<p class="zm-frase small">${escapeHtml(d.frase)}</p>
          <ol class="zm-points">${d.punti.map((p, i) => `<li><button data-jump="${i}"><b>${escapeHtml(p.titolo || "")}</b><span>${escapeHtml(p.frase || "")}</span><small>Leggi questa parte nel testo ›</small></button></li>`).join("")}</ol>
-         <div class="btn-row"><button class="btn" data-zs="say">${icon("volume")}Ascolta</button><button class="btn primary" data-z="3">Allarga: tutto il testo ›</button></div>`;
+         <div class="btn-row"><button class="btn" data-zs="say">${icon("volume")}Ascolta</button><button class="btn" data-zs="save">${icon("bookmark")}Salva nel quaderno</button><button class="btn primary" data-z="3">Allarga: tutto il testo ›</button></div>`;
   },
   say() {
     const d = this.data; if (!d) return;
     tts.say(this.level === 1 ? d.frase : [d.frase, ...d.punti.map((p, i) => `${i + 1}. ${p.titolo}. ${p.frase}`)].join(" "), null, reader.lang);
+  },
+  /** I punti (con la frase e le parole chiave) diventano un testo del quaderno */
+  async save() {
+    const d = this.data; if (!d) return;
+    const r = await askSave("Salva i punti nel quaderno", "I punti: " + reader.title(), reader.subject);
+    if (!r) return;
+    const md = [`# ${reader.title()}`, d.frase, (d.parole_chiave || []).length ? "Parole chiave: " + d.parole_chiave.join(", ") : "",
+      "# I punti", ...d.punti.map((p, i) => `${i + 1}. ${p.titolo}: ${p.frase}`)].filter(Boolean).join("\n\n");
+    if (notebookPut({ id: uid(), type: "testo", title: r.title, subject: r.subject, date: todayLabel(), data: md })) toast("Punti salvati nel quaderno");
   },
   /** Dal punto al passaggio nel testo intero */
   jump(i) {
@@ -2340,6 +2349,7 @@ const zoom = {
       const z = e.target.closest("[data-z]"); if (z) return this.set(z.dataset.z);
       const j = e.target.closest("[data-jump]"); if (j) return this.jump(+j.dataset.jump);
       if (e.target.closest("[data-zs=say]")) return this.say();
+      if (e.target.closest("[data-zs=save]")) return this.save();
     };
     $("#zoomBar").addEventListener("click", click);
     $("#zoomView").addEventListener("click", click);
@@ -2916,6 +2926,7 @@ async function saveCurrentText() {
 }
 
 let nbFilter = "";
+let nbHighlight = new Set();   // elementi appena creati (es. da «Preparo la verifica»), evidenziati
 function renderNotebook() {
   const nb = store.get("notebook", []);
   const decks = store.get("decks", []);
@@ -2936,7 +2947,7 @@ function renderNotebook() {
   const ul = $("#notebook");
   if (!items.length) { ul.innerHTML = `<li class="hint">Il quaderno è vuoto. Quando apri un testo o una mappa, premi Salva per ritrovarli qui.</li>`; return; }
   ul.innerHTML = shown.map(it => `
-    <li data-id="${it.id}" data-type="${it.type}">
+    <li data-id="${it.id}" data-type="${it.type}"${nbHighlight.has(it.id) ? ' class="nb-new"' : ""}>
       <span class="nb-ico" aria-hidden="true">${icon(icons[it.type])}</span>
       <span class="t">${escapeHtml(it.title)}<small>${it.subject ? `<span class="tag">${escapeHtml(it.subject)}</span> ` : ""}${it.type} · ${escapeHtml(it.date || "")}</small></span>
       <button class="icon-btn" data-tag aria-label="Cambia materia">${icon("tag")}</button>
@@ -3517,7 +3528,10 @@ const kit = {
     const box = $("#kitDone");
     const b = (k, ic, label, sub, ok = true) => ok ? `<button class="kit-out" data-kit="${k}">${icon(ic)}<span><b>${label}</b><small>${sub}</small></span></button>` : "";
     const left = K.date ? daysBetween(isoDay(new Date()), K.date) : null;
-    box.innerHTML = `<h3>${escapeHtml(K.topic)}</h3>
+    const saved = [K.sumId && "riassunto", K.mapId && "mappa", K.qId && "domande probabili", K.deckId && "flashcard", K.textId && "testo"].filter(Boolean);
+    box.innerHTML = `${saved.length ? `<div class="kit-saved">${icon("check")}<div><b>Tutto salvato nel quaderno</b><small>${escapeHtml(saved.join(", "))}${K.subject ? " · materia " + escapeHtml(K.subject) : ""}</small></div>
+        <button class="btn small primary" data-kit="notebook">${icon("library")}Apri il quaderno</button></div>` : ""}
+      <h3>${escapeHtml(K.topic)}</h3>
       <p class="hint">${K.subject ? escapeHtml(K.subject) + " · " : ""}${left !== null ? (left === 1 ? "verifica domani" : left > 1 ? `verifica tra ${left} giorni` : "verifica passata") : "senza data"}</p>
       ${K.problems.length ? `<p class="kit-warn">Qualcosa non è riuscito (${K.problems.length}): puoi rifarlo dagli strumenti sotto il testo.</p>` : ""}
       <div class="kit-grid">
@@ -3543,6 +3557,14 @@ const kit = {
     if (what === "map") { close(); return openNotebookItem(K.mapId, "mappa"); }
     if (what === "cards") { close(); return openNotebookItem(K.deckId, "flashcard"); }
     if (what === "plan") { close(); showView("ripassa"); return ripassa.tab("piano"); }
+    if (what === "notebook") {
+      close();
+      nbFilter = K.subject || "";
+      nbHighlight = new Set([K.textId, K.sumId, K.mapId, K.qId, K.deckId].filter(Boolean));
+      showView("quaderno");
+      setTimeout(() => $("#notebook .nb-new")?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+      return;
+    }
     if (what === "ask") {
       const it = store.get("notebook", []).find(x => x.id === K.textId);
       if (!it) return toast("Il testo non è più nel quaderno.");
@@ -3571,7 +3593,7 @@ const GUIDE = [
     ["sparkles", "3. Trasformalo", "Sotto il testo scegli cosa ti serve: riassunto, mappa, linea del tempo, flashcard e altro."],
     ["image", "Immagini nelle mappe", "Tocca un riquadro e premi «Immagine»: una foto, un'immagine copiata o una cercata su Wikipedia. Si vede nella mappa, in stampa e nelle schede."],
     ["download", "Il lavoro è al sicuro", "Zaino tiene da solo una copia al giorno per 7 giorni, e quello che elimini resta nel cestino del quaderno per 30 giorni. Sul computer può salvare tutto da solo in una cartella di Google Drive o OneDrive (Impostazioni → Quaderno)."],
-    ["layers", "Preparo la verifica", "Un tasto solo, sotto il testo: riassunto, mappa, flashcard, le domande più probabili con le risposte e il piano fino alla data. Tutto finisce nel quaderno e in Ripassa."],
+    ["layers", "Preparo la verifica", "Un tasto solo, sotto il testo: riassunto, mappa, flashcard, le domande più probabili con le risposte e il piano fino alla data. Tutto viene salvato da solo nel quaderno (tasto «Apri il quaderno» alla fine) e in Ripassa."],
     ["people", "Professori", "In Ripassa: dopo ogni interrogazione detta cosa ti hanno chiesto, o fotografa la verifica corretta. Zaino capisce come interroga ogni professore, dove perdi punti, e ti allena con domande nel suo stile."],
     ["present", "Spiegalo tu", "In Ripassa: spieghi a voce un argomento, senza limiti di tempo. Poi vedi quanta parte hai spiegato, cosa mancava, gli errori, le parole tecniche e i progressi tra un tentativo e l'altro."],
     ["chat", "4. Mettiti alla prova", "In Ripassa: flashcard, interrogazione a voce e piano verso la verifica."]
@@ -3725,7 +3747,7 @@ function showView(name) {
   $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.view === name || (inMaterie && t.dataset.view === "materie")));
   $("#subjNav").classList.toggle("hidden", !inMaterie);
   $$("#subjNav button").forEach(b => b.classList.toggle("on", b.dataset.view === name));
-  if (name === "quaderno") renderNotebook();
+  if (name === "quaderno") { renderNotebook(); nbHighlight = new Set(); }
   if (name === "leggi" && !reader.text) home.render();
   if (name === "mate") requestAnimationFrame(() => graph.draw());
   if (name === "fisica") requestAnimationFrame(() => fisica.inited.simula && sim.redraw());
@@ -3819,7 +3841,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "25";
+const APP_VERSION = "26";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -4045,7 +4067,7 @@ function init() {
   $$(".tab").forEach(t => t.addEventListener("click", () => showView(t.dataset.view)));
   $("#btnSettings").addEventListener("click", openSettings);
   $("#askMic").addEventListener("click", askMicToggle);
-  $("#btnNotebook").addEventListener("click", () => showView("quaderno"));
+  $("#btnNotebook")?.addEventListener("click", () => showView("quaderno"));
   $("#btnHelp").addEventListener("click", () => guide.open(guide.forView()));
   $("#btnGuideClose").addEventListener("click", () => $("#dlgGuide").close());
   $("#guideSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-g]"); if (b) guide.show(+b.dataset.g); });
