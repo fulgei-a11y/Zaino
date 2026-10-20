@@ -451,6 +451,34 @@ Non inventare informazioni che non sono nel testo, salvo quando ti viene chiesto
 Formato consentito: righe che iniziano con "## " per i titoli, righe che iniziano con "- " per gli elenchi, **grassetto** per le parole chiave. Nient'altro.`;
 
 const PROMPTS = {
+  zoom: (t) => `Prepara una vista "a zoom" di questo testo per una studentessa con dislessia: la legge PRIMA del testo intero, per capirne subito il senso e la struttura.
+Rispondi SOLO con JSON:
+{"frase": "il succo di tutto il testo in UNA frase di massimo 25 parole",
+ "parole_chiave": ["da 3 a 5 parole, nomi o date chiave"],
+ "punti": [{"titolo": "3-6 parole", "frase": "il contenuto di quella parte in una frase breve", "ancora": "le prime 6-8 parole ESATTE, copiate dal testo, della frase dove comincia quella parte"}]}
+Regole: da 4 a 8 punti, nello stesso ordine del testo, che insieme coprano tutto il testo; frasi semplici; "ancora" copiata identica dal testo.
+
+TESTO:
+"""${t}"""`,
+  spiegalo: (src, detto) => `Una studentessa delle superiori con dislessia ha spiegato a voce un argomento, senza leggere, come all'interrogazione.
+Confronta la sua spiegazione con il TESTO di riferimento. La spiegazione è trascritta in automatico: ignora errori di trascrizione, ripetizioni e intercalari ("ehm", "cioè", "praticamente").
+Rispondi SOLO con JSON:
+{"copertura": numero da 0 a 100 (quanta parte dei concetti importanti del testo ha spiegato),
+ "giudizio": "2 frasi sincere e incoraggianti",
+ "punti_detti": ["concetti importanti spiegati bene, in poche parole"],
+ "punti_mancanti": [{"punto": "concetto importante che non ha detto", "in_breve": "come poteva dirlo in una frase semplice"}],
+ "errori": [{"detto": "cosa ha detto di sbagliato o di confuso", "corretto": "la versione giusta"}],
+ "termini_usati": ["termini tecnici che ha usato bene"],
+ "termini_da_usare": [{"termine": "termine tecnico del testo che non ha usato", "significato": "spiegazione semplice"}],
+ "ordine": "una frase sull'ordine del discorso: era logico? cosa conveniva dire prima?",
+ "consiglio": "un solo consiglio pratico per la prossima volta"}
+Regole: conta solo i concetti davvero importanti (al massimo 10 tra detti e mancanti); non segnare come errore una parola trascritta male; se ha detto poco, copertura bassa ma tono gentile; frasi brevi e semplici; liste vuote se non c'è niente da dire.
+
+TESTO:
+"""${src}"""
+
+SPIEGAZIONE DELLA STUDENTESSA:
+"""${detto}"""`,
   domandeVerifica: (t, materia) => `Una studentessa delle superiori con dislessia ha una verifica di ${materia || "questa materia"} su questo testo.
 Prepara le 8 domande più probabili che l'insegnante potrebbe fare (scritte o orali), dalla più semplice alla più difficile, con una risposta modello breve e corretta presa dal testo.
 Rispondi SOLO con JSON: {"domande": [{"domanda": "...", "risposta": "3-5 frasi brevi, con le parole chiave in **grassetto**"}]}
@@ -826,6 +854,7 @@ const reader = {
     this.text = text.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
     if (!keepPosition) this.idx = 0;
     store.set("current", this.text);
+    if (!keepPosition) zoom.reset();
     this.render();
     this.setLang(detectLang(this.text));
     this.subject = "";
@@ -1940,7 +1969,7 @@ const slug = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").rep
    10. DETTATURA
    ========================================================= */
 /** Registratore riutilizzabile: un pulsante microfono, una scritta di stato, e cosa fare col testo. */
-function makeRecorder(btn, statusEl, onText, idleMsg) {
+function makeRecorder(btn, statusEl, onText, idleMsg, { maxSec = 600 } = {}) {
   const r = { rec: null, chunks: [], stream: null, t0: 0, timer: null };
   r.toggle = async () => {
     if (r.rec && r.rec.state === "recording") return r.rec.stop();
@@ -1963,7 +1992,7 @@ function makeRecorder(btn, statusEl, onText, idleMsg) {
     r.timer = setInterval(() => {
       const sec = Math.floor((Date.now() - r.t0) / 1000);
       statusEl.textContent = `Ti ascolto… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")} — tocca per finire`;
-      if (sec >= 600) r.rec.stop(); // massimo 10 minuti per registrazione
+      if (sec >= maxSec) r.rec.stop(); // limite tecnico della trascrizione
     }, 300);
   };
   /** ferma senza trascrivere (es. la finestra è stata chiusa) */
@@ -2156,7 +2185,190 @@ const ripassa = {
     $$("#ripSeg button").forEach(b => b.classList.toggle("on", b.dataset.rt === name));
     $$(".rip-pane").forEach(p => p.classList.toggle("hidden", p.dataset.pane !== name));
     if (name === "interroga") quiz.fillSources();
+    if (name === "spiega") spiega.fill();
     if (name === "piano") planner.render();
+  }
+};
+
+/* ---------- Testo a zoom: in una frase → i punti → tutto il testo ---------- */
+const zoom = {
+  level: 3, data: null,
+  hash(t) { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + t.length; },
+  reset() {
+    this.level = 3; this.data = null;
+    $$("#zoomBar [data-z]").forEach(b => b.classList.toggle("on", b.dataset.z === "3"));
+    $("#zoomView")?.classList.add("hidden");
+    $("#reader")?.classList.remove("hidden");
+  },
+  async set(level) {
+    level = Number(level);
+    if (level !== 3 && !this.data) {
+      const key = "zoom:" + this.hash(reader.text);
+      this.data = store.get(key, null);
+      if (!this.data) {
+        try {
+          busy(true, "Preparo la vista a zoom…");
+          const d = parseJSON(await ask({ prompt: PROMPTS.zoom(reader.text.slice(0, 40000)), json: true, temperature: 0.2 }));
+          if (!d.frase || !Array.isArray(d.punti) || !d.punti.length) throw new Error();
+          this.data = d;
+          store.set(key, d);
+          const keys = store.get("zoomKeys", []).filter(k => k !== key); keys.push(key);
+          keys.slice(0, Math.max(0, keys.length - 20)).forEach(k => { try { localStorage.removeItem("sf." + k); } catch { /* niente */ } });
+          store.set("zoomKeys", keys.slice(-20));
+        } catch (e) { busy(false); return toast(e.message && e.message.length > 3 ? e.message : "Non sono riuscito a preparare lo zoom. Riprova.", 6000); }
+        busy(false);
+      }
+    }
+    tts.stop();
+    this.level = level;
+    $$("#zoomBar [data-z]").forEach(b => b.classList.toggle("on", Number(b.dataset.z) === level));
+    $("#reader").classList.toggle("hidden", level !== 3);
+    const v = $("#zoomView");
+    v.classList.toggle("hidden", level === 3);
+    if (level === 3) return;
+    const d = this.data;
+    v.innerHTML = level === 1
+      ? `<p class="zm-frase">${escapeHtml(d.frase)}</p>
+         ${(d.parole_chiave || []).length ? `<div class="chips">${d.parole_chiave.map(k => `<span class="chip on">${escapeHtml(k)}</span>`).join("")}</div>` : ""}
+         <div class="btn-row"><button class="btn" data-zs="say">${icon("volume")}Ascolta</button><button class="btn primary" data-z="2">Allarga: i punti principali ›</button></div>`
+      : `<p class="zm-frase small">${escapeHtml(d.frase)}</p>
+         <ol class="zm-points">${d.punti.map((p, i) => `<li><button data-jump="${i}"><b>${escapeHtml(p.titolo || "")}</b><span>${escapeHtml(p.frase || "")}</span><small>Leggi questa parte nel testo ›</small></button></li>`).join("")}</ol>
+         <div class="btn-row"><button class="btn" data-zs="say">${icon("volume")}Ascolta</button><button class="btn primary" data-z="3">Allarga: tutto il testo ›</button></div>`;
+  },
+  say() {
+    const d = this.data; if (!d) return;
+    tts.say(this.level === 1 ? d.frase : [d.frase, ...d.punti.map((p, i) => `${i + 1}. ${p.titolo}. ${p.frase}`)].join(" "), null, reader.lang);
+  },
+  /** Dal punto al passaggio nel testo intero */
+  jump(i) {
+    const p = this.data?.punti?.[i]; if (!p) return;
+    this.set(3);
+    const norm = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    const words = norm(p.ancora).split(" ").slice(0, 6);
+    let k = -1;
+    for (let n = words.length; n >= 3 && k < 0; n--) {
+      const probe = words.slice(0, n).join(" ");
+      k = reader.sentences.findIndex(sn => norm(sn.text).includes(probe));
+    }
+    if (k < 0) return toast("Non ho trovato il punto esatto: lo cerchi tu nel testo?");
+    const el = reader.sentences[k].el;
+    reader.idx = k;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("zm-flash"); setTimeout(() => el.classList.remove("zm-flash"), 2200);
+  },
+  bind() {
+    const click = (e) => {
+      const z = e.target.closest("[data-z]"); if (z) return this.set(z.dataset.z);
+      const j = e.target.closest("[data-jump]"); if (j) return this.jump(+j.dataset.jump);
+      if (e.target.closest("[data-zs=say]")) return this.say();
+    };
+    $("#zoomBar").addEventListener("click", click);
+    $("#zoomView").addEventListener("click", click);
+  }
+};
+
+/* ---------- Spiegalo tu: esposizione libera, senza limiti di tempo ---------- */
+const spiega = {
+  source: null, title: "", rec: null, last: null,
+  fill(selectValue) {
+    const sel = $("#spSource");
+    const texts = store.get("notebook", []).filter(x => x.type === "testo");
+    const opts = [];
+    if (this.source && this.source !== reader.text && !texts.some(t => t.data === this.source)) opts.push(["custom", "Testo scelto: " + (this.title || "")]);
+    if (reader.text) opts.push(["reader", "Testo aperto in Studia: " + reader.title()]);
+    texts.forEach(t => opts.push(["nb:" + t.id, `${t.subject ? t.subject + ": " : ""}${t.title}`]));
+    sel.innerHTML = opts.length ? opts.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("")
+      : `<option value="">Prima apri un testo in Studia o salvane uno nel quaderno</option>`;
+    if (selectValue) sel.value = selectValue;
+    this.renderHistory();
+  },
+  pick() {
+    const v = $("#spSource").value;
+    if (v === "custom") return { text: this.source, title: this.title };
+    if (v === "reader") return { text: reader.activeText(), title: reader.title() };
+    if (v.startsWith("nb:")) { const t = store.get("notebook", []).find(x => x.id === v.slice(3)); if (t) return { text: t.data, title: t.title }; }
+    return null;
+  },
+  setSource(text, title) { this.source = text; this.title = title; this.fill(text === reader.activeText() ? "reader" : "custom"); },
+  renderHistory() {
+    const src = this.pick();
+    const h = src ? (store.get("spiegaHist", {})[src.title] || []) : [];
+    $("#spHistory").innerHTML = h.length ? `Le tue spiegazioni su questo argomento: ${h.slice(-6).map(x => `<b>${x.cop}%</b>`).join(" → ")}` : "";
+  },
+  start() {
+    const src = this.pick();
+    if (!src?.text) return toast("Scegli prima l'argomento da spiegare.");
+    $("#spTalk").classList.remove("hidden");
+    $("#spResult").classList.add("hidden");
+    $("#spText").value = "";
+    $("#spTopic").textContent = src.title || "l'argomento";
+    const reminder = this.last?.title === src.title ? (this.last.mancanti || []) : [];
+    $("#spRemind").innerHTML = reminder.length ? `<b>La volta scorsa mancavano:</b> ${reminder.map(m => escapeHtml(m.punto)).join(" · ")}` : "";
+    $("#spRemind").classList.toggle("hidden", !reminder.length);
+    $("#spTalk").scrollIntoView({ behavior: "smooth" });
+  },
+  async check() {
+    const src = this.pick();
+    const detto = $("#spText").value.trim();
+    if (!src?.text) return toast("Scegli prima l'argomento.");
+    if (detto.split(/\s+/).length < 15) return toast("Spiega ancora un po': registra o scrivi almeno qualche frase.");
+    try {
+      busy(true, "Confronto la tua spiegazione con il testo…");
+      const d = parseJSON(await ask({ prompt: PROMPTS.spiegalo(src.text.slice(0, 30000), detto), json: true, temperature: 0.2, claude: true }));
+      const cop = Math.max(0, Math.min(100, Math.round(Number(d.copertura) || 0)));
+      const hist = store.get("spiegaHist", {});
+      (hist[src.title] ||= []).push({ cop, date: isoDay(new Date()) });
+      store.set("spiegaHist", hist);
+      this.last = { title: src.title, mancanti: d.punti_mancanti || [], d };
+      this.render(d, cop, hist[src.title]);
+      this.renderHistory();
+    } catch (e) { toast(e.message || "Non sono riuscito a valutare la spiegazione. Riprova.", 6000); }
+    finally { busy(false); }
+  },
+  render(d, cop, hist) {
+    const L = (x) => Array.isArray(x) ? x : [];
+    const prev = hist.length > 1 ? hist[hist.length - 2].cop : null;
+    const trend = prev === null ? "" : cop > prev ? `<span class="sp-up">+${cop - prev} rispetto alla volta scorsa</span>` : cop < prev ? `<span class="sp-same">la volta scorsa ${prev}%</span>` : `<span class="sp-same">come la volta scorsa</span>`;
+    const box = $("#spResult");
+    box.innerHTML = `
+      <div class="sp-score"><div class="sp-ring" style="--p:${cop}"><span>${cop}%</span></div>
+        <div><b>dell'argomento spiegato</b>${trend}<p>${escapeHtml(d.giudizio || "")}</p></div></div>
+      ${L(d.punti_detti).length ? `<h3 class="sp-ok">${icon("check")}Hai spiegato</h3><ul>${L(d.punti_detti).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : ""}
+      ${L(d.punti_mancanti).length ? `<h3 class="sp-miss">${icon("plus")}Ti è mancato</h3><ul>${L(d.punti_mancanti).map(x => `<li><b>${escapeHtml(x.punto || "")}</b>${x.in_breve ? `<br><span class="hint">${escapeHtml(x.in_breve)}</span>` : ""}</li>`).join("")}</ul>` : ""}
+      ${L(d.errori).length ? `<h3 class="sp-err">${icon("pencil")}Da correggere</h3><ul>${L(d.errori).map(x => `<li><s>${escapeHtml(x.detto || "")}</s><br>${escapeHtml(x.corretto || "")}</li>`).join("")}</ul>` : ""}
+      ${L(d.termini_usati).length || L(d.termini_da_usare).length ? `<h3>${icon("key")}Le parole giuste</h3>
+        ${L(d.termini_usati).length ? `<div class="chips">${L(d.termini_usati).map(t => `<span class="chip on">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+        ${L(d.termini_da_usare).length ? `<p class="hint">Prova a usare anche:</p><dl class="au-words">${L(d.termini_da_usare).map(t => `<dt>${escapeHtml(t.termine || "")}</dt><dd>${escapeHtml(t.significato || "")}</dd>`).join("")}</dl>` : ""}` : ""}
+      ${d.ordine ? `<h3>${icon("list")}L'ordine del discorso</h3><p>${escapeHtml(d.ordine)}</p>` : ""}
+      ${d.consiglio ? `<div class="sp-tip"><b>Per la prossima volta:</b> ${escapeHtml(d.consiglio)}</div>` : ""}
+      <div class="btn-row">
+        <button class="btn primary" data-sp="again">${icon("repeat")}Rispiegalo</button>
+        <button class="btn" data-sp="listen">${icon("volume")}Ascolta il commento</button>
+        ${L(d.punti_mancanti).length ? `<button class="btn" data-sp="cards">${icon("cards")}Flashcard di quello che mancava</button>` : ""}
+      </div>`;
+    box.classList.remove("hidden");
+    $("#spTalk").classList.add("hidden");
+    box.scrollIntoView({ behavior: "smooth" });
+  },
+  action(what) {
+    const d = this.last?.d; if (!d) return;
+    if (what === "again") return this.start();
+    if (what === "listen") return tts.say([d.giudizio, ...(d.punti_mancanti || []).map(x => "Ti è mancato: " + x.punto), d.consiglio].filter(Boolean).join(". "), null, "it");
+    if (what === "cards") {
+      const deck = buildDeck({ carte: (d.punti_mancanti || []).map(x => ({ domanda: `Spiega: ${x.punto}`, risposta: x.in_breve || x.punto })) }, "it", reader.subject || "", `Da ripassare: ${this.last.title}`);
+      flash.refreshDecks(deck.id); ripassa.tab("carte"); toast(`Creato il mazzo con ${deck.cards.length} carte.`);
+    }
+  },
+  bind() {
+    $("#spSource").addEventListener("change", () => this.renderHistory());
+    $("#btnSpStart").addEventListener("click", () => this.start());
+    $("#btnSpCheck").addEventListener("click", () => this.check());
+    $("#spResult").addEventListener("click", (e) => { const b = e.target.closest("[data-sp]"); if (b) this.action(b.dataset.sp); });
+    this.rec = makeRecorder($("#btnSpMic"), $("#spMicStatus"), (t) => {
+      const ta = $("#spText"); ta.value = (ta.value ? ta.value.trim() + " " : "") + t;
+      toast("Ho scritto quello che hai detto. Puoi continuare a parlare o premere «Com'è andata?».", 5000);
+    }, "Tocca il microfono e spiega con calma. Quando hai finito, toccalo di nuovo.", { maxSec: 1800 });
+    $("#btnSpMic").addEventListener("click", () => this.rec.toggle());
   }
 };
 
@@ -3088,10 +3300,12 @@ const GUIDE = [
     ["book", "1. Porta il testo", "In Studia fotografa una pagina, carica una foto o un PDF, oppure incolla un testo o un link. Con un PDF lungo, come un libro di LibroAID, ti chiedo quali pagine leggere."],
     ["globe", "Da un sito o Wikipedia", "Incolla un link: Zaino prende solo il testo della pagina, senza pubblicità. Oppure scrivi un argomento e trova la voce di Wikipedia. Per le pagine con accesso (registro, piattaforma della scuola) c'è il tasto «Manda a Zaino»; su Android anche Condividi → Zaino."],
     ["volume", "2. Ascoltalo", "Premi il tasto blu: la voce legge e la frase si colora come con un evidenziatore. Tocca una frase per partire da lì."],
+    ["layers", "Testo a zoom", "Sopra il testo scegli la vista: «In una frase» per il succo, «I punti» per la struttura, «Tutto il testo» per leggere. Tocca un punto per saltare a quella parte."],
     ["sparkles", "3. Trasformalo", "Sotto il testo scegli cosa ti serve: riassunto, mappa, linea del tempo, flashcard e altro."],
     ["image", "Immagini nelle mappe", "Tocca un riquadro e premi «Immagine»: una foto, un'immagine copiata o una cercata su Wikipedia. Si vede nella mappa, in stampa e nelle schede."],
     ["download", "Il lavoro è al sicuro", "Zaino tiene da solo una copia al giorno per 7 giorni, e quello che elimini resta nel cestino del quaderno per 30 giorni. Sul computer può salvare tutto da solo in una cartella di Google Drive o OneDrive (Impostazioni → Quaderno)."],
     ["layers", "Preparo la verifica", "Un tasto solo, sotto il testo: riassunto, mappa, flashcard, le domande più probabili con le risposte e il piano fino alla data. Tutto finisce nel quaderno e in Ripassa."],
+    ["present", "Spiegalo tu", "In Ripassa: spieghi a voce un argomento, senza limiti di tempo. Poi vedi quanta parte hai spiegato, cosa mancava, gli errori, le parole tecniche e i progressi tra un tentativo e l'altro."],
     ["chat", "4. Mettiti alla prova", "In Ripassa: flashcard, interrogazione a voce e piano verso la verifica."]
   ]],
   ["Studia", "Il lettore e gli strumenti sul testo.", [
@@ -3337,7 +3551,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "22";
+const APP_VERSION = "23";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -3759,7 +3973,9 @@ function init() {
   // ripassa: sezioni, interrogazione, piano, timer
   $("#ripSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-rt]"); if (b) ripassa.tab(b.dataset.rt); });
   $("#btnQuizAsk").addEventListener("click", () => quiz.next());
-  $("#btnQuizExpose").addEventListener("click", () => quiz.next(true));
+  $("#btnQuizExpose").addEventListener("click", () => { const src = quiz.pick(); ripassa.tab("spiega"); if (src?.text) spiega.setSource(src.text, src.title); spiega.start(); });
+  spiega.bind();
+  zoom.bind();
   $("#btnQuizRepeat").addEventListener("click", () => tts.say(quiz.question, null, "it"));
   $("#btnQuizMic").addEventListener("click", () => quiz.mic());
   $("#btnQuizCheck").addEventListener("click", () => quiz.check());
