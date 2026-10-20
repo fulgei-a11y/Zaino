@@ -3160,6 +3160,12 @@ const GUIDE = [
     ["bulb", "Concetti", "Una parola o un'idea che non ti è chiara, spiegata con un esempio e con la differenza dai concetti simili."],
     ["key", "Glossario", "Si riempie da solo con le parole chiave delle schede che apri. Puoi cercare una parola."]
   ]],
+  ["Letteratura latina", "Gli autori latini, da Plauto ad Agostino. Si apre da Materie → Latino.", [
+    ["timeline", "Autori per età", "Età arcaica, di Cesare, augustea, imperiale e tarda: in elenco o sulla linea del tempo, per vedere chi scriveva sotto quale imperatore."],
+    ["file", "Scheda autore", "Vita, opere con il titolo latino, temi e stile, parole chiave, una frase celebre in latino con la traduzione e le domande da interrogazione. Parte dalla voce di Wikipedia."],
+    ["layers", "Generi", "Epica, lirica, storiografia, satira, romanzo…: gli autori raggruppati per genere, con la spiegazione del genere."],
+    ["check", "Quiz, confronto, domande", "Come per filosofia: quiz sull'autore, confronto tra due autori (es. Virgilio e Ovidio) e domande all'autore che risponde in prima persona."]
+  ]],
   ["Fisica", "La materia più temuta, un passo alla volta.", [
     ["sigma", "Formule", "Scegli una formula e cosa devi trovare: Zaino scrive la formula inversa, converte le unità (km/h, minuti, grammi…) e fa la sostituzione passo per passo. Ogni grandezza ha il suo colore."],
     ["steps", "Problemi", "Fotografa il problema: ottieni la tabella dei dati con le conversioni, l'incognita evidenziata, la formula giusta e i passaggi uno alla volta."],
@@ -3331,7 +3337,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "21";
+const APP_VERSION = "22";
 
 /* =========================================================
    TESTO DA UN SITO WEB

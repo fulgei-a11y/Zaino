@@ -292,14 +292,78 @@ const UMANE_CORRENTI = [
   ["Antropologia della contemporaneità", "fine XX-XXI sec.", "Luoghi, migrazioni e media nel mondo globale.", ["auge", "appadurai"], "Contemporaneità"]
 ];
 
+/* ---------- LETTERATURA LATINA ---------- */
+const LAT_ETA = [
+  { id: "arcaica", short: "Età arcaica", name: "Età arcaica", from: -240, to: -78, desc: "Dalle prime opere alla crisi della repubblica: teatro, epica, prosa", c: "pink", school: "di solito in terza" },
+  { id: "cesare", short: "Età di Cesare", name: "Età di Cesare", from: -78, to: -44, desc: "Le guerre civili: poesia nuova, filosofia, oratoria, storiografia", c: "sky", school: "di solito in quarta" },
+  { id: "augustea", short: "Età augustea", name: "Età augustea", from: -43, to: 14, desc: "La pace di Augusto e i grandi poeti", c: "mint", school: "di solito in quarta" },
+  { id: "giulioclaudia", short: "Giulio-Claudi", name: "Età giulio-claudia", from: 14, to: 68, desc: "Da Tiberio a Nerone: intellettuali e potere", c: "yellow", school: "di solito in quinta" },
+  { id: "flavia", short: "Flavi", name: "Età dei Flavi", from: 69, to: 96, desc: "Vespasiano, Tito, Domiziano: scienza, retorica, epigramma", c: "lilac", school: "di solito in quinta" },
+  { id: "antonini", short: "Traiano e Antonini", name: "Da Traiano agli Antonini", from: 96, to: 192, desc: "Il principato adottivo: storiografia, satira, romanzo", c: "sky", school: "di solito in quinta" },
+  { id: "tarda", short: "Tarda antichità", name: "Tarda antichità e letteratura cristiana", from: 192, to: 476, desc: "I Padri della Chiesa e la fine dell'impero d'Occidente", c: "mint", school: "di solito in quinta" }
+];
+const LATINI = [
+  ["livioandronico", "Livio Andronico", -280, -200, "arcaica", "L'Odusia: la prima traduzione dell'Odissea"],
+  ["nevio", "Gneo Nevio", -270, -201, "arcaica", "Il Bellum Poenicum, primo poema epico romano"],
+  ["plauto", "Plauto", -254, -184, "arcaica", "La commedia della beffa e del servo astuto"],
+  ["ennio", "Quinto Ennio", -239, -169, "arcaica", "Gli Annales, padre della poesia latina"],
+  ["catone", "Catone il Censore", -234, -149, "arcaica", "Il mos maiorum e le Origines"],
+  ["terenzio", "Terenzio", -185, -159, "arcaica", "La commedia dell'humanitas"],
+  ["cicerone", "Marco Tullio Cicerone", -106, -43, "cesare", "L'oratoria, la filosofia e le lettere"],
+  ["cesare", "Gaio Giulio Cesare", -100, -44, "cesare", "I Commentarii: la guerra raccontata da chi la fa"],
+  ["nepote", "Cornelio Nepote", -100, -27, "cesare", "Le biografie degli uomini illustri"],
+  ["lucrezio", "Lucrezio", -94, -55, "cesare", "De rerum natura: liberarsi dalla paura"],
+  ["sallustio", "Sallustio", -86, -35, "cesare", "La monografia storica: Catilina e Giugurta"],
+  ["catullo", "Catullo", -84, -54, "cesare", "I carmi per Lesbia e la poesia dei neòteroi"],
+  ["virgilio", "Virgilio", -70, -19, "augustea", "Bucoliche, Georgiche, Eneide"],
+  ["orazio", "Orazio", -65, -8, "augustea", "Il carpe diem e l'aurea mediocritas"],
+  ["livio", "Tito Livio", -59, 17, "augustea", "Ab urbe condita: la storia di Roma"],
+  ["tibullo", "Tibullo", -55, -19, "augustea", "L'elegia e il sogno della vita in campagna"],
+  ["properzio", "Properzio", -50, -15, "augustea", "L'elegia d'amore per Cinzia"],
+  ["ovidio", "Ovidio", -43, 17, "augustea", "Le Metamorfosi e l'arte di amare"],
+  ["fedro", "Fedro", -20, 50, "giulioclaudia", "Le favole"],
+  ["seneca", "Seneca", -4, 65, "giulioclaudia", "La filosofia per vivere: le Lettere a Lucilio"],
+  ["petronio", "Petronio", 27, 66, "giulioclaudia", "Il Satyricon"],
+  ["persio", "Persio", 34, 62, "giulioclaudia", "La satira morale"],
+  ["lucano", "Lucano", 39, 65, "giulioclaudia", "Il Bellum civile: l'epica senza dèi"],
+  ["pliniovecchio", "Plinio il Vecchio", 23, 79, "flavia", "La Naturalis historia"],
+  ["quintiliano-lat", "Quintiliano", 35, 96, "flavia", "L'Institutio oratoria"],
+  ["marziale", "Marziale", 40, 104, "flavia", "Gli epigrammi"],
+  ["stazio", "Stazio", 45, 96, "flavia", "La Tebaide e le Silvae"],
+  ["giovenale", "Giovenale", 55, 127, "antonini", "La satira dell'indignazione"],
+  ["tacito", "Tacito", 55, 120, "antonini", "Annales, Historiae, Germania, Agricola"],
+  ["pliniogiovane", "Plinio il Giovane", 61, 113, "antonini", "L'epistolario e il Panegirico di Traiano"],
+  ["svetonio", "Svetonio", 69, 122, "antonini", "Le vite dei Cesari"],
+  ["apuleio", "Apuleio", 125, 170, "antonini", "Le Metamorfosi (L'asino d'oro)"],
+  ["ambrogio", "Ambrogio", 340, 397, "tarda", "Gli inni e il vescovo di Milano"],
+  ["girolamo", "Girolamo", 347, 420, "tarda", "La Vulgata: la Bibbia in latino"],
+  ["agostino-lat", "Agostino", 354, 430, "tarda", "Le Confessioni e La città di Dio"]
+];
+/* generi letterari: [nome, periodo, idea, autori, nome breve] */
+const LAT_GENERI = [
+  ["Teatro: commedia e tragedia", "III sec. a.C. – I sec. d.C.", "La commedia fa ridere di tipi umani; la tragedia mette in scena le passioni.", ["livioandronico", "nevio", "plauto", "terenzio", "seneca"], "Teatro"],
+  ["Epica", "III sec. a.C. – I sec. d.C.", "Il racconto in versi delle imprese e delle origini di Roma.", ["livioandronico", "nevio", "ennio", "virgilio", "ovidio", "lucano", "stazio"], "Epica"],
+  ["Lirica ed elegia", "I sec. a.C.", "La poesia dei sentimenti personali: l'amore, l'amicizia, il tempo che passa.", ["catullo", "orazio", "tibullo", "properzio", "ovidio"], "Lirica ed elegia"],
+  ["Poesia didascalica", "I sec. a.C.", "Poesia che insegna: la natura, l'agricoltura, l'amore.", ["lucrezio", "virgilio", "ovidio"], "Didascalica"],
+  ["Storiografia e biografia", "II sec. a.C. – II sec. d.C.", "Raccontare la storia di Roma e la vita dei grandi uomini.", ["catone", "cesare", "nepote", "sallustio", "livio", "tacito", "svetonio"], "Storiografia"],
+  ["Oratoria e retorica", "I sec. a.C. – I sec. d.C.", "L'arte di parlare in pubblico e di convincere.", ["cicerone", "quintiliano-lat", "pliniogiovane"], "Oratoria"],
+  ["Filosofia", "I sec. a.C. – I sec. d.C.", "Portare a Roma il pensiero greco e usarlo per vivere bene.", ["lucrezio", "cicerone", "seneca"], "Filosofia"],
+  ["Satira ed epigramma", "I sec. a.C. – II sec. d.C.", "Criticare con ironia i vizi della società.", ["orazio", "persio", "marziale", "giovenale"], "Satira"],
+  ["Romanzo", "I-II sec. d.C.", "Storie in prosa piene di avventure, magia e personaggi popolari.", ["petronio", "apuleio"], "Romanzo"],
+  ["Favola", "I sec. d.C.", "Brevi racconti di animali con una morale.", ["fedro"], "Favola"],
+  ["Epistolografia", "I sec. a.C. – II sec. d.C.", "Le lettere: vita privata, politica e filosofia.", ["cicerone", "seneca", "pliniogiovane"], "Lettere"],
+  ["Scienza ed enciclopedia", "I sec. d.C.", "Raccogliere tutto il sapere sulla natura.", ["pliniovecchio"], "Scienza"],
+  ["Letteratura cristiana", "IV-V sec.", "La fede cristiana incontra la cultura latina.", ["ambrogio", "girolamo", "agostino-lat"], "Cristiana"]
+];
+
 const yearTxt = (y) => y == null ? "vivente" : y < 0 ? `${-y} a.C.` : String(y);
-const lifeTxt = (a, b) => b == null ? `nato nel ${yearTxt(a)}` : (a < 0 ? `ca. ${-a}–${-b} a.C.` : `${a}–${b}`);
+const lifeTxt = (a, b) => b == null ? `nato nel ${yearTxt(a)}` : a < 0 && b < 0 ? `ca. ${-a}–${-b} a.C.` : a < 0 ? `${-a} a.C. – ${b} d.C.` : `${a}–${b}`;
 
 /* =========================================================
    2. ISTRUZIONI PER L'IA
    ========================================================= */
 const AUTORE_PROMPTS = {
-  scheda: (nome, materia, vita, fonte) => `Prepara una scheda di studio su ${nome} (${vita}) per una studentessa di quarta del liceo delle scienze umane con dislessia, materia: ${materia}.
+  scheda: (nome, materia, vita, fonte, extra = "") => `${extra ? extra + "\n" : ""}Prepara una scheda di studio su ${nome} (${vita}) per una studentessa di quarta del liceo delle scienze umane con dislessia, materia: ${materia}.
 Usa frasi brevi (massimo 20 parole), parole semplici, e spiega i termini tecnici. Solo informazioni corrette e verificabili.
 ${fonte ? `Basati sulla VOCE DI WIKIPEDIA riportata in fondo: prendi da lì date, opere, concetti e nomi. Puoi semplificare e riordinare, ma non contraddirla.
 Se un'informazione non è nella voce, aggiungila solo se ne sei assolutamente sicuro; altrimenti lasciala fuori. Non inventare frasi celebri: se non sei certo che sia autentica, scrivi "frase": null.` : `Se non sei sicuro di un dato (anno, titolo, frase celebre), lascialo fuori. Non inventare frasi celebri: se non sei certo, scrivi "frase": null.`}
@@ -358,7 +422,10 @@ const SUBJECTS = {
   filo: { title: "Filosofia", materia: "filosofia", correnti: FILO_CORRENTI, lineDefault: "moderna", intro: "I filosofi in ordine di tempo. Tocca un nome per aprire la sua scheda: vita, pensiero, parole chiave, collegamenti.",
     list: FILOSOFI, groups: FILO_PERIODS, groupLabel: "Periodo" },
   umane: { title: "Scienze umane", materia: "scienze umane", correnti: UMANE_CORRENTI, lineDefault: "", intro: "Pedagogia, psicologia, sociologia e antropologia: gli autori principali, le loro idee e i collegamenti.",
-    list: UMANE, groups: UMANE_AREAS, groupLabel: "Disciplina" }
+    list: UMANE, groups: UMANE_AREAS, groupLabel: "Disciplina" },
+  latino: { title: "Letteratura latina", materia: "letteratura latina", correnti: LAT_GENERI, correntiLabel: "Generi", lineDefault: "", intro: "Gli autori latini per età. Tocca un nome per la scheda: vita, opere, temi e stile, una frase in latino e le domande da interrogazione.",
+    list: LATINI, groups: LAT_ETA, groupLabel: "Età", pensieroLabel: "Temi e stile", role: "scrittore latino",
+    extra: `È un autore di letteratura latina: in "pensiero" metti i temi principali e le caratteristiche dello stile (4-6 punti); in "opere" le opere principali con il titolo latino e la traduzione italiana; in "frase" una citazione celebre AUTENTICA con il testo latino nel campo "latino" e la traduzione nel campo "testo"; in "collegamenti" altri autori latini o greci e, se c'è, un collegamento con la letteratura italiana.` }
 };
 
 const autori = {
@@ -372,7 +439,7 @@ const autori = {
     return a && { id: a[0], name: a[1], from: a[2], to: a[3], group: a[4], tag: a[5] };
   },
   groupOf(key, gid) { return SUBJECTS[key].groups.find(g => g.id === gid); },
-  materiaOf(key, a) { return key === "umane" ? this.groupOf(key, a.group).name.toLowerCase() : "filosofia"; },
+  materiaOf(key, a) { return key === "umane" ? this.groupOf(key, a.group).name.toLowerCase() : SUBJECTS[key].materia; },
 
   build(key) {
     const S = SUBJECTS[key];
@@ -382,7 +449,7 @@ const autori = {
       <div class="intro"><h1>${S.title}</h1><p>${S.intro}</p></div>
       <div class="seg scroll" data-sub="${key}">
         <button data-pane="autori" class="on">${icon("timeline")}Autori</button>
-        <button data-pane="correnti">${icon("layers")}Correnti</button>
+        <button data-pane="correnti">${icon("layers")}${S.correntiLabel || "Correnti"}</button>
         <button data-pane="confronta">${icon("columns")}Confronta</button>
         <button data-pane="chiedi">${icon("chat")}Chiedi all'autore</button>
         <button data-pane="concetto">${icon("bulb")}Concetti</button>
@@ -400,8 +467,8 @@ const autori = {
       <div class="au-pane hidden" data-p="scheda"><div class="card au-card"></div><div class="card au-quiz hidden"></div></div>
       <div class="au-pane hidden" data-p="correnti">
         <div class="card">
-          <h2>Correnti e scuole</h2>
-          <p class="hint">Gli autori raggruppati per modo di pensare. Tocca un nome per aprire la sua scheda.</p>
+          <h2>${S.correntiLabel ? "Generi letterari" : "Correnti e scuole"}</h2>
+          <p class="hint">${S.correntiLabel ? "Gli autori raggruppati per genere: epica, lirica, storiografia… Tocca un nome per aprire la sua scheda." : "Gli autori raggruppati per modo di pensare. Tocca un nome per aprire la sua scheda."}</p>
           <div class="au-correnti"></div>
         </div>
         <div class="card hidden au-corr-out"></div>
@@ -564,7 +631,7 @@ const autori = {
     for (let y = Math.ceil(lo / step) * step; y <= hi; y += step) ticks.push(y);
     const color = (a) => (S.groups.find(g => g.id === a[4]) || {}).c || "sky";
     box.innerHTML = `<div class="au-line">
-      <div class="al-axis">${ticks.map(y => `<span style="left:${pct(y)}">${y < 0 ? -y + " a.C." : y}</span>`).join("")}</div>
+      <div class="al-axis">${ticks.map(y => `<span style="left:${pct(y)}">${y < 0 ? -y + " a.C." : y === 0 ? "0" : lo < 0 ? y + " d.C." : y}</span>`).join("")}</div>
       ${items.map(a => `<button class="al-row" data-a="${a[0]}">
         <span class="al-name">${escapeHtml(a[1])}</span>
         <span class="al-track">${ticks.map(y => `<i style="left:${pct(y)}"></i>`).join("")}
@@ -581,7 +648,7 @@ const autori = {
         <header><h3>${escapeHtml(nome)}</h3><small>${escapeHtml(per)}</small></header>
         <p>${escapeHtml(idea)}</p>
         <div class="chips">${ids.map(id => { const a = this.find(key, id); return a ? `<button class="chip" data-a="${id}">${escapeHtml(a.name)}</button>` : ""; }).join("")}</div>
-        <button class="btn small ghost" data-corr="${i}">${icon("bulb")}Spiegami questa corrente</button>
+        <button class="btn small ghost" data-corr="${i}">${icon("bulb")}${S.correntiLabel ? "Spiegami questo genere" : "Spiegami questa corrente"}</button>
       </section>`).join("");
   },
 
@@ -591,7 +658,7 @@ const autori = {
     const out = $(`#view-${key} .au-corr-out`);
     try {
       busy(true, "Preparo la spiegazione…");
-      const md = await ask({ prompt: AUTORE_PROMPTS.concetto(`la corrente «${nome}» (${per}; autori: ${autori})`, SUBJECTS[key].materia), system: SYSTEM_TUTOR, temperature: 0.3 });
+      const md = await ask({ prompt: AUTORE_PROMPTS.concetto(`${SUBJECTS[key].correntiLabel ? "il genere letterario" : "la corrente"} «${nome}» (${per}; autori: ${autori})`, SUBJECTS[key].materia), system: SYSTEM_TUTOR, temperature: 0.3 });
       out.innerHTML = `<h2>${escapeHtml(nome)}</h2><div class="result">${mdToHtml(md)}</div>
         <div class="btn-row"><button class="btn" data-r="read">${icon("volume")}Ascolta</button><button class="btn" data-r="map">${icon("map")}Mappa</button><button class="btn" data-r="cards">${icon("cards")}Flashcard</button><button class="btn" data-r="print">${icon("printer")}Stampa</button></div>`;
       out.dataset.md = md; out.dataset.title = nome;
@@ -680,7 +747,7 @@ const autori = {
   /** La voce di Wikipedia dell'autore (se la trovo con sicurezza), da usare come base della scheda. */
   async wikiSource(key, a) {
     try {
-      const role = key === "filo" ? "filosofo" : ({ pedagogia: "pedagogista", psicologia: "psicologo", sociologia: "sociologo", antropologia: "antropologo" }[a.group] || "");
+      const role = SUBJECTS[key].role || key === "filo" ? (SUBJECTS[key].role || "filosofo") : ({ pedagogia: "pedagogista", psicologia: "psicologo", sociologia: "sociologo", antropologia: "antropologo" }[a.group] || "");
       const surname = a.name.split(/\s+/).pop().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const norm = (t) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const hits = await web.wikiSearch(`${a.name} ${role}`);
@@ -704,7 +771,7 @@ const autori = {
         busy(true, `Cerco ${a.name} su Wikipedia…`);
         const fonte = await this.wikiSource(key, a);
         busy(true, `Preparo la scheda di ${a.name}…`);
-        data = parseJSON(await ask({ prompt: AUTORE_PROMPTS.scheda(a.name, this.materiaOf(key, a), lifeTxt(a.from, a.to), fonte), json: true, temperature: 0.2, quality: true }));
+        data = parseJSON(await ask({ prompt: AUTORE_PROMPTS.scheda(a.name, this.materiaOf(key, a), lifeTxt(a.from, a.to), fonte, SUBJECTS[key].extra), json: true, temperature: 0.2, quality: true }));
         data.v2 = true;
         if (cached) store.set("quiz:" + id, null);
         if (fonte) data.fonte = { title: fonte.title, url: `https://it.wikipedia.org/wiki/${encodeURIComponent(fonte.title.replace(/ /g, "_"))}` };
@@ -739,12 +806,12 @@ const autori = {
       <div class="au-body">
         ${data.contesto ? `<h3>Il contesto</h3><p>${escapeHtml(data.contesto)}</p>` : ""}
         ${L(data.vita).length ? `<h3>La vita in breve</h3><ul>${L(data.vita).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : ""}
-        ${L(data.pensiero).length ? `<h3>Il pensiero</h3><ol class="au-ideas">${L(data.pensiero).map(p => `<li><b>${escapeHtml(p.titolo || "")}</b><p>${escapeHtml(p.spiegazione || "")}</p></li>`).join("")}</ol>` : ""}
+        ${L(data.pensiero).length ? `<h3>${SUBJECTS[key].pensieroLabel || "Il pensiero"}</h3><ol class="au-ideas">${L(data.pensiero).map(p => `<li><b>${escapeHtml(p.titolo || "")}</b><p>${escapeHtml(p.spiegazione || "")}</p></li>`).join("")}</ol>` : ""}
         ${data.esempio ? `<div class="au-example"><b>Un esempio per capire</b><p>${escapeHtml(data.esempio)}</p></div>` : ""}
         ${L(data.parole).length ? `<h3>Parole chiave</h3><dl class="au-words">${L(data.parole).map(w => `<dt>${escapeHtml(w.parola || "")}</dt><dd>${escapeHtml(w.significato || "")}</dd>`).join("")}</dl>` : ""}
         ${L(data.opere).length ? `<h3>Le opere</h3><ul class="au-works">${L(data.opere).map(o => `<li><b>${escapeHtml(o.titolo || "")}</b>${o.anno ? ` <span class="au-years">${escapeHtml(String(o.anno))}</span>` : ""}<br>${escapeHtml(o.di_cosa_parla || "")}</li>`).join("")}</ul>` : ""}
         ${L(data.collegamenti).length ? `<h3>Collegamenti</h3><ul class="au-links">${L(data.collegamenti).map(c => `<li><b>${escapeHtml(c.autore || "")}</b>: ${escapeHtml(c.rapporto || "")}</li>`).join("")}</ul>` : ""}
-        ${data.frase?.testo ? `<blockquote class="au-quote"><p>«${escapeHtml(data.frase.testo)}»</p>${data.frase.spiegazione ? `<small>${escapeHtml(data.frase.spiegazione)}</small>` : ""}</blockquote>` : ""}
+        ${data.frase?.testo ? `<blockquote class="au-quote">${data.frase.latino ? `<p class="au-latin" lang="la">${escapeHtml(data.frase.latino)}</p>` : ""}<p>«${escapeHtml(data.frase.testo)}»</p>${data.frase.spiegazione ? `<small>${escapeHtml(data.frase.spiegazione)}</small>` : ""}</blockquote>` : ""}
         ${data.attualita ? `<h3>Perché è ancora attuale</h3><p>${escapeHtml(data.attualita)}</p>` : ""}
         ${L(data.domande).length ? `<h3>Domande da interrogazione</h3><ol>${L(data.domande).map(q => `<li>${escapeHtml(q)}</li>`).join("")}</ol>` : ""}
         <p class="hint au-note">${data.fonte ? `Scheda preparata dall'IA partendo dalla voce di Wikipedia <a href="${escapeHtml(data.fonte.url)}" target="_blank" rel="noopener">«${escapeHtml(data.fonte.title)}»</a>.` : "Scheda preparata dall'IA."} Confrontala con il libro e con gli appunti. <button class="linklike" data-act="regen">Rifalla</button></p>

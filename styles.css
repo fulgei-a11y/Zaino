@@ -1070,3 +1070,4 @@ input[type="search"] { font: inherit; font-size: 1rem; color: var(--ink); backgr
 .chip.small { font-size: .82rem; padding: 4px 10px; min-height: 32px; }
 .au-schools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
 .au-schools .chip { flex: none; }
+.au-latin { font-style: italic; font-weight: 600; margin-bottom: 4px; }
