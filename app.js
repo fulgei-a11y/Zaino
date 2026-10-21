@@ -187,8 +187,13 @@ function waitSeconds(status, raw, retryAfter) {
   return Math.min(Math.max(s || 60, 15), 600);
 }
 
+const geminiLast = {};
 async function geminiCall({ prompt, system, images = [], json = false, temperature = 0.4, model, tools }) {
   if (!settings.keyGemini) throw new AIError("Manca la chiave Gemini (in Impostazioni).", -1);
+  // tengo almeno 6,5 secondi tra una richiesta e l'altra allo stesso modello: così non si supera il limite gratuito
+  const mk = model || "main", gap = Date.now() - (geminiLast[mk] || 0);
+  if (gap < 6500 && !window.ZAINO_TEST) await sleep(6500 - gap);
+  geminiLast[mk] = Date.now();
   const parts = [];
   for (const img of images) parts.push({ inline_data: { mime_type: img.mime, data: img.data } });
   parts.push({ text: prompt });
@@ -319,6 +324,7 @@ async function findGroqVision() {
 
 /** Quali servizi di IA hanno lavorato all'ultimo risultato (per la riga di trasparenza) */
 const aiUsed = new Set();
+let lastAi = "";
 
 /** Il modello Gemini più potente ("Pro") disponibile con la chiave; controllo una volta al giorno. */
 let geminiProModel;
@@ -404,8 +410,16 @@ async function ask(opts) {
       const out = await s.run();
       cooldown.clear(s.key);
       aiUsed.add(s.name.replace(/ \(riserva\)$/, ""));
+      lastAi = s.name;
       return out;
     } catch (e) {
+      if (opts.patient && !s.waited && s.key.startsWith("gemini:") && e.status === 429 && (e.wait || 60) <= 70) {
+        s.waited = true;
+        const w = Math.max(10, e.wait || 30);
+        for (let t = w; t > 0; t -= 5) { busy(true, `Gemini ha bisogno di una pausa: riprendo tra ${t} secondi…`); await sleep(Math.min(5, t) * 1000); }
+        cooldown.clear(s.key);
+        i--; continue;   // ritento lo stesso servizio, invece di passare a uno più debole
+      }
       if (e.wait) cooldown.set(s.key, e.wait);
       if (e.status === 404 && s.quiet404) cooldown.set(s.key, 24 * 3600); // modello di riserva inesistente: lo salto
       // il modello Pro non è compreso nella chiave gratuita (limite 0, accesso negato): lo salto per un giorno
@@ -1236,7 +1250,7 @@ async function pdfToText(file) {
     pages = chosen;
   }
   const n = pages.length;
-  let out = [];
+  let out = [], imgPages = 0;
   for (let k = 0; k < n; k++) {
     const p = pages[k];
     busy(true, `Leggo il PDF: pagina ${k + 1} di ${n}…`);
@@ -1258,17 +1272,21 @@ async function pdfToText(file) {
     text = text.replace(/(\w)-\n(\w)/g, "$1$2").replace(/[ \t]+/g, " ");
     if (text.replace(/\s/g, "").length < 40) {
       // pagina scansionata: la trasformo in immagine e la faccio leggere a Gemini
-      busy(true, `Pagina ${p} è una foto: la sto leggendo…`);
+      busy(true, `Pagina ${p}: è un'immagine o un grafico, la sto leggendo…`);
+      imgPages++;
       const vp = page.getViewport({ scale: 2 });
       const c = document.createElement("canvas");
       c.width = vp.width; c.height = vp.height;
       await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-      text = await ask({ prompt: PROMPTS.ocr, images: [canvasToB64(c)], temperature: 0 });
+      text = await ask({ prompt: PROMPTS.ocr, images: [canvasToB64(c)], temperature: 0, patient: true });
     }
     out.push(text.trim());
   }
-  return cleanDocText(out.join("\n\n"));
+  const clean = cleanDocText(out.join("\n\n"));
+  pdfInfo = { pages: n, imgPages, words: wordCount(clean) };
+  return clean;
 }
+let pdfInfo = null;
 /** Toglie dal testo dei documenti il rumore: puntini dell'indice, numeri di pagina, intestazioni ripetute. */
 function cleanDocText(t) {
   const lines = t.split("\n");
@@ -1344,7 +1362,8 @@ async function handleFiles(files) {
     }
     const text = pieces.join("\n\n");
     reader.load(append ? reader.text + "\n\n" + text : text);
-    toast("Fatto! Premi ▶️ per ascoltare.");
+    if (pdfInfo) { toast(`Ho letto ${pdfInfo.pages} pagine${pdfInfo.imgPages ? ` (${pdfInfo.imgPages} erano immagini o grafici)` : ""}: ${pdfInfo.words.toLocaleString("it-IT")} parole. Premi ▶️ per ascoltare.`, 7000); pdfInfo = null; }
+    else toast("Fatto! Premi ▶️ per ascoltare.");
     $("#readerCard").scrollIntoView({ behavior: "smooth" });
   } catch (e) {
     toast(e.message, 6000);
@@ -1491,9 +1510,11 @@ async function studySummary(text, { force = false, size = 0 } = {}) {
   if (cached) return cached;
   const enough = (md, src) => wordCount(md) >= sumTarget(src) * 0.55;   // sotto: troppo povero
   let md, parts = size ? chunkText(text, size) : wordCount(text) > LONG_TEXT ? chunkText(text) : [text];
+  const details = [];
   aiUsed.clear();
   if (parts.length === 1) {
-    md = await askChecked("riassunto", text, { prompt: PROMPTS.riassunto(text), system: SYSTEM_TUTOR });
+    md = await askChecked("riassunto", text, { prompt: PROMPTS.riassunto(text), system: SYSTEM_TUTOR, patient: true });
+    details.push({ k: 1, inW: wordCount(text), outW: wordCount(md), ai: lastAi });
     // troppo corto rispetto al testo? lo rifaccio a pezzi più piccoli
     if (!enough(md, text) && wordCount(text) > 600) parts = chunkText(text, Math.max(500, Math.ceil(wordCount(text) / 3)));
   }
@@ -1501,13 +1522,16 @@ async function studySummary(text, { force = false, size = 0 } = {}) {
     const sums = [];
     for (let k = 0; k < parts.length; k++) {
       busy(true, `Riassumo la parte ${k + 1} di ${parts.length}…`);
-      let one = (await ask({ prompt: PROMPTS.riassuntoParte(parts[k], k + 1, parts.length), system: SYSTEM_TUTOR, temperature: 0.3 })).trim();
+      let one = (await ask({ prompt: PROMPTS.riassuntoParte(parts[k], k + 1, parts.length), system: SYSTEM_TUTOR, temperature: 0.3, patient: true })).trim();
+      let ai = lastAi, retried = false;
       if (!enough(one, parts[k])) {   // un pezzo venuto povero: un secondo tentativo, più esigente
         busy(true, `La parte ${k + 1} è venuta troppo corta: la rifaccio…`);
-        const again = (await ask({ prompt: PROMPTS.riassuntoParte(parts[k], k + 1, parts.length) + "\n\nATTENZIONE: un tentativo precedente era troppo breve e generico. Questa volta riporta TUTTI i contenuti della parte, con i dati e i riferimenti precisi.", system: SYSTEM_TUTOR, temperature: 0.2 })).trim();
-        if (wordCount(again) > wordCount(one)) one = again;
+        const again = (await ask({ prompt: PROMPTS.riassuntoParte(parts[k], k + 1, parts.length) + "\n\nATTENZIONE: un tentativo precedente era troppo breve e generico. Questa volta riporta TUTTI i contenuti della parte, con i dati e i riferimenti precisi.", system: SYSTEM_TUTOR, temperature: 0.2, patient: true })).trim();
+        retried = true;
+        if (wordCount(again) > wordCount(one)) { one = again; ai = lastAi; }
       }
       sums.push(one);
+      details.push({ k: k + 1, inW: wordCount(parts[k]), outW: wordCount(one), ai, retried, start: parts[k].trim().split("\n").find(l => l.trim().length > 3)?.trim().slice(0, 60) || "" });
     }
     const body = sums.join("\n\n");
     let frame = null;
@@ -1516,7 +1540,7 @@ async function studySummary(text, { force = false, size = 0 } = {}) {
       (frame?.da_ricordare || []).length ? "## Da ricordare\n" + frame.da_ricordare.map(x => "- " + x).join("\n") : ""].filter(Boolean).join("\n\n");
   }
   md = md.replace(/^\s*(ciao[^\n]*|ecco (il|un|qui)[^\n]*riassunto[^\n]*)\n+/i, "").replace(/\n+[^\n]*in bocca al lupo[^\n]*\s*$/i, "").trim();
-  sumInfo = { src: wordCount(text), out: wordCount(md), parts: parts.length, ai: [...aiUsed].join(" + ") };
+  sumInfo = { src: wordCount(text), out: wordCount(md), parts: parts.length, ai: [...aiUsed].join(" + "), details };
   store.set(key, md);
   const keys = store.get("sumKeys", []).filter(k => k !== key); keys.push(key);
   keys.slice(0, Math.max(0, keys.length - 10)).forEach(k => { try { localStorage.removeItem("sf." + k); } catch { /* niente */ } });
@@ -1524,6 +1548,14 @@ async function studySummary(text, { force = false, size = 0 } = {}) {
   return md;
 }
 let sumInfo = null;
+/** Riga grigia sotto il riassunto: quanto è lungo, in quante parti, con quale IA; e il dettaglio parte per parte. */
+function sumInfoHtml() {
+  if (!sumInfo) return `<p class="hint sum-info">Riassunto già pronto (salvato) · <button class="linklike" data-redo-sum>Rifallo più completo</button></p>`;
+  const f = (n) => n.toLocaleString("it-IT");
+  const d = sumInfo.details || [];
+  return `<div class="hint sum-info"><p>Riassunto di ${f(sumInfo.out)} parole da un testo di ${f(sumInfo.src)}${sumInfo.parts > 1 ? ` · lavorato in ${sumInfo.parts} parti` : ""}${sumInfo.ai ? ` · fatto con ${escapeHtml(sumInfo.ai)}` : ""} · <button class="linklike" data-redo-sum>Rifallo più completo</button></p>
+    ${d.length > 1 ? `<details><summary>Dettagli parte per parte</summary><ol>${d.map(x => `<li>${escapeHtml(x.start || "")}… — ${f(x.inW)} parole lette → ${f(x.outW)} nel riassunto · ${escapeHtml(x.ai || "?")}${x.retried ? " · rifatta" : ""}</li>`).join("")}</ol></details>` : ""}</div>`;
+}
 /** Per mappe, flashcard e simili su testi lunghi: si parte dal riassunto dettagliato, che conserva nomi e date. */
 async function studyBase(text) {
   if (wordCount(text) <= LONG_TEXT) return text;
@@ -1597,9 +1629,7 @@ async function runAction(act, source) {
     if (act === "riassunto") {
       sumInfo = null;
       out = await studySummary(text);
-      const fmt = (n) => n.toLocaleString("it-IT");
-      const info = sumInfo ? `Riassunto di ${fmt(sumInfo.out)} parole da un testo di ${fmt(sumInfo.src)}${sumInfo.parts > 1 ? ` · lavorato in ${sumInfo.parts} parti` : ""}${sumInfo.ai ? ` · fatto con ${sumInfo.ai}` : ""}` : "Riassunto già pronto (salvato)";
-      showResult(ACT_LABELS.riassunto + part, mdToHtml(out) + `<p class="hint sum-info">${escapeHtml(info)} · <button class="linklike" data-redo-sum>Rifallo più completo</button></p>`, out);
+      showResult(ACT_LABELS.riassunto + part, mdToHtml(out) + sumInfoHtml(), out);
       return;
     }
     else if (act === "semplifica" && wordCount(text) > LONG_TEXT) {
@@ -2692,7 +2722,7 @@ function pickSource(sel) {
 
 /* ---------- Cosa c'è di nuovo: alla prima apertura dopo un aggiornamento ---------- */
 const NEWS = [
-  { v: 30, icon: "list", title: "Studio al livello del testo", text: "Riassunti, mappe, schede e flashcard restano al livello della fonte, anche universitario o di lavoro: completi, con nomi, date, dati e termini. Solo «Spiegami» usa parole semplici. I documenti lunghi vengono lavorati parte per parte, e sotto il riassunto vedi quanto è lungo e quale IA l'ha fatto.", go: "leggi" },
+  { v: 31, icon: "list", title: "Studio al livello del testo", text: "Riassunti, mappe, schede e flashcard restano al livello della fonte, anche universitario o di lavoro: completi, con nomi, date, dati e termini. Solo «Spiegami» usa parole semplici. I documenti lunghi vengono lavorati parte per parte, e sotto il riassunto vedi quanto è lungo e quale IA l'ha fatto.", go: "leggi" },
   { v: 27, icon: "home", title: "Palazzo della memoria", text: "Le sequenze da ricordare diventano una passeggiata a voce nei posti di casa tua.", go: "palazzo" },
   { v: 26, icon: "library", title: "Il Quaderno è in basso", text: "Tutto quello che salvi, a portata di dito. E «Preparo la verifica» ti dice cosa ha salvato.", go: "quaderno" },
   { v: 25, icon: "volume", title: "I tuoi audio", text: "Carica un memo vocale: diventa testo, domande dei professori o una spiegazione da valutare.", go: "leggi" },
@@ -4258,7 +4288,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "30";
+const APP_VERSION = "31";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -4577,9 +4607,7 @@ function init() {
       busy(true, "Rifaccio il riassunto, parte per parte…");
       sumInfo = null;
       const out = await studySummary(text, { force: true, size: Math.max(600, Math.min(1200, Math.ceil(wordCount(text) / 4))) });
-      const fmt = (n) => n.toLocaleString("it-IT");
-      const info = sumInfo ? `Riassunto di ${fmt(sumInfo.out)} parole da un testo di ${fmt(sumInfo.src)} · lavorato in ${sumInfo.parts} parti${sumInfo.ai ? ` · fatto con ${sumInfo.ai}` : ""}` : "";
-      showResult(ACT_LABELS.riassunto, mdToHtml(out) + `<p class="hint sum-info">${escapeHtml(info)} · <button class="linklike" data-redo-sum>Rifallo più completo</button></p>`, out);
+      showResult(ACT_LABELS.riassunto, mdToHtml(out) + sumInfoHtml(), out);
     } catch (err) { toast(err.message || "Non sono riuscito a rifarlo. Riprova.", 6000); }
     finally { busy(false); }
   });

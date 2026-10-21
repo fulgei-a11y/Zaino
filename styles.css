@@ -1167,3 +1167,5 @@ input[type="search"] { font: inherit; font-size: 1rem; color: var(--ink); backgr
 @media (max-width: 420px) { .news-list li { grid-template-columns: auto 1fr; } .news-list li .btn { grid-column: 2; justify-self: start; } }
 .walk-body .btn-row .btn.primary[data-w=next] { margin-left: auto; }
 .sum-info { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--line, #e4e6ee); font-size: .85rem; }
+.sum-info p { margin: 0 0 6px; } .sum-info details { margin-top: 4px; } .sum-info summary { cursor: pointer; color: var(--pen); }
+.sum-info ol { margin: 6px 0 0; padding-left: 1.3em; line-height: 1.5; }
