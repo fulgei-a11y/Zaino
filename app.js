@@ -118,7 +118,7 @@ function todayLabel() {
    2. IMPOSTAZIONI
    ========================================================= */
 const DEFAULTS = {
-  keyGemini: "", keyGroq: "", keyClaude: "",
+  keyGemini: "", keyGroq: "", keyClaude: "", keyOpenRouter: "", keyMistral: "",
   modClaude: "claude-sonnet-5-5", modClaudeFast: "claude-haiku-5-5",
   font: "Atkinson", size: 22, letter: 0.05, line: 1.9, theme: "crema", syllables: false,
   voice: "", rate: 0.95,
@@ -128,7 +128,8 @@ const DEFAULTS = {
   check: true,
   modWhisper: "whisper-large-v3-turbo",
   modGeminiLite: "gemini-flash-lite-latest",
-  modGroqVision: ""
+  modGroqVision: "",
+  modMistral: "mistral-medium-latest"
 };
 const settings = Object.assign({}, DEFAULTS, store.get("settings", {}));
 // aggiornamento: chi aveva il vecchio modello Groq predefinito passa a quello nuovo, più preciso
@@ -140,6 +141,7 @@ const FONTS = {
   Verdana: 'Verdana, Tahoma, sans-serif'
 };
 function saveSettings() { store.set("settings", settings); }
+function hasAnyKey() { return !!(settings.keyGemini || settings.keyGroq || settings.keyClaude || settings.keyMistral || settings.keyOpenRouter); }
 function applySettings() {
   const r = document.documentElement.style;
   r.setProperty("--read-font", FONTS[settings.font] || FONTS.Atkinson);
@@ -307,6 +309,60 @@ async function groqChat({ prompt, system, images = [], json = false, temperature
   return out;
 }
 
+/* ---------- Riserve gratuite in più (stesso formato di OpenAI): OpenRouter e Mistral ---------- */
+const EXTRA = {
+  openrouter: { name: "OpenRouter", key: "keyOpenRouter", url: "https://openrouter.ai/api/v1/chat/completions", json: false,
+    extra: { "HTTP-Referer": "https://fulgei-a11y.github.io/Zaino/", "X-Title": "Zaino" } },
+  mistral: { name: "Mistral", key: "keyMistral", url: "https://api.mistral.ai/v1/chat/completions", json: true, extra: {} }
+};
+async function oaiChat(pid, { prompt, system, images = [], json = false, temperature = 0.4, model }) {
+  const P = EXTRA[pid], key = settings[P.key];
+  if (!key) throw new AIError(`Manca la chiave ${P.name} (in Impostazioni).`, -1);
+  const messages = [];
+  if (system) messages.push({ role: "system", content: system });
+  messages.push({ role: "user", content: images.length ? [
+    { type: "text", text: prompt },
+    ...images.map(img => ({ type: "image_url", image_url: { url: `data:${img.mime};base64,${img.data}` } }))
+  ] : prompt });
+  const body = { model, messages, temperature };
+  if (json && P.json) body.response_format = { type: "json_object" };
+  let res;
+  try {
+    res = await fetch(P.url, { method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + key, ...P.extra },
+      body: JSON.stringify(body) });
+  } catch { throw new AIError(friendlyError(P.name, 0), 0); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error?.message || data?.message || "";
+    const e = new AIError(friendlyError(P.name, res.status, msg), res.status);
+    e.raw = msg;
+    e.wait = waitSeconds(res.status, data?.error || data, res.headers.get("retry-after"));
+    throw e;
+  }
+  const out = data.choices?.[0]?.message?.content || "";
+  if (!out) throw new AIError(`${P.name} non ha risposto. Riprova.`, 1);
+  return typeof out === "string" ? out : out.map(c => c.text || "").join("");
+}
+/** I modelli gratuiti di OpenRouter cambiano spesso: li leggo dall'elenco pubblico (una volta al giorno)
+    e tengo i più grandi. Il primo è il "router" gratuito, che sceglie da solo un modello libero. */
+async function openRouterModels() {
+  const c = store.get("orModels", null);
+  if (c && Date.now() - c.t < 86400000 && c.m.length) return c.m;
+  let m = [];
+  try {
+    const r = await fetch("https://openrouter.ai/api/v1/models");
+    const all = ((await r.json()).data || []).filter(x => /:free$/.test(x.id) && (x.context_length || 0) >= 32000
+      && !/coder|code|vl\b|vision|guard|embed|tts|audio/i.test(x.id));
+    const size = (id) => { const n = id.match(/(\d+(?:\.\d+)?)b\b/i); return n ? Number(n[1]) : 30; };
+    const pref = (id) => /gpt-oss-120b|deepseek|llama-3\.3-70b|qwen3|gemma|nemotron|mistral|glm|kimi/i.test(id) ? 1000 : 0;
+    m = all.map(x => x.id).filter(id => size(id) >= 20).sort((a, b) => (pref(b) + size(b)) - (pref(a) + size(a))).slice(0, 3);
+  } catch { /* uso solo il router */ }
+  m = ["openrouter/free", ...m.filter(x => x !== "openrouter/free")];
+  store.set("orModels", { m, t: Date.now() });
+  return m;
+}
+
 /** Trova su Groq un modello che legge le immagini (i nomi cambiano nel tempo). */
 let groqVisionModel = null;
 async function findGroqVision() {
@@ -352,9 +408,10 @@ async function findGeminiPro() {
     Un servizio che ha appena segnalato il limite viene saltato finché non si riposa. */
 async function ask(opts) {
   const hasG = !!settings.keyGemini, hasQ = !!settings.keyGroq, hasC = !!settings.keyClaude;
-  if (!hasG && !hasQ && !hasC) {
+  const hasM = !!settings.keyMistral, hasO = !!settings.keyOpenRouter;
+  if (!hasG && !hasQ && !hasC && !hasM && !hasO) {
     openSettings();
-    throw new AIError("Per iniziare inserisci almeno una chiave gratuita (Gemini o Groq).", -1);
+    throw new AIError("Per iniziare inserisci almeno una chiave gratuita (Gemini, Groq, Mistral o OpenRouter).", -1);
   }
   const withImages = !!opts.images?.length;
   const main = settings.modGemini || DEFAULTS.modGemini;
@@ -393,6 +450,24 @@ async function ask(opts) {
       // riserva: se il modello principale rifiuta (testo troppo lungo, limite), provo il modello più leggero
       if (DEFAULTS.modGroqBackup !== gm) steps.push({ key: "groq:" + DEFAULTS.modGroqBackup, name: "Groq (riserva)", run: () => groqChat({ ...opts, model: DEFAULTS.modGroqBackup }), quiet404: true });
     }
+  }
+  // altre riserve gratuite: Mistral (credito gratuito ogni mese) e OpenRouter (modelli liberi)
+  if (hasM) {
+    const mm = withImages ? "mistral-medium-latest" : (settings.modMistral || DEFAULTS.modMistral);
+    steps.push({ key: "mistral:" + mm, name: "Mistral", run: () => oaiChat("mistral", { ...opts, model: mm }) });
+    if (!withImages) steps.push({ key: "mistral:small", name: "Mistral (riserva)", run: () => oaiChat("mistral", { ...opts, model: "mistral-small-latest" }), quiet404: true });
+  }
+  if (hasO && !withImages) {
+    steps.push({ key: "openrouter:free", name: "OpenRouter", run: async () => {
+      const list = await openRouterModels();
+      let err;
+      for (const m of list) {
+        if (!cooldown.ok("openrouter:" + m)) continue;
+        try { return await oaiChat("openrouter", { ...opts, model: m }); }
+        catch (e) { err = e; if (e.status === 401 || e.status === 403 || e.status === 0) throw e; cooldown.set("openrouter:" + m, e.status === 404 ? 86400 : Math.max(60, e.wait || 60)); if (/per.?day|daily|free-models-per-day/i.test(e.raw || "")) throw e; }
+      }
+      throw err || new AIError("OpenRouter non ha modelli liberi in questo momento.", 503);
+    } });
   }
   // ultima riserva: Claude veloce (costa pochissimo), se i servizi gratuiti non rispondono
   if (hasC) {
@@ -3007,6 +3082,7 @@ function pickSource(sel) {
 
 /* ---------- Cosa c'è di nuovo: alla prima apertura dopo un aggiornamento ---------- */
 const NEWS = [
+  { v: 35, icon: "check", title: "Più servizi di riserva", text: "Oltre a Gemini e Groq puoi aggiungere due chiavi gratuite: Mistral e OpenRouter. Se un servizio si ferma, Zaino passa da solo al successivo. In Impostazioni c'è «Prova le chiavi» per vedere quali funzionano.", go: "settings" },
   { v: 33, icon: "file", title: "Strumenti professionali", text: "Riassunti con il numero di pagina (tocchi e vai al punto), «Chiedi al documento», sigle, norme e dati estratti, versione breve di una pagina ed esportazione in Word.", go: "leggi" },
   { v: 31, icon: "list", title: "Studio al livello del testo", text: "Riassunti, mappe, schede e flashcard restano al livello della fonte, anche universitario o di lavoro: completi, con nomi, date, dati e termini. Solo «Spiegami» usa parole semplici. I documenti lunghi vengono lavorati parte per parte, e sotto il riassunto vedi quanto è lungo e quale IA l'ha fatto.", go: "leggi" },
   { v: 27, icon: "home", title: "Palazzo della memoria", text: "Le sequenze da ricordare diventano una passeggiata a voce nei posti di casa tua.", go: "palazzo" },
@@ -3029,7 +3105,7 @@ const news = {
   },
   maybeShow() {
     if (!store.get("welcomed", false)) { store.set("newsSeen", Number(APP_VERSION)); return; }   // chi inizia ora vede la presentazione
-    if (!settings.keyGemini && !settings.keyGroq && !settings.keyClaude) return;                   // prima le chiavi, le novità dopo
+    if (!hasAnyKey()) return;                   // prima le chiavi, le novità dopo
     const list = this.pending();
     if (list.length) setTimeout(() => this.open(list), 700);
     else store.set("newsSeen", Number(APP_VERSION));
@@ -4463,7 +4539,7 @@ const welcome = {
     if (this.i < WELCOME.length - 1) { this.i++; return this.show(); }
     $("#dlgWelcome").close();
     store.set("welcomed", true);
-    if (!settings.keyGemini && !settings.keyGroq) {
+    if (!hasAnyKey()) {
       openSettings();
       toast("Ultimo passo: inserisci le chiavi gratuite di Gemini e Groq.", 6000);
     }
@@ -4496,6 +4572,9 @@ function openSettings() {
   $("#keyGemini").value = settings.keyGemini;
   $("#keyGroq").value = settings.keyGroq;
   $("#keyClaude").value = settings.keyClaude;
+  $("#keyMistral").value = settings.keyMistral;
+  $("#keyOpenRouter").value = settings.keyOpenRouter;
+  keyTest.render();
   $("#setFont").value = settings.font;
   $("#setSize").value = settings.size;
   $("#setLetter").value = settings.letter;
@@ -4516,6 +4595,7 @@ function openSettings() {
 function bindSettings() {
   const map = {
     keyGemini: ["#keyGemini", v => v.trim()], keyGroq: ["#keyGroq", v => v.trim()], keyClaude: ["#keyClaude", v => v.trim()],
+    keyMistral: ["#keyMistral", v => v.trim()], keyOpenRouter: ["#keyOpenRouter", v => v.trim()],
     font: ["#setFont"], size: ["#setSize", Number], letter: ["#setLetter", Number], line: ["#setLine", Number],
     theme: ["#setTheme"], voice: ["#setVoice"],
     modGemini: ["#modGemini", v => v.trim() || DEFAULTS.modGemini],
@@ -4537,6 +4617,7 @@ function bindSettings() {
   $("#setCheck").addEventListener("change", (e) => { settings.check = e.target.checked; saveSettings(); });
   $("#btnVoiceTest").addEventListener("click", () => tts.say("Ciao! Questa è la voce che leggerà i tuoi testi."));
   $("#btnLoadModels").addEventListener("click", loadModels);
+  $("#btnKeyTest").addEventListener("click", () => keyTest.run());
   $("#btnExport").addEventListener("click", exportBackup);
   // importazione backup
   const imp = document.createElement("label");
@@ -4547,6 +4628,48 @@ function bindSettings() {
   imp.querySelector("input").addEventListener("change", (e) => { if (e.target.files[0]) importBackup(e.target.files[0]); e.target.value = ""; });
   $("#dlgSettings").addEventListener("close", () => { if (mindmap.root) mindmap.draw(); });
 }
+
+/* ---------- Prova delle chiavi: una domanda piccolissima a ogni servizio ---------- */
+const keyTest = {
+  LIST: [
+    ["keyGemini", "Gemini", () => geminiCall({ prompt: "Rispondi solo: ok", model: settings.modGemini || DEFAULTS.modGemini })],
+    ["keyGroq", "Groq", () => groqChat({ prompt: "Rispondi solo: ok" })],
+    ["keyMistral", "Mistral", () => oaiChat("mistral", { prompt: "Rispondi solo: ok", model: "mistral-small-latest" })],
+    ["keyOpenRouter", "OpenRouter", async () => {
+      let err;
+      for (const m of await openRouterModels()) { try { return await oaiChat("openrouter", { prompt: "Rispondi solo: ok", model: m }); } catch (e) { err = e; if (e.status === 401 || e.status === 403) break; } }
+      throw err;
+    }],
+    ["keyClaude", "Claude", async () => claudeCall({ prompt: "Rispondi solo: ok", model: settings.modClaudeFast || DEFAULTS.modClaudeFast })]
+  ],
+  res: {},
+  render() {
+    const box = $("#keyTestOut"); if (!box) return;
+    const rows = this.LIST.filter(([k]) => settings[k]).map(([k, n]) => {
+      const r = this.res[k];
+      const st = !r ? "" : r === "…" ? "provo…" : r === true ? "✓ funziona" : "✗ " + r;
+      return `<li class="${r === true ? "ok" : /chiave è giusta/.test(r || "") ? "warn" : r && r !== "…" ? "ko" : ""}"><b>${n}</b> ${escapeHtml(st)}</li>`;
+    });
+    const n = this.LIST.filter(([k]) => settings[k]).length;
+    box.innerHTML = (rows.length ? `<ul class="key-test">${rows.join("")}</ul>` : "")
+      + `<p class="hint">${n ? `Hai ${n} ${n === 1 ? "servizio" : "servizi"} su 5. ${n < 3 ? "Con almeno 3 chiavi, se uno si ferma Zaino continua con gli altri." : "Se uno si ferma, Zaino continua con gli altri."}` : "Nessuna chiave inserita."}</p>`;
+  },
+  async run() {
+    const todo = this.LIST.filter(([k]) => settings[k]);
+    if (!todo.length) return toast("Inserisci prima almeno una chiave.");
+    todo.forEach(([k]) => this.res[k] = "…"); this.render();
+    await Promise.all(todo.map(async ([k, n, fn]) => {
+      try { await fn(); this.res[k] = true; }
+      catch (e) {
+        this.res[k] = e.status === 0 ? "non raggiungibile da questo browser (o niente internet)"
+          : e.status === 429 ? "limite raggiunto per ora (la chiave è giusta)"
+          : e.status === 401 || e.status === 403 ? "chiave non valida"
+          : (e.message || "errore");
+      }
+      this.render();
+    }));
+  }
+};
 
 async function loadModels() {
   const info = $("#modelsInfo");
@@ -4577,7 +4700,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "34";
+const APP_VERSION = "35";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -5110,7 +5233,7 @@ function init() {
 
   // primo avvio: chiedo le chiavi
   if (!store.get("welcomed", false)) setTimeout(() => welcome.open(), 300);
-  else if (!settings.keyGemini && !settings.keyGroq) setTimeout(() => { openSettings(); toast("Inserisci le chiavi gratuite di Gemini e Groq per iniziare.", 5000); }, 400);
+  else if (!hasAnyKey()) setTimeout(() => { openSettings(); toast("Inserisci le chiavi gratuite di Gemini e Groq per iniziare.", 5000); }, 400);
   news.bind(); news.maybeShow();
 
   // funziona anche come app installata; quando arriva una versione nuova la pagina si ricarica da sola

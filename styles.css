@@ -1192,3 +1192,9 @@ input[type="search"] { font: inherit; font-size: 1rem; color: var(--ink); backgr
 .quick-bar button:hover, .quick-bar button:focus-visible { border-color: var(--pen); }
 .quick-bar .qb-all { background: var(--hl-yellow-s); border-color: var(--hl-yellow); }
 .reader-toolbar .quick-bar { padding: 8px 0 2px; margin-top: 4px; border-top: 1px solid var(--line, #e4e6ee); }
+
+.key-test { list-style: none; padding: 0; margin: 8px 0; font-size: .9em; }
+.key-test li { padding: 4px 0; }
+.key-test li.ok { color: var(--ok, #1d7a3a); }
+.key-test li.ko { color: var(--bad, #b3261e); }
+.key-test li.warn { color: #8a5a00; }
