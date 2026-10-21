@@ -364,32 +364,32 @@ const lifeTxt = (a, b) => b == null ? `nato nel ${yearTxt(a)}` : a < 0 && b < 0 
    ========================================================= */
 const AUTORE_PROMPTS = {
   scheda: (nome, materia, vita, fonte, extra = "") => `${extra ? extra + "\n" : ""}Prepara una scheda di studio su ${nome} (${vita}) per una studentessa di quarta del liceo delle scienze umane con dislessia, materia: ${materia}.
-Usa frasi brevi (massimo 20 parole), parole semplici, e spiega i termini tecnici. Solo informazioni corrette e verificabili.
+Livello: quello di un buon manuale di liceo (quarto-quinto anno). La dislessia riguarda la lettura, non la comprensione: frasi chiare (fino a 25 parole), ma contenuti completi e precisi, con i termini tecnici originali (spiegati) e le argomentazioni dell'autore. Solo informazioni corrette e verificabili.
 ${fonte ? `Basati sulla VOCE DI WIKIPEDIA riportata in fondo: prendi da lì date, opere, concetti e nomi. Puoi semplificare e riordinare, ma non contraddirla.
 Se un'informazione non è nella voce, aggiungila solo se ne sei assolutamente sicuro; altrimenti lasciala fuori. Non inventare frasi celebri: se non sei certo che sia autentica, scrivi "frase": null.` : `Se non sei sicuro di un dato (anno, titolo, frase celebre), lascialo fuori. Non inventare frasi celebri: se non sei certo, scrivi "frase": null.`}
 Rispondi SOLO con JSON:
-{"in_breve": "2 frasi: chi è e perché è importante",
- "contesto": "1-2 frasi sul periodo storico e sul problema che affronta",
- "vita": ["3-4 fatti essenziali della vita"],
- "opere": [{"titolo": "...", "anno": "...", "di_cosa_parla": "una frase"}],
- "pensiero": [{"titolo": "idea chiave in 3-6 parole", "spiegazione": "2-3 frasi semplici"}],
- "parole": [{"parola": "termine tecnico", "significato": "spiegazione semplice"}],
+{"in_breve": "2-3 frasi: chi è, la sua tesi centrale, perché è importante",
+ "contesto": "2-4 frasi sul periodo storico, sulla cultura del tempo e sul problema che affronta",
+ "vita": ["4-6 fatti della vita con le date, utili a capire il pensiero"],
+ "opere": [{"titolo": "...", "anno": "...", "di_cosa_parla": "1-2 frasi sul contenuto e sulle tesi principali"}],
+ "pensiero": [{"titolo": "idea chiave in 3-7 parole", "spiegazione": "3-5 frasi: il concetto, l'argomentazione dell'autore, i termini tecnici, eventuali esempi o differenze con altri autori"}],
+ "parole": [{"parola": "termine tecnico (anche nella lingua originale, se si usa)", "significato": "definizione precisa, come la chiederebbe l'insegnante"}],
  "esempio": "un esempio di vita quotidiana per capire l'idea più importante",
  "collegamenti": [{"autore": "nome", "rapporto": "in cosa è d'accordo o in disaccordo"}],
  "frase": {"testo": "una frase celebre (tradotta in italiano)", "spiegazione": "cosa vuol dire"},
  "attualita": "1-2 frasi: perché è ancora utile oggi",
  "domande": ["3 domande tipiche da interrogazione"]}
-Da 4 a 6 punti in "pensiero", da 5 a 8 "parole", da 2 a 4 "collegamenti", da 1 a 4 "opere".${fonte ? `
+Da 6 a 10 punti in "pensiero", da 6 a 12 "parole", da 3 a 5 "collegamenti", da 2 a 6 "opere", 4 "domande" (di esposizione, spiegazione e collegamento, livello liceo).${fonte ? `
 
 VOCE DI WIKIPEDIA («${fonte.title}»):
 """${fonte.text}"""` : ""}`,
   confronta: (a, b, materia) => `Confronta ${a} e ${b} (${materia}) per una studentessa delle superiori con dislessia.
 Rispondi SOLO con JSON: {"titolo": "${a} e ${b} a confronto", "colonne": ["${a}", "${b}"], "righe": [{"aspetto": "...", "valori": ["...", "..."]}], "in_comune": "una frase su cosa hanno in comune", "differenza": "una frase sulla differenza più importante"}
-Da 5 a 8 righe (es. periodo, problema principale, idea chiave, metodo, conoscenza, uomo/società, opere). Celle brevi (massimo 14 parole), parole chiave, contenuti corretti.`,
+Da 7 a 10 righe (es. periodo e contesto, problema principale, tesi centrale, metodo, conoscenza, etica o politica, concetto dell'uomo e della società, opere principali, eredità). Celle precise (fino a 25 parole), con i concetti e i termini propri di ciascun autore, mai generiche; contenuti corretti, livello liceo.`,
   chat: (nome, vita, storia, domanda) => `Interpreta ${nome} (${vita}) che risponde alle domande di una studentessa italiana delle superiori, per aiutarla a capire il suo pensiero.
 Regole:
-- parla in prima persona, in italiano semplice, con frasi brevi; massimo 110 parole;
-- resta fedele a ciò che ${nome} ha davvero pensato e scritto; usa i suoi concetti principali, spiegandoli;
+- parla in prima persona, in italiano chiaro, con frasi non troppo lunghe; da 120 a 220 parole;
+- resta fedele a ciò che ${nome} ha davvero pensato e scritto; usa i suoi concetti e i suoi termini (spiegandoli), cita le opere in cui li hai sviluppati e, se serve, la differenza con altri autori;
 - se la domanda riguarda cose nate dopo la tua epoca, rispondi ragionando con le tue idee e dillo chiaramente ("Ai miei tempi non esisteva, ma penso che...");
 - se non sai o la domanda è fuori tema, dillo con gentilezza e riporta il discorso sul tuo pensiero;
 - non inventare citazioni.
@@ -398,21 +398,25 @@ Domanda della studentessa: ${domanda}
 Rispondi solo con il testo della risposta.`,
   quiz: (nome, scheda) => `Prepara un quiz a scelta multipla su ${nome} per una studentessa delle superiori con dislessia.
 Rispondi SOLO con JSON: {"domande": [{"domanda": "...", "opzioni": ["...", "...", "...", "..."], "giusta": 0, "spiegazione": "perché è giusta, in una frase"}]}
-Regole: 6 domande sui concetti più importanti (non solo date); 4 opzioni brevi (massimo 12 parole), una sola giusta, le altre plausibili ma chiaramente sbagliate;
-"giusta" è l'indice (0-3) dell'opzione corretta, varia la posizione; frasi semplici, niente doppie negazioni.
+Regole: 8 domande di livello liceo sui concetti più importanti: comprensione delle idee, definizioni dei termini, opere, collegamenti con altri autori (non solo date);
+4 opzioni (fino a 18 parole), una sola giusta; le sbagliate devono essere PLAUSIBILI (per esempio concetti di autori vicini o errori tipici degli studenti), ma senza ambiguità;
+"giusta" è l'indice (0-3) dell'opzione corretta, varia la posizione; frasi chiare, niente doppie negazioni; la spiegazione dice perché la giusta è giusta e, se utile, perché la più "tentatrice" è sbagliata.
 Basati su questa scheda:
 ${scheda}`,
   concetto: (concetto, materia) => `Spiega il concetto "${concetto}" (${materia}) a una studentessa di quarta superiore con dislessia.
+Livello liceo: chiaro nella forma, rigoroso nel contenuto.
 Formato:
-## In una frase
-(definizione semplice)
+## Definizione
+(una definizione precisa, come la chiederebbe l'insegnante)
 ## Spiegato meglio
-- (3-5 punti brevi; se il concetto è legato a un autore, dillo)
+- (5-8 punti: significato, origine, autori che lo usano e come lo intendono, opere, eventuali evoluzioni del concetto)
 ## Un esempio
-(un esempio concreto di vita quotidiana)
+(un esempio concreto che lo rende chiaro)
+## Collegamenti
+- (con altri concetti, autori o materie)
 ## Non confonderlo con
-- (1-2 concetti simili e la differenza)
-Parole chiave in **grassetto**. Frasi brevi.`
+- (1-3 concetti simili e la differenza precisa)
+Parole chiave in **grassetto**. Frasi fino a 25 parole.`
 };
 
 /* =========================================================

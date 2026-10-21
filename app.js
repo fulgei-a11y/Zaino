@@ -483,11 +483,19 @@ function wavBlob(samples, rate) {
 }
 
 /* ---------- Istruzioni per l'IA ---------- */
-const SYSTEM_TUTOR = `Sei un tutor paziente per una studentessa delle scuole superiori italiane con dislessia (DSA).
-Scrivi sempre in italiano, con frasi brevi (massimo 20 parole), parole semplici e un'idea per frase.
+const SYSTEM_TUTOR = `Sei un tutor esperto per una studentessa di quarta del liceo delle scienze umane (Italia), brava e studiosa, con dislessia (DSA).
+La dislessia riguarda la lettura, NON la capacità di capire: il livello dei contenuti deve essere quello del liceo (quarto e quinto anno), mai da scuola elementare o media.
+Forma: italiano chiaro, frasi non troppo lunghe (indicativamente fino a 25 parole), una idea per frase, struttura ordinata con titoli ed elenchi.
+Contenuto: completo e preciso. Conserva SEMPRE nomi, date, numeri, luoghi, opere, termini tecnici, definizioni, cause e conseguenze, collegamenti. Non generalizzare e non sostituire i dettagli con frasi vaghe.
 Non usare tabelle. Spiega i termini tecnici la prima volta che compaiono, ma non eliminarli: servono per le verifiche.
 Non inventare informazioni che non sono nel testo, salvo quando ti viene chiesto di spiegare.
 Formato consentito: righe che iniziano con "## " per i titoli, righe che iniziano con "- " per gli elenchi, **grassetto** per le parole chiave. Nient'altro.`;
+
+/* misure proporzionate alla lunghezza del testo */
+const wordCount = (t) => (String(t).match(/\S+/g) || []).length;
+const sumTarget = (t) => Math.round(Math.min(1400, Math.max(180, wordCount(t) * 0.25)) / 10) * 10;
+const cardCount = (t) => { const n = Math.min(40, Math.max(10, Math.round(wordCount(t) / 120))); return `da ${n} a ${n + 5}`; };
+const mapSize = (t) => wordCount(t) > 2500 ? "da 5 a 9 rami principali; fino a 4 livelli sotto il titolo; dentro i riquadri metti nomi, date e termini precisi" : wordCount(t) > 900 ? "da 4 a 8 rami principali; massimo 3 livelli sotto il titolo" : "da 3 a 7 rami principali; massimo 3 livelli sotto il titolo";
 
 const PROMPTS = {
   palazzoLuoghi: (t) => `Una studentessa ha descritto a voce un percorso che conosce bene (casa sua o un tragitto), per usarlo con il metodo dei loci.
@@ -557,7 +565,7 @@ Rispondi SOLO con JSON:
 {"frase": "il succo di tutto il testo in UNA frase di massimo 25 parole",
  "parole_chiave": ["da 3 a 5 parole, nomi o date chiave"],
  "punti": [{"titolo": "3-6 parole", "frase": "il contenuto di quella parte in una frase breve", "ancora": "le prime 6-8 parole ESATTE, copiate dal testo, della frase dove comincia quella parte"}]}
-Regole: da 4 a 8 punti, nello stesso ordine del testo, che insieme coprano tutto il testo; frasi semplici; "ancora" copiata identica dal testo.
+Regole: da 4 a ${Math.min(14, Math.max(8, Math.round(wordCount(t) / 600)))} punti, nello stesso ordine del testo, ognuno con una frase concreta (nomi, date, concetti), non generica, che insieme coprano tutto il testo; frasi semplici; "ancora" copiata identica dal testo.
 
 TESTO:
 """${t}"""`,
@@ -573,7 +581,7 @@ Rispondi SOLO con JSON:
  "termini_da_usare": [{"termine": "termine tecnico del testo che non ha usato", "significato": "spiegazione semplice"}],
  "ordine": "una frase sull'ordine del discorso: era logico? cosa conveniva dire prima?",
  "consiglio": "un solo consiglio pratico per la prossima volta"}
-Regole: conta solo i concetti davvero importanti (al massimo 10 tra detti e mancanti); non segnare come errore una parola trascritta male; se ha detto poco, copertura bassa ma tono gentile; frasi brevi e semplici; liste vuote se non c'è niente da dire.
+Regole: valuta come un professore di liceo (per una copertura alta servono anche i termini tecnici, i nomi, le date e i collegamenti); conta i concetti importanti (al massimo 15 tra detti e mancanti); non segnare come errore una parola trascritta male; se ha detto poco, copertura bassa ma tono gentile; frasi brevi e semplici; liste vuote se non c'è niente da dire.
 
 TESTO:
 """${src}"""
@@ -581,8 +589,9 @@ TESTO:
 SPIEGAZIONE DELLA STUDENTESSA:
 """${detto}"""`,
   domandeVerifica: (t, materia) => `Una studentessa delle superiori con dislessia ha una verifica di ${materia || "questa materia"} su questo testo.
-Prepara le 8 domande più probabili che l'insegnante potrebbe fare (scritte o orali), dalla più semplice alla più difficile, con una risposta modello breve e corretta presa dal testo.
-Rispondi SOLO con JSON: {"domande": [{"domanda": "...", "risposta": "3-5 frasi brevi, con le parole chiave in **grassetto**"}]}
+Prepara le ${Math.min(15, Math.max(8, Math.round(wordCount(t) / 400)))} domande più probabili che l'insegnante potrebbe fare (scritte o orali), dalla più semplice alla più difficile: definizioni, spiegazioni, esposizioni di un argomento, confronti, collegamenti.
+Per ognuna scrivi una risposta modello da voto alto, presa dal testo.
+Rispondi SOLO con JSON: {"domande": [{"domanda": "...", "risposta": "4-8 frasi chiare e complete, con i termini tecnici, i nomi e le date giuste; parole chiave in **grassetto**"}]}
 
 TESTO:
 """${t}"""`,
@@ -607,38 +616,56 @@ ${cosa.toUpperCase()} DA CONTROLLARE:
 - Per immagini, grafici o schemi importanti scrivi una breve descrizione tra parentesi quadre, es. [Immagine: cartina dell'Europa nel 1815].
 - Scrivi le formule in modo che si possano leggere ad alta voce (es. "x al quadrato più 3").
 Rispondi solo con il testo trascritto.`,
-  semplifica: (t) => `Riscrivi questo testo per renderlo facile da leggere e capire.
-Mantieni TUTTE le informazioni importanti, le date, i nomi e i termini tecnici (in **grassetto**).
-Dividilo in piccoli blocchi con un titolo "## " ciascuno. Frasi corte. Usa elenchi "- " quando ci sono più elementi.
+  semplifica: (t) => `Riscrivi questo testo per renderlo più facile da LEGGERE, senza renderlo più povero: semplifica la forma, NON il contenuto.
+Mantieni TUTTE le informazioni: ogni nome, data, numero, luogo, opera, definizione, termine tecnico (in **grassetto**), causa, conseguenza e collegamento. La lunghezza deve restare simile all'originale.
+Dividilo in blocchi con un titolo "## " ciascuno, nell'ordine del testo. Frasi più corte e ordinate (soggetto, verbo, complemento). Usa elenchi "- " quando ci sono più elementi in fila.
 
 TESTO:
 ${t}`,
-  riassunto: (t) => `Fai un riassunto per lo studio di questo testo.
+  riassunto: (t) => `Fai un riassunto DI STUDIO di questo testo, per una studentessa di quarta superiore che deve prendere un buon voto all'interrogazione usando solo il riassunto.
+Lunghezza: circa ${sumTarget(t)} parole (circa un quarto del testo). Non essere generico: ogni punto deve contenere informazioni concrete.
 Struttura:
 ## In una frase
-(una frase che dice di cosa parla)
-## I punti principali
-- (5-10 punti, ognuno breve, parole chiave in **grassetto**)
+(di cosa parla tutto il testo)
+Poi una sezione "## titolo" per ogni parte del testo, NELLO STESSO ORDINE del testo, con elenchi "- " ricchi di dettagli:
+chi, cosa, quando, dove, perché, con quali conseguenze; definizioni dei concetti; nomi, date, numeri, opere; parole chiave in **grassetto**.
 ## Da ricordare per la verifica
-- (date, nomi, definizioni, formule importanti)
+- (TUTTI i nomi, le date, i numeri, le definizioni e i termini importanti del testo, uno per riga, con una breve spiegazione)
+Non aggiungere informazioni che nel testo non ci sono.
 
 TESTO:
 ${t}`,
-  parole: (t) => `Estrai dal testo le 8-15 parole o concetti più importanti da studiare.
+  riassuntoParte: (t, k, n) => `Questa è la parte ${k} di ${n} di un documento lungo. Fai il riassunto DI STUDIO solo di questa parte, per una studentessa di quarta superiore.
+Lunghezza: circa ${sumTarget(t)} parole. Non essere generico: conserva nomi, date, numeri, opere, definizioni, termini tecnici, cause e conseguenze.
+Formato: una sezione "## titolo" per ogni argomento della parte, nello stesso ordine del testo, con elenchi "- " ricchi di dettagli e parole chiave in **grassetto**. Niente introduzioni o conclusioni generali.
+
+TESTO (parte ${k} di ${n}):
+${t}`,
+  riassuntoCornice: (sum) => `Ecco il riassunto dettagliato di un documento lungo, diviso per sezioni. Preparane la cornice.
+Rispondi SOLO con JSON:
+{"frase": "di cosa parla tutto il documento, in 1-2 frasi",
+ "da_ricordare": ["TUTTI i nomi, le date, i numeri e i termini importanti, ciascuno con una breve spiegazione"]}
+
+RIASSUNTO:
+${sum}`,
+  parole: (t) => `Estrai dal testo le ${Math.min(40, Math.max(8, Math.round(wordCount(t) / 120)))} parole, nomi o concetti più importanti da studiare (livello quarta superiore: termini tecnici, autori, opere, date chiave).
 Per ognuno scrivi una riga così:
-- **parola**: spiegazione semplice in una frase.
+- **parola**: definizione precisa, come la chiederebbe l'insegnante (1-2 frasi), con l'autore o il contesto a cui si lega, se c'è.
 Mettili nell'ordine in cui compaiono nel testo.
 
 TESTO:
 ${t}`,
-  spiega: (t) => `Spiegami questo testo come farebbe un bravo insegnante, in modo che lo capisca davvero.
+  spiega: (t) => `Spiegami questo testo come farebbe un ottimo insegnante di liceo, in modo che lo capisca a fondo e sappia esporlo all'interrogazione.
 ## Di cosa parla
-(2-3 frasi)
+(2-3 frasi: argomento, contesto, perché è importante)
 ## Spiegazione passo passo
-(spiega i passaggi difficili con parole semplici; se serve usa un esempio della vita di tutti i giorni)
-## Un esempio per ricordarlo
+(segui l'ordine del testo; per ogni passaggio spiega il concetto, il ragionamento che c'è dietro, i termini tecnici, i nomi e le date; chiarisci i punti difficili senza togliere precisione)
+## Collegamenti
+- (con altri autori, periodi, materie o concetti, se il testo li permette)
+## Un esempio per fissarlo
+(un esempio concreto che aiuta a capire il concetto più difficile)
 ## Domande per verificare se ho capito
-- (3 domande, senza risposta)
+- (4 domande da interrogazione, di livello liceo, senza risposta)
 
 TESTO:
 ${t}`,
@@ -646,23 +673,24 @@ ${t}`,
 Rispondi SOLO con JSON in questo formato:
 {"titolo": "argomento centrale", "rami": [{"testo": "concetto", "figli": [{"testo": "dettaglio", "figli": []}]}]}
 Regole:
-- da 3 a 7 rami principali; massimo 3 livelli sotto il titolo;
-- ogni riquadro ha al massimo 6 parole: parole chiave, non frasi lunghe;
-- includi date, nomi e termini importanti;
-- l'ordine dei rami segue l'ordine logico o cronologico.
+- ${mapSize(t)};
+- ogni riquadro ha al massimo 7 parole: parole chiave, non frasi lunghe;
+- ogni riquadro deve dire qualcosa di PRECISO (un nome, una data, una definizione, una causa, una conseguenza): mai riquadri vaghi come "Importanza", "Conseguenze", "Aspetti" senza contenuto sotto;
+- includi tutti i nomi, le date, le opere e i termini importanti del testo;
+- l'ordine dei rami segue l'ordine logico o cronologico; livello quarta superiore.
 
 TESTO:
 ${t}`,
   mappaTema: (t) => `Crea una mappa concettuale sull'argomento "${t}" al livello delle scuole superiori italiane.
 Rispondi SOLO con JSON in questo formato:
 {"titolo": "argomento centrale", "rami": [{"testo": "concetto", "figli": [{"testo": "dettaglio", "figli": []}]}]}
-Regole: da 4 a 7 rami principali; massimo 3 livelli; ogni riquadro al massimo 6 parole; includi date, nomi e termini importanti; contenuti corretti e verificabili.`,
+Regole: da 5 a 8 rami principali; fino a 4 livelli; ogni riquadro al massimo 7 parole e con un contenuto preciso (nomi, date, opere, definizioni, cause, conseguenze), mai vago; contenuti corretti e verificabili, al livello di un buon manuale di liceo.`,
   migliora: (json) => `Questa è una mappa concettuale fatta da una studentessa. Aiutala a migliorarla, rispettando il suo lavoro.
 Regole:
 - MANTIENI la sua struttura e le sue parole: non cancellare i suoi riquadri e non riscriverli, salvo per correggere errori di ortografia o di contenuto evidenti;
-- AGGIUNGI solo i concetti importanti che mancano (date, nomi, termini, collegamenti), al punto giusto della mappa;
+- AGGIUNGI i concetti importanti che mancano per un buon voto al liceo (date, nomi, opere, termini tecnici, cause, conseguenze, collegamenti), al punto giusto della mappa;
 - metti "nuovo": true SOLO sui riquadri che aggiungi tu, e su quelli in cui correggi un errore;
-- ogni riquadro al massimo 6 parole; massimo 3 livelli sotto il titolo; non aggiungere più di 10 riquadri in tutto;
+- ogni riquadro al massimo 7 parole; massimo 4 livelli sotto il titolo; non aggiungere più di 15 riquadri in tutto;
 - se un riquadro è troppo lungo puoi accorciarlo (e segnarlo con "nuovo": true).
 Rispondi SOLO con JSON in questo formato:
 {"titolo": "...", "rami": [{"testo": "...", "nuovo": false, "figli": [{"testo": "...", "nuovo": true, "figli": []}]}]}
@@ -672,9 +700,10 @@ ${json}`,
   flashcard: (t) => `Crea flashcard per ripassare questo testo in vista di una verifica.
 Rispondi SOLO con JSON: {"titolo": "argomento breve", "carte": [{"domanda": "...", "risposta": "..."}]}
 Regole:
-- da 8 a 15 carte, che coprano tutti i concetti importanti;
-- domande brevi e chiare, una sola cosa per domanda;
-- risposte brevi (massimo 25 parole), con le parole chiave giuste.
+- ${cardCount(t)} carte, che coprano TUTTI i concetti, i nomi, le date e le definizioni importanti (livello quarta superiore, non domande banali);
+- mescola i tipi di domanda: definizioni precise, "perché…", "come…", cause e conseguenze, confronti, collegamenti, chi/quando/dove;
+- domande chiare, una sola cosa per domanda;
+- risposte complete ma compatte (fino a 40 parole), con i termini tecnici, i nomi e le date giuste.
 
 TESTO:
 ${t}`,
@@ -714,28 +743,28 @@ Regole: da 3 a 7 passi; frasi brevi; formule leggibili (², √, ·, niente LaTe
 TESTO:
 ${t}`,
   linea: (t) => `Crea una linea del tempo con gli eventi di questo testo, in ordine cronologico.
-Rispondi SOLO con JSON: {"titolo": "argomento", "eventi": [{"data": "1789 (o 14 luglio 1789, o III sec. a.C.)", "titolo": "evento in max 8 parole", "dettaglio": "una frase semplice su perché è importante"}]}
-Regole: da 4 a 15 eventi; solo eventi con una data o un periodo; se il testo non contiene date, metti le fasi o i passaggi nell'ordine in cui avvengono e scrivi nel campo "data" la parola "Fase 1", "Fase 2"...
+Rispondi SOLO con JSON: {"titolo": "argomento", "eventi": [{"data": "1789 (o 14 luglio 1789, o III sec. a.C.)", "titolo": "evento in max 8 parole", "dettaglio": "1-2 frasi: cosa accade, chi è coinvolto, con quale causa o conseguenza"}]}
+Regole: da 4 a ${Math.min(40, Math.max(15, Math.round(wordCount(t) / 150)))} eventi, cioè TUTTI quelli con una data o un periodo presenti nel testo; solo eventi con una data o un periodo; se il testo non contiene date, metti le fasi o i passaggi nell'ordine in cui avvengono e scrivi nel campo "data" la parola "Fase 1", "Fase 2"...
 
 TESTO:
 ${t}`,
   confronta: (t) => `Trova nel testo gli elementi più utili da confrontare (es. due popoli, due personaggi, due periodi, due processi, due teorie) e crea una tabella di confronto per lo studio.
 Rispondi SOLO con JSON: {"titolo": "Confronto tra X e Y", "colonne": ["X", "Y"], "righe": [{"aspetto": "es. governo", "valori": ["per X", "per Y"]}]}
-Regole: da 2 a 4 colonne; da 4 a 8 righe; celle brevi (max 12 parole), parole chiave; "valori" ha sempre lo stesso numero di elementi di "colonne".
+Regole: da 2 a 4 colonne; da 5 a 10 righe; celle precise e concrete (fino a 20 parole), con nomi, date, concetti e termini del testo, mai generiche; "valori" ha sempre lo stesso numero di elementi di "colonne".
 
 TESTO:
 ${t}`,
   domanda: (t, gia) => `Sei un insegnante che interroga una studentessa delle superiori su questo testo.
-Fai UNA sola domanda aperta, chiara e breve, come in una vera interrogazione orale. Alterna domande di definizione, di spiegazione ("perché…", "come…") e di collegamento.
+Fai UNA sola domanda aperta, chiara, come in una vera interrogazione orale di quarta o quinta superiore. Alterna domande di definizione precisa, di spiegazione ("perché…", "come…"), di esposizione ("parlami di…"), di confronto e di collegamento; non fare domande banali o di sola memoria spicciola.
 ${gia.length ? "NON ripetere queste domande già fatte:\n- " + gia.join("\n- ") : ""}
 Rispondi SOLO con JSON: {"domanda": "..."}
 
 TESTO:
 ${t}`,
   valuta: (t, domanda, risposta) => `Sei un insegnante gentile ma preciso. Una studentessa con dislessia ha risposto A VOCE a una domanda di interrogazione (la risposta è trascritta automaticamente: ignora errori di trascrizione, ripetizioni e punteggiatura).
-Valuta il CONTENUTO confrontandolo con il testo studiato. Sii incoraggiante e concreto.
+Valuta il CONTENUTO confrontandolo con il testo studiato, con il metro di un professore di liceo: "ottimo" solo se la risposta è completa, precisa e usa i termini giusti; "buono" se manca poco; non regalare il giudizio. Sii incoraggiante nel tono e concreto nelle indicazioni.
 Rispondi SOLO con JSON:
-{"livello": "ottimo" | "buono" | "sufficiente" | "da rivedere", "bene": ["cosa ha detto di giusto"], "manca": ["concetto importante che non ha detto"], "errori": ["affermazione sbagliata → versione corretta"], "risposta_modello": "come avrebbe potuto rispondere, in 3-5 frasi semplici", "consiglio": "un consiglio pratico per migliorare l'esposizione"}
+{"livello": "ottimo" | "buono" | "sufficiente" | "da rivedere", "bene": ["cosa ha detto di giusto"], "manca": ["concetto importante che non ha detto"], "errori": ["affermazione sbagliata → versione corretta"], "risposta_modello": "una risposta da voto alto, in 4-7 frasi chiare, con i termini tecnici, i nomi e le date giuste", "consiglio": "un consiglio pratico per migliorare l'esposizione"}
 
 TESTO STUDIATO:
 ${t}
@@ -768,9 +797,9 @@ ${t}`,
   schede: (json) => `Questa è una mappa concettuale di una studentessa. Per ogni ramo principale scrivi una scheda di ripasso.
 Rispondi SOLO con JSON:
 {"introduzione": "2 frasi: di cosa parla l'argomento e perché è importante",
- "schede": [{"ramo": "testo ESATTO del ramo", "spiegazione": "2-3 frasi brevi e semplici che collegano i concetti del ramo", "ricorda": "una frase chiave da ricordare"}],
- "domande": ["3-5 domande da interrogazione su tutta la mappa"]}
-Usa solo informazioni corrette; frasi di massimo 20 parole; nessun elenco dentro le frasi.
+ "schede": [{"ramo": "testo ESATTO del ramo", "spiegazione": "3-5 frasi chiare che spiegano e collegano i concetti del ramo, con nomi, date e termini precisi", "ricorda": "la frase chiave da ricordare"}],
+ "domande": ["4-6 domande da interrogazione su tutta la mappa, livello quarta superiore"]}
+Usa solo informazioni corrette; frasi di massimo 25 parole; nessun elenco dentro le frasi; contenuti da liceo, non generici.
 
 MAPPA:
 ${json}`,
@@ -1419,6 +1448,56 @@ async function chooseTargetLang() {
     Se il controllo non riesce o rovina il formato, tengo la prima versione. */
 const CHECK_WHAT = { mappa: "una mappa concettuale (in JSON)", flashcard: "delle flashcard (in JSON)", linea: "una linea del tempo (in JSON)",
   confronta: "una tabella di confronto (in JSON)", riassunto: "un riassunto", semplifica: "una versione semplificata", parole: "un elenco di parole chiave", formulario: "un formulario" };
+/** Divide un testo lungo in parti di circa 3500 parole, senza spezzare i paragrafi. */
+function chunkText(t, maxWords = 3500) {
+  const paras = t.split(/\n{2,}/).flatMap(p => wordCount(p) > maxWords ? splitSentences(p).reduce((acc, s) => {
+    const last = acc[acc.length - 1];
+    if (last && wordCount(last) + wordCount(s) <= maxWords) acc[acc.length - 1] = last + " " + s; else acc.push(s);
+    return acc;
+  }, []) : [p]);
+  const out = []; let cur = [], n = 0;
+  for (const p of paras) {
+    const w = wordCount(p);
+    if (n + w > maxWords && cur.length) { out.push(cur.join("\n\n")); cur = []; n = 0; }
+    cur.push(p); n += w;
+  }
+  if (cur.length) out.push(cur.join("\n\n"));
+  return out;
+}
+const LONG_TEXT = 4500;   // oltre queste parole si lavora a parti
+/** Riassunto di studio: un passaggio per i testi normali, a parti per quelli lunghi (salvato per non rifarlo). */
+async function studySummary(text) {
+  const key = "sum:" + zoom.hash(text);
+  const cached = store.get(key, null);
+  if (cached) return cached;
+  let md;
+  const parts = wordCount(text) > LONG_TEXT ? chunkText(text) : [text];
+  if (parts.length === 1) md = await askChecked("riassunto", text, { prompt: PROMPTS.riassunto(text), system: SYSTEM_TUTOR });
+  else {
+    const sums = [];
+    for (let k = 0; k < parts.length; k++) {
+      busy(true, `Riassumo la parte ${k + 1} di ${parts.length}…`);
+      sums.push((await ask({ prompt: PROMPTS.riassuntoParte(parts[k], k + 1, parts.length), system: SYSTEM_TUTOR, temperature: 0.3 })).trim());
+    }
+    const body = sums.join("\n\n");
+    let frame = null;
+    try { busy(true, "Metto insieme il riassunto…"); frame = parseJSON(await ask({ prompt: PROMPTS.riassuntoCornice(body), json: true, temperature: 0.2 })); } catch { /* il corpo basta */ }
+    md = [frame?.frase ? `## In una frase\n${frame.frase}` : "", body,
+      (frame?.da_ricordare || []).length ? "## Da ricordare per la verifica\n" + frame.da_ricordare.map(x => "- " + x).join("\n") : ""].filter(Boolean).join("\n\n");
+  }
+  store.set(key, md);
+  const keys = store.get("sumKeys", []).filter(k => k !== key); keys.push(key);
+  keys.slice(0, Math.max(0, keys.length - 10)).forEach(k => { try { localStorage.removeItem("sf." + k); } catch { /* niente */ } });
+  store.set("sumKeys", keys.slice(-10));
+  return md;
+}
+/** Per mappe, flashcard e simili su testi lunghi: si parte dal riassunto dettagliato, che conserva nomi e date. */
+async function studyBase(text) {
+  if (wordCount(text) <= LONG_TEXT) return text;
+  busy(true, "Il testo è lungo: prima preparo un riassunto dettagliato…");
+  return studySummary(text);
+}
+
 async function askChecked(act, text, opts) {
   const first = await ask(opts);
   if (!settings.check || !CHECK_WHAT[act] || text.length < 300 || text.length > 30000) return first;
@@ -1445,14 +1524,18 @@ async function runAction(act, source) {
     if (act === "palazzo") return palazzo.fromReader();
     if (act === "mappa") {
       busy(true, "Sto creando la mappa…");
-      const data = parseJSON(await askChecked("mappa", text, { prompt: PROMPTS.mappa(text), system: SYSTEM_TUTOR, json: true }));
+      const base = await studyBase(text);
+      busy(true, "Sto creando la mappa…");
+      const data = parseJSON(await askChecked("mappa", base, { prompt: PROMPTS.mappa(base), system: SYSTEM_TUTOR, json: true }));
       mindmap.load(normalizeMap(data));
       showView("mappa");
       return;
     }
     if (act === "flashcard") {
       busy(true, "Sto preparando le flashcard…");
-      return makeDeck(parseJSON(await askChecked("flashcard", text, { prompt: PROMPTS.flashcard(text), system: SYSTEM_TUTOR, json: true })));
+      const base = await studyBase(text);
+      busy(true, "Sto preparando le flashcard…");
+      return makeDeck(parseJSON(await askChecked("flashcard", base, { prompt: PROMPTS.flashcard(base), system: SYSTEM_TUTOR, json: true })));
     }
     if (act === "vocaboli") {
       const lang = source ? detectLang(text) : reader.lang;
@@ -1470,12 +1553,24 @@ async function runAction(act, source) {
     }
     if (act === "linea" || act === "confronta" || act === "esercizio") {
       busy(true, BUSY_TEXT[act]);
-      const data = parseJSON(await askChecked(act, text, { prompt: PROMPTS[act](text), system: SYSTEM_TUTOR, json: true, temperature: 0.2 }));
+      const base = act === "esercizio" ? text : await studyBase(text);
+      busy(true, BUSY_TEXT[act]);
+      const data = parseJSON(await askChecked(act, base, { prompt: PROMPTS[act](base), system: SYSTEM_TUTOR, json: true, temperature: 0.2 }));
       const r = act === "linea" ? renderTimeline(data) : act === "confronta" ? renderCompare(data) : renderExercise(data);
       return showResult(r.title + part, r.html, r.md);
     }
     busy(true, BUSY_TEXT[act] || "Ci sto pensando…");
-    const out = await askChecked(act, text, { prompt: PROMPTS[act](text), system: SYSTEM_TUTOR });
+    let out;
+    if (act === "riassunto") out = await studySummary(text);
+    else if (act === "semplifica" && wordCount(text) > LONG_TEXT) {
+      const parts = chunkText(text), outs = [];
+      for (let k = 0; k < parts.length; k++) { busy(true, `Semplifico la parte ${k + 1} di ${parts.length}…`); outs.push((await ask({ prompt: PROMPTS.semplifica(parts[k]), system: SYSTEM_TUTOR })).trim()); }
+      out = outs.join("\n\n");
+    } else {
+      const base = ["parole", "formulario", "spiega"].includes(act) ? await studyBase(text) : text;
+      busy(true, BUSY_TEXT[act] || "Ci sto pensando…");
+      out = await askChecked(act, base, { prompt: PROMPTS[act](base), system: SYSTEM_TUTOR });
+    }
     showResult((ACT_LABELS[act] || "Risultato") + part, mdToHtml(out), out);
   } catch (e) {
     toast(e.message || "Qualcosa non ha funzionato. Riprova.", 6000);
@@ -2557,6 +2652,8 @@ function pickSource(sel) {
 
 /* ---------- Cosa c'è di nuovo: alla prima apertura dopo un aggiornamento ---------- */
 const NEWS = [
+  { v: 28, icon: "list", title: "Studio più approfondito", text: "Riassunti, schede, flashcard e spiegazioni ora sono a livello di quarta superiore: completi, con nomi, date e termini. I documenti lunghi vengono lavorati parte per parte.", go: "leggi" },
+  { v: 28, icon: "list", title: "Riassunti da liceo", text: "Riassunti completi, lunghi il giusto, con nomi, date e termini; i documenti lunghi vengono riassunti parte per parte.", go: "leggi" },
   { v: 27, icon: "home", title: "Palazzo della memoria", text: "Le sequenze da ricordare diventano una passeggiata a voce nei posti di casa tua.", go: "palazzo" },
   { v: 26, icon: "library", title: "Il Quaderno è in basso", text: "Tutto quello che salvi, a portata di dito. E «Preparo la verifica» ti dice cosa ha salvato.", go: "quaderno" },
   { v: 25, icon: "volume", title: "I tuoi audio", text: "Carica un memo vocale: diventa testo, domande dei professori o una spiegazione da valutare.", go: "leggi" },
@@ -3761,21 +3858,24 @@ const kit = {
           notebookPut({ id: K.textId, type: "testo", title: title("Testo"), subject, date: todayLabel(), data: text });
         }
         if (k === "riassunto") {
-          const md = await askChecked("riassunto", text, { prompt: PROMPTS.riassunto(text), system: SYSTEM_TUTOR });
+          const md = await studySummary(text);
           K.sumId = uid(); K.sum = md;
           notebookPut({ id: K.sumId, type: "testo", title: title("Riassunto"), subject, date: todayLabel(), data: md.replace(/\*\*/g, "").replace(/^##\s*/gm, "# ").replace(/^[-*•]\s+/gm, "") });
         }
         if (k === "mappa") {
-          const root = normalizeMap(parseJSON(await askChecked("mappa", text, { prompt: PROMPTS.mappa(text), system: SYSTEM_TUTOR, json: true })));
+          const base = wordCount(text) > LONG_TEXT && K.sum ? K.sum : text;
+          const root = normalizeMap(parseJSON(await askChecked("mappa", base, { prompt: PROMPTS.mappa(base), system: SYSTEM_TUTOR, json: true })));
           K.mapId = uid();
           notebookPut({ id: K.mapId, type: "mappa", title: root.text || title("Mappa"), subject, date: todayLabel(), data: cleanMap(root) });
         }
         if (k === "flashcard") {
-          const deck = buildDeck(parseJSON(await askChecked("flashcard", text, { prompt: PROMPTS.flashcard(text), system: SYSTEM_TUTOR, json: true })), "it", subject, title("Flashcard"));
+          const base = wordCount(text) > LONG_TEXT && K.sum ? K.sum : text;
+          const deck = buildDeck(parseJSON(await askChecked("flashcard", base, { prompt: PROMPTS.flashcard(base), system: SYSTEM_TUTOR, json: true })), "it", subject, title("Flashcard"));
           K.deckId = deck.id; flash.refreshDecks();
         }
         if (k === "domande") {
-          const d = parseJSON(await ask({ prompt: PROMPTS.domandeVerifica(text, subject), system: SYSTEM_TUTOR, json: true, temperature: 0.3, claude: true }));
+          const qBase = wordCount(text) > LONG_TEXT && K.sum ? K.sum : text;
+          const d = parseJSON(await ask({ prompt: PROMPTS.domandeVerifica(qBase, subject), system: SYSTEM_TUTOR, json: true, temperature: 0.3, claude: true }));
           K.questions = (d.domande || []).filter(q => q.domanda && q.risposta);
           if (!K.questions.length) throw new Error();
           K.qId = uid();
@@ -4119,7 +4219,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "27";
+const APP_VERSION = "28";
 
 /* =========================================================
    TESTO DA UN SITO WEB
