@@ -317,6 +317,9 @@ async function findGroqVision() {
   return groqVisionModel;
 }
 
+/** Quali servizi di IA hanno lavorato all'ultimo risultato (per la riga di trasparenza) */
+const aiUsed = new Set();
+
 /** Il modello Gemini più potente ("Pro") disponibile con la chiave; controllo una volta al giorno. */
 let geminiProModel;
 async function findGeminiPro() {
@@ -400,6 +403,7 @@ async function ask(opts) {
     try {
       const out = await s.run();
       cooldown.clear(s.key);
+      aiUsed.add(s.name.replace(/ \(riserva\)$/, ""));
       return out;
     } catch (e) {
       if (e.wait) cooldown.set(s.key, e.wait);
@@ -489,6 +493,7 @@ REGOLA FONDAMENTALE — il livello del contenuto è quello della FONTE: liceo, u
 Conserva SEMPRE: nomi, date, numeri, dati e unità di misura, luoghi, opere e fonti, riferimenti precisi (articoli, norme, sigle, codici), definizioni, distinzioni concettuali, argomentazioni, condizioni ed eccezioni, cause e conseguenze, collegamenti. Non generalizzare e non sostituire i dettagli con frasi vaghe.
 Forma: italiano chiaro e ordinato, frasi non troppo lunghe (indicativamente fino a 25-30 parole), un'idea per frase, titoli ed elenchi. Non usare tabelle. I termini tecnici restano: spiegali brevemente solo la prima volta, se aiuta.
 Non inventare informazioni che non sono nel testo, salvo quando ti viene chiesto di spiegare.
+Non salutare, non fare introduzioni, commenti o auguri: comincia subito con il contenuto richiesto.
 Formato consentito: righe che iniziano con "## " per i titoli, righe che iniziano con "- " per gli elenchi, **grassetto** per le parole chiave. Nient'altro.`;
 
 /* misure proporzionate alla lunghezza del testo */
@@ -1262,7 +1267,18 @@ async function pdfToText(file) {
     }
     out.push(text.trim());
   }
-  return out.join("\n\n");
+  return cleanDocText(out.join("\n\n"));
+}
+/** Toglie dal testo dei documenti il rumore: puntini dell'indice, numeri di pagina, intestazioni ripetute. */
+function cleanDocText(t) {
+  const lines = t.split("\n");
+  // righe identiche che si ripetono su molte pagine (intestazioni e piè di pagina)
+  const freq = {};
+  lines.forEach(l => { const k = l.trim(); if (k && k.length < 90) freq[k] = (freq[k] || 0) + 1; });
+  return lines
+    .map(l => l.replace(/\s*(\.\s?){4,}\s*\d*\s*$/, "").replace(/(\.\s?){4,}/g, " … ").replace(/[ \t]{2,}/g, " "))
+    .filter(l => { const k = l.trim(); return !(/^(pag(ina)?\.?\s*)?\d{1,3}(\s*(di|\/)\s*\d{1,3})?$/i.test(k)) && !(freq[k] >= 4 && k.length < 90 && !/[.:;]$/.test(k)); })
+    .join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 /** «45-52, 60» → elenco di pagine del PDF. Se il PDF ha i numeri stampati (etichette), uso quelli. */
@@ -1452,7 +1468,7 @@ async function chooseTargetLang() {
 const CHECK_WHAT = { mappa: "una mappa concettuale (in JSON)", flashcard: "delle flashcard (in JSON)", linea: "una linea del tempo (in JSON)",
   confronta: "una tabella di confronto (in JSON)", riassunto: "un riassunto", semplifica: "una versione semplificata", parole: "un elenco di parole chiave", formulario: "un formulario" };
 /** Divide un testo lungo in parti di circa 3500 parole, senza spezzare i paragrafi. */
-function chunkText(t, maxWords = 3500) {
+function chunkText(t, maxWords = 2000) {
   const paras = t.split(/\n{2,}/).flatMap(p => wordCount(p) > maxWords ? splitSentences(p).reduce((acc, s) => {
     const last = acc[acc.length - 1];
     if (last && wordCount(last) + wordCount(s) <= maxWords) acc[acc.length - 1] = last + " " + s; else acc.push(s);
@@ -1467,20 +1483,31 @@ function chunkText(t, maxWords = 3500) {
   if (cur.length) out.push(cur.join("\n\n"));
   return out;
 }
-const LONG_TEXT = 4500;   // oltre queste parole si lavora a parti
+const LONG_TEXT = 2500;   // oltre queste parole si lavora a parti (l'IA gratuita è più attenta su pezzi più piccoli)
 /** Riassunto di studio: un passaggio per i testi normali, a parti per quelli lunghi (salvato per non rifarlo). */
-async function studySummary(text) {
+async function studySummary(text, { force = false, size = 0 } = {}) {
   const key = "sum:" + zoom.hash(text);
-  const cached = store.get(key, null);
+  const cached = force ? null : store.get(key, null);
   if (cached) return cached;
-  let md;
-  const parts = wordCount(text) > LONG_TEXT ? chunkText(text) : [text];
-  if (parts.length === 1) md = await askChecked("riassunto", text, { prompt: PROMPTS.riassunto(text), system: SYSTEM_TUTOR });
-  else {
+  const enough = (md, src) => wordCount(md) >= sumTarget(src) * 0.55;   // sotto: troppo povero
+  let md, parts = size ? chunkText(text, size) : wordCount(text) > LONG_TEXT ? chunkText(text) : [text];
+  aiUsed.clear();
+  if (parts.length === 1) {
+    md = await askChecked("riassunto", text, { prompt: PROMPTS.riassunto(text), system: SYSTEM_TUTOR });
+    // troppo corto rispetto al testo? lo rifaccio a pezzi più piccoli
+    if (!enough(md, text) && wordCount(text) > 600) parts = chunkText(text, Math.max(500, Math.ceil(wordCount(text) / 3)));
+  }
+  if (parts.length > 1) {
     const sums = [];
     for (let k = 0; k < parts.length; k++) {
       busy(true, `Riassumo la parte ${k + 1} di ${parts.length}…`);
-      sums.push((await ask({ prompt: PROMPTS.riassuntoParte(parts[k], k + 1, parts.length), system: SYSTEM_TUTOR, temperature: 0.3 })).trim());
+      let one = (await ask({ prompt: PROMPTS.riassuntoParte(parts[k], k + 1, parts.length), system: SYSTEM_TUTOR, temperature: 0.3 })).trim();
+      if (!enough(one, parts[k])) {   // un pezzo venuto povero: un secondo tentativo, più esigente
+        busy(true, `La parte ${k + 1} è venuta troppo corta: la rifaccio…`);
+        const again = (await ask({ prompt: PROMPTS.riassuntoParte(parts[k], k + 1, parts.length) + "\n\nATTENZIONE: un tentativo precedente era troppo breve e generico. Questa volta riporta TUTTI i contenuti della parte, con i dati e i riferimenti precisi.", system: SYSTEM_TUTOR, temperature: 0.2 })).trim();
+        if (wordCount(again) > wordCount(one)) one = again;
+      }
+      sums.push(one);
     }
     const body = sums.join("\n\n");
     let frame = null;
@@ -1488,12 +1515,15 @@ async function studySummary(text) {
     md = [frame?.frase ? `## In una frase\n${frame.frase}` : "", body,
       (frame?.da_ricordare || []).length ? "## Da ricordare\n" + frame.da_ricordare.map(x => "- " + x).join("\n") : ""].filter(Boolean).join("\n\n");
   }
+  md = md.replace(/^\s*(ciao[^\n]*|ecco (il|un|qui)[^\n]*riassunto[^\n]*)\n+/i, "").replace(/\n+[^\n]*in bocca al lupo[^\n]*\s*$/i, "").trim();
+  sumInfo = { src: wordCount(text), out: wordCount(md), parts: parts.length, ai: [...aiUsed].join(" + ") };
   store.set(key, md);
   const keys = store.get("sumKeys", []).filter(k => k !== key); keys.push(key);
   keys.slice(0, Math.max(0, keys.length - 10)).forEach(k => { try { localStorage.removeItem("sf." + k); } catch { /* niente */ } });
   store.set("sumKeys", keys.slice(-10));
   return md;
 }
+let sumInfo = null;
 /** Per mappe, flashcard e simili su testi lunghi: si parte dal riassunto dettagliato, che conserva nomi e date. */
 async function studyBase(text) {
   if (wordCount(text) <= LONG_TEXT) return text;
@@ -1564,7 +1594,14 @@ async function runAction(act, source) {
     }
     busy(true, BUSY_TEXT[act] || "Ci sto pensando…");
     let out;
-    if (act === "riassunto") out = await studySummary(text);
+    if (act === "riassunto") {
+      sumInfo = null;
+      out = await studySummary(text);
+      const fmt = (n) => n.toLocaleString("it-IT");
+      const info = sumInfo ? `Riassunto di ${fmt(sumInfo.out)} parole da un testo di ${fmt(sumInfo.src)}${sumInfo.parts > 1 ? ` · lavorato in ${sumInfo.parts} parti` : ""}${sumInfo.ai ? ` · fatto con ${sumInfo.ai}` : ""}` : "Riassunto già pronto (salvato)";
+      showResult(ACT_LABELS.riassunto + part, mdToHtml(out) + `<p class="hint sum-info">${escapeHtml(info)} · <button class="linklike" data-redo-sum>Rifallo più completo</button></p>`, out);
+      return;
+    }
     else if (act === "semplifica" && wordCount(text) > LONG_TEXT) {
       const parts = chunkText(text), outs = [];
       for (let k = 0; k < parts.length; k++) { busy(true, `Semplifico la parte ${k + 1} di ${parts.length}…`); outs.push((await ask({ prompt: PROMPTS.semplifica(parts[k]), system: SYSTEM_TUTOR })).trim()); }
@@ -2655,7 +2692,7 @@ function pickSource(sel) {
 
 /* ---------- Cosa c'è di nuovo: alla prima apertura dopo un aggiornamento ---------- */
 const NEWS = [
-  { v: 29, icon: "list", title: "Studio al livello del testo", text: "Riassunti, mappe, schede e flashcard restano al livello della fonte, anche universitario o di lavoro: completi, con nomi, date, dati e termini. Solo «Spiegami» usa parole semplici. I documenti lunghi vengono lavorati parte per parte.", go: "leggi" },
+  { v: 30, icon: "list", title: "Studio al livello del testo", text: "Riassunti, mappe, schede e flashcard restano al livello della fonte, anche universitario o di lavoro: completi, con nomi, date, dati e termini. Solo «Spiegami» usa parole semplici. I documenti lunghi vengono lavorati parte per parte, e sotto il riassunto vedi quanto è lungo e quale IA l'ha fatto.", go: "leggi" },
   { v: 27, icon: "home", title: "Palazzo della memoria", text: "Le sequenze da ricordare diventano una passeggiata a voce nei posti di casa tua.", go: "palazzo" },
   { v: 26, icon: "library", title: "Il Quaderno è in basso", text: "Tutto quello che salvi, a portata di dito. E «Preparo la verifica» ti dice cosa ha salvato.", go: "quaderno" },
   { v: 25, icon: "volume", title: "I tuoi audio", text: "Carica un memo vocale: diventa testo, domande dei professori o una spiegazione da valutare.", go: "leggi" },
@@ -4221,7 +4258,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "29";
+const APP_VERSION = "30";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -4532,6 +4569,20 @@ function init() {
   $$(".action").forEach(b => b.addEventListener("click", () => runAction(b.dataset.act)));
   $("#btnResultRead").addEventListener("click", () => tts.say(lastResult));
   $("#result").addEventListener("click", (e) => { const b = e.target.closest("[data-ex]"); if (b) exerciseControl(b.dataset.ex); });
+  // «Rifallo più completo»: a pezzi più piccoli, senza usare la copia salvata
+  $("#result").addEventListener("click", async (e) => {
+    if (!e.target.closest("[data-redo-sum]")) return;
+    const text = reader.activeText(); if (!text) return;
+    try {
+      busy(true, "Rifaccio il riassunto, parte per parte…");
+      sumInfo = null;
+      const out = await studySummary(text, { force: true, size: Math.max(600, Math.min(1200, Math.ceil(wordCount(text) / 4))) });
+      const fmt = (n) => n.toLocaleString("it-IT");
+      const info = sumInfo ? `Riassunto di ${fmt(sumInfo.out)} parole da un testo di ${fmt(sumInfo.src)} · lavorato in ${sumInfo.parts} parti${sumInfo.ai ? ` · fatto con ${sumInfo.ai}` : ""}` : "";
+      showResult(ACT_LABELS.riassunto, mdToHtml(out) + `<p class="hint sum-info">${escapeHtml(info)} · <button class="linklike" data-redo-sum>Rifallo più completo</button></p>`, out);
+    } catch (err) { toast(err.message || "Non sono riuscito a rifarlo. Riprova.", 6000); }
+    finally { busy(false); }
+  });
   $("#btnResultMap").addEventListener("click", () => runAction("mappa", lastResult));
   $("#btnResultCards").addEventListener("click", () => runAction("flashcard", lastResult));
   $("#btnResultSave").addEventListener("click", async () => {
