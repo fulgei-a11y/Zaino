@@ -1238,7 +1238,7 @@ async function pdfToText(file) {
   if (!window.pdfjsLib) throw new Error("Lettore PDF non caricato: controlla la connessione.");
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-  const MAX_PAGES = 30;
+  const MAX_PAGES = 60;
   let pages = [...Array(Math.min(pdf.numPages, MAX_PAGES)).keys()].map(i => i + 1);
   // PDF lunghi (per esempio i libri di LibroAID): chiedo quali pagine servono
   if (pdf.numPages > 8) {
@@ -1300,34 +1300,75 @@ function cleanDocText(t) {
 }
 
 /** «45-52, 60» → elenco di pagine del PDF. Se il PDF ha i numeri stampati (etichette), uso quelli. */
+/** Numeri scritti in lettere (anche dettati): «trentadue» → 32. */
+function itNumberWords(t) {
+  const U = { zero: 0, uno: 1, una: 1, un: 1, due: 2, tre: 3, quattro: 4, cinque: 5, sei: 6, sette: 7, otto: 8, nove: 9, dieci: 10, undici: 11, dodici: 12, tredici: 13, quattordici: 14, quindici: 15, sedici: 16, diciassette: 17, diciotto: 18, diciannove: 19 };
+  const T = { venti: 20, trenta: 30, quaranta: 40, cinquanta: 50, sessanta: 60, settanta: 70, ottanta: 80, novanta: 90 };
+  const one = (w) => {
+    if (w in U) return U[w];
+    if (w === "cento") return 100;
+    let base = 0, rest = w;
+    if (w.startsWith("cento")) { base = 100; rest = w.slice(5); if (!rest) return 100; }
+    for (const [k, v] of Object.entries(T)) {
+      const stem = k.slice(0, -1);   // venti → vent (ventuno, ventotto)
+      if (rest === k) return base + v;
+      if (rest.startsWith(k) && rest.slice(k.length) in U) return base + v + U[rest.slice(k.length)];
+      if (rest.startsWith(stem) && ["uno", "otto"].includes(rest.slice(stem.length))) return base + v + U[rest.slice(stem.length)];
+    }
+    if (base && rest in U) return base + U[rest];
+    return null;
+  };
+  return t.replace(/[a-zàèéìòù]+/gi, (w) => { const n = one(w.toLowerCase().replace(/[àèéìòù]/g, c => ({ à: "a", è: "e", é: "e", ì: "i", ò: "o", ù: "u" }[c]))); return n == null ? w : String(n); });
+}
+/** Pagine richieste a parole: «45-52», «da 1 a 30», «dalla 3 alla 7, 12», «tutte» → elenco di pagine del PDF. */
 function parsePageList(txt, total, labels) {
-  const toIndex = (v) => {
+  const toIndex = (v, clamp = false) => {
     if (labels) { const i = labels.indexOf(String(v)); if (i >= 0) return i + 1; }
     const n = parseInt(v, 10);
+    if (clamp && n > total) return total;   // «da 30 a 50» in un documento di 42 pagine → 30-42
     return n >= 1 && n <= total ? n : null;
   };
+  let t = itNumberWords(String(txt).toLowerCase())
+    .replace(/\b(pagine|pagina|pag|pp|p)\b\.?/g, " ")
+    .replace(/\b(tutte|tutto|intero|intera|tutto il documento|tutte le pagine)\b/g, ` 1-${total} `)
+    .replace(/\b(dalla|dal|da|dall')\s*/g, " ")
+    .replace(/(\d+)\s*(?:fino alla|fino al|fino a|alla|al|a|-|–|—|→|>)\s*(\d+)/g, "$1-$2")
+    .replace(/\b(e|ed|più|poi)\b/g, ",");
   const out = [];
-  for (const part of txt.replace(/\s*[-–]\s*/g, "-").split(/[\s,;]+/).filter(Boolean)) {
-    const m = part.match(/^(\w+)\s*[-–]\s*(\w+)$/);
+  for (const part of t.split(/[\s,;]+/).filter(Boolean)) {
+    const m = part.match(/^(\w+)-(\w+)$/);
     if (m) {
-      const a = toIndex(m[1]), b = toIndex(m[2]);
+      const a = toIndex(m[1]), b = toIndex(m[2], true);
       if (a && b) for (let i = Math.min(a, b); i <= Math.max(a, b); i++) out.push(i);
     } else { const a = toIndex(part); if (a) out.push(a); }
   }
   return [...new Set(out)].sort((x, y) => x - y);
 }
+/** «1, 2, 3, 4, 9» → «1–4, 9» */
+function pagesLabel(pages) {
+  const out = []; let a = pages[0], prev = pages[0];
+  for (const p of pages.slice(1).concat([null])) {
+    if (p === prev + 1) { prev = p; continue; }
+    out.push(a === prev ? String(a) : `${a}–${prev}`); a = prev = p;
+  }
+  return out.join(", ");
+}
 async function askPdfPages(total, labels, name) {
+  const MAX = 60;
   const useLabels = labels && labels.some((l, i) => l !== String(i + 1));
-  const msg = `«${name}» ha ${total} pagine. Quali ti servono? Scrivi per esempio 45-52 oppure 12, 15-18.` +
+  const msg = `«${name}» ha ${total} pagine. Quali ti servono? Scrivi per esempio «da 45 a 52», «12, 15-18» oppure «tutte».` +
     (useLabels ? " Puoi usare i numeri stampati sulle pagine del libro." : " Usa i numeri delle pagine del PDF (possono essere diversi da quelli stampati sul libro).") +
-    ` Al massimo 30 pagine alla volta.`;
+    ` Al massimo ${MAX} pagine alla volta.`;
   for (;;) {
-    const r = await uiDialog({ title: "Quali pagine?", message: msg, input: "", buttons: [{ label: "Annulla", value: null }, { label: "Leggi queste pagine", value: "ok", primary: true }] });
+    const r = await uiDialog({ title: "Quali pagine?", message: msg, input: total <= MAX ? "tutte" : "", buttons: [{ label: "Annulla", value: null }, { label: "Avanti", value: "ok", primary: true }] });
     if (!r || r.choice !== "ok") return null;
     const pages = parsePageList(r.text, total, useLabels ? labels : null);
-    if (!pages.length) { toast("Non ho capito le pagine. Scrivi per esempio 45-52."); continue; }
-    if (pages.length > 30) { toast(`Sono ${pages.length} pagine: scegline al massimo 30 alla volta.`, 5000); continue; }
-    return pages;
+    if (!pages.length) { toast("Non ho capito le pagine. Scrivi per esempio «da 45 a 52».", 5000); continue; }
+    if (pages.length > MAX) { toast(`Sono ${pages.length} pagine: scegline al massimo ${MAX} alla volta.`, 5000); continue; }
+    // conferma: così un errore si vede prima di leggere
+    const labelOf = (i) => useLabels ? labels[i - 1] : String(i);
+    const ok = await uiConfirm(`Leggo ${pages.length === 1 ? "la pagina" : "le pagine"} ${useLabels ? pages.map(labelOf).join(", ").replace(/^(.{60}).+$/, "$1…") : pagesLabel(pages)} (${pages.length} ${pages.length === 1 ? "pagina" : "pagine"}). Va bene?`, "Sì, leggi");
+    if (ok) return pages;
   }
 }
 
@@ -4288,7 +4329,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "31";
+const APP_VERSION = "32";
 
 /* =========================================================
    TESTO DA UN SITO WEB
