@@ -364,7 +364,7 @@ const lifeTxt = (a, b) => b == null ? `nato nel ${yearTxt(a)}` : a < 0 && b < 0 
    ========================================================= */
 const AUTORE_PROMPTS = {
   scheda: (nome, materia, vita, fonte, extra = "") => `${extra ? extra + "\n" : ""}Prepara una scheda di studio su ${nome} (${vita}) per una studentessa di quarta del liceo delle scienze umane con dislessia, materia: ${materia}.
-Livello: quello di un buon manuale di liceo (quarto-quinto anno). La dislessia riguarda la lettura, non la comprensione: frasi chiare (fino a 25 parole), ma contenuti completi e precisi, con i termini tecnici originali (spiegati) e le argomentazioni dell'autore. Solo informazioni corrette e verificabili.
+Livello: almeno quello di un buon manuale di liceo (quarto-quinto anno); se la fonte è più specialistica, mantieni il suo livello. La dislessia riguarda la lettura, non la comprensione: frasi chiare (fino a 25 parole), ma contenuti completi e precisi, con i termini tecnici originali (spiegati) e le argomentazioni dell'autore. Solo informazioni corrette e verificabili.
 ${fonte ? `Basati sulla VOCE DI WIKIPEDIA riportata in fondo: prendi da lì date, opere, concetti e nomi. Puoi semplificare e riordinare, ma non contraddirla.
 Se un'informazione non è nella voce, aggiungila solo se ne sei assolutamente sicuro; altrimenti lasciala fuori. Non inventare frasi celebri: se non sei certo che sia autentica, scrivi "frase": null.` : `Se non sei sicuro di un dato (anno, titolo, frase celebre), lascialo fuori. Non inventare frasi celebri: se non sei certo, scrivi "frase": null.`}
 Rispondi SOLO con JSON:

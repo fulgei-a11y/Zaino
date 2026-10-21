@@ -483,8 +483,8 @@ function wavBlob(samples, rate) {
 }
 
 /* ---------- Istruzioni per l'IA ---------- */
-const SYSTEM_TUTOR = `Sei un tutor esperto per una studentessa di quarta del liceo delle scienze umane (Italia), brava e studiosa, con dislessia (DSA).
-La dislessia riguarda la lettura, NON la capacità di capire: il livello dei contenuti deve essere quello del liceo (quarto e quinto anno), mai da scuola elementare o media.
+const SYSTEM_TUTOR = `Sei un tutor esperto per una studentessa del liceo delle scienze umane (Italia), brava e studiosa, con dislessia (DSA), che studia anche su testi di livello universitario.
+La dislessia riguarda la lettura, NON la capacità di capire. REGOLA FONDAMENTALE: il livello del contenuto è quello della FONTE. Se il testo è universitario o specialistico, il tuo lavoro resta a quel livello: stesso lessico tecnico, stessa precisione, stessa ricchezza di concetti. Non abbassare mai il livello del contenuto (mai da scuola media o elementare); il minimo è il liceo.
 Forma: italiano chiaro, frasi non troppo lunghe (indicativamente fino a 25 parole), una idea per frase, struttura ordinata con titoli ed elenchi.
 Contenuto: completo e preciso. Conserva SEMPRE nomi, date, numeri, luoghi, opere, termini tecnici, definizioni, cause e conseguenze, collegamenti. Non generalizzare e non sostituire i dettagli con frasi vaghe.
 Non usare tabelle. Spiega i termini tecnici la prima volta che compaiono, ma non eliminarli: servono per le verifiche.
@@ -493,7 +493,7 @@ Formato consentito: righe che iniziano con "## " per i titoli, righe che inizian
 
 /* misure proporzionate alla lunghezza del testo */
 const wordCount = (t) => (String(t).match(/\S+/g) || []).length;
-const sumTarget = (t) => Math.round(Math.min(1400, Math.max(180, wordCount(t) * 0.25)) / 10) * 10;
+const sumTarget = (t) => Math.round(Math.min(1600, Math.max(200, wordCount(t) * 0.3)) / 10) * 10;
 const cardCount = (t) => { const n = Math.min(40, Math.max(10, Math.round(wordCount(t) / 120))); return `da ${n} a ${n + 5}`; };
 const mapSize = (t) => wordCount(t) > 2500 ? "da 5 a 9 rami principali; fino a 4 livelli sotto il titolo; dentro i riquadri metti nomi, date e termini precisi" : wordCount(t) > 900 ? "da 4 a 8 rami principali; massimo 3 livelli sotto il titolo" : "da 3 a 7 rami principali; massimo 3 livelli sotto il titolo";
 
@@ -581,7 +581,7 @@ Rispondi SOLO con JSON:
  "termini_da_usare": [{"termine": "termine tecnico del testo che non ha usato", "significato": "spiegazione semplice"}],
  "ordine": "una frase sull'ordine del discorso: era logico? cosa conveniva dire prima?",
  "consiglio": "un solo consiglio pratico per la prossima volta"}
-Regole: valuta come un professore di liceo (per una copertura alta servono anche i termini tecnici, i nomi, le date e i collegamenti); conta i concetti importanti (al massimo 15 tra detti e mancanti); non segnare come errore una parola trascritta male; se ha detto poco, copertura bassa ma tono gentile; frasi brevi e semplici; liste vuote se non c'è niente da dire.
+Regole: valuta come un professore esigente, al livello del testo (per una copertura alta servono anche i termini tecnici, i nomi, le date e i collegamenti); conta i concetti importanti (al massimo 15 tra detti e mancanti); non segnare come errore una parola trascritta male; se ha detto poco, copertura bassa ma tono gentile; frasi brevi e semplici; liste vuote se non c'è niente da dire.
 
 TESTO:
 """${src}"""
@@ -622,8 +622,9 @@ Dividilo in blocchi con un titolo "## " ciascuno, nell'ordine del testo. Frasi p
 
 TESTO:
 ${t}`,
-  riassunto: (t) => `Fai un riassunto DI STUDIO di questo testo, per una studentessa di quarta superiore che deve prendere un buon voto all'interrogazione usando solo il riassunto.
-Lunghezza: circa ${sumTarget(t)} parole (circa un quarto del testo). Non essere generico: ogni punto deve contenere informazioni concrete.
+  riassunto: (t) => `Fai un riassunto DI STUDIO di questo testo: chi lo usa deve poter studiare SOLO sul riassunto e prendere il voto massimo, a scuola o all'università.
+Livello: quello della FONTE. Mantieni il lessico specialistico, la precisione dei concetti, le distinzioni, le argomentazioni e i passaggi logici dell'autore; non trasformare un testo universitario in un testo divulgativo.
+Lunghezza: circa ${sumTarget(t)} parole; se il testo è denso, puoi superarla: meglio un riassunto più lungo che uno lacunoso. Non essere generico: ogni punto deve contenere informazioni concrete.
 Struttura:
 ## In una frase
 (di cosa parla tutto il testo)
@@ -635,8 +636,8 @@ Non aggiungere informazioni che nel testo non ci sono.
 
 TESTO:
 ${t}`,
-  riassuntoParte: (t, k, n) => `Questa è la parte ${k} di ${n} di un documento lungo. Fai il riassunto DI STUDIO solo di questa parte, per una studentessa di quarta superiore.
-Lunghezza: circa ${sumTarget(t)} parole. Non essere generico: conserva nomi, date, numeri, opere, definizioni, termini tecnici, cause e conseguenze.
+  riassuntoParte: (t, k, n) => `Questa è la parte ${k} di ${n} di un documento lungo. Fai il riassunto DI STUDIO solo di questa parte, al livello della FONTE (se è universitaria, resta universitario: stesso lessico tecnico e stessa precisione).
+Lunghezza: circa ${sumTarget(t)} parole; se la parte è densa puoi superarla, meglio più lungo che lacunoso. Non essere generico: conserva nomi, date, numeri, opere, definizioni, distinzioni concettuali, argomentazioni, termini tecnici, cause e conseguenze.
 Formato: una sezione "## titolo" per ogni argomento della parte, nello stesso ordine del testo, con elenchi "- " ricchi di dettagli e parole chiave in **grassetto**. Niente introduzioni o conclusioni generali.
 
 TESTO (parte ${k} di ${n}):
@@ -648,24 +649,25 @@ Rispondi SOLO con JSON:
 
 RIASSUNTO:
 ${sum}`,
-  parole: (t) => `Estrai dal testo le ${Math.min(40, Math.max(8, Math.round(wordCount(t) / 120)))} parole, nomi o concetti più importanti da studiare (livello quarta superiore: termini tecnici, autori, opere, date chiave).
+  parole: (t) => `Estrai dal testo le ${Math.min(40, Math.max(8, Math.round(wordCount(t) / 120)))} parole, nomi o concetti più importanti da studiare (al livello della fonte: termini tecnici, autori, opere, date chiave).
 Per ognuno scrivi una riga così:
 - **parola**: definizione precisa, come la chiederebbe l'insegnante (1-2 frasi), con l'autore o il contesto a cui si lega, se c'è.
 Mettili nell'ordine in cui compaiono nel testo.
 
 TESTO:
 ${t}`,
-  spiega: (t) => `Spiegami questo testo come farebbe un ottimo insegnante di liceo, in modo che lo capisca a fondo e sappia esporlo all'interrogazione.
+  spiega: (t) => `Spiegami questo testo come farebbe un ottimo insegnante, in modo che lo capisca a fondo e sappia esporlo all'interrogazione.
+QUI puoi (e devi) usare parole più semplici, analogie ed esempi di vita quotidiana: è lo strumento per capire. Però non togliere concetti, non dire cose inesatte e non eliminare i termini tecnici: spiegali con parole semplici, così li impara.
 ## Di cosa parla
 (2-3 frasi: argomento, contesto, perché è importante)
 ## Spiegazione passo passo
-(segui l'ordine del testo; per ogni passaggio spiega il concetto, il ragionamento che c'è dietro, i termini tecnici, i nomi e le date; chiarisci i punti difficili senza togliere precisione)
+(segui l'ordine del testo; per ogni passaggio spiega il concetto con parole semplici, il ragionamento che c'è dietro, cosa significano i termini tecnici, i nomi e le date; sui punti difficili usa un'analogia)
 ## Collegamenti
 - (con altri autori, periodi, materie o concetti, se il testo li permette)
 ## Un esempio per fissarlo
 (un esempio concreto che aiuta a capire il concetto più difficile)
 ## Domande per verificare se ho capito
-- (4 domande da interrogazione, di livello liceo, senza risposta)
+- (4 domande da interrogazione sul testo, senza risposta)
 
 TESTO:
 ${t}`,
@@ -677,7 +679,7 @@ Regole:
 - ogni riquadro ha al massimo 7 parole: parole chiave, non frasi lunghe;
 - ogni riquadro deve dire qualcosa di PRECISO (un nome, una data, una definizione, una causa, una conseguenza): mai riquadri vaghi come "Importanza", "Conseguenze", "Aspetti" senza contenuto sotto;
 - includi tutti i nomi, le date, le opere e i termini importanti del testo;
-- l'ordine dei rami segue l'ordine logico o cronologico; livello quarta superiore.
+- l'ordine dei rami segue l'ordine logico o cronologico; il livello è quello della fonte (anche universitario).
 
 TESTO:
 ${t}`,
@@ -688,7 +690,7 @@ Regole: da 5 a 8 rami principali; fino a 4 livelli; ogni riquadro al massimo 7 p
   migliora: (json) => `Questa è una mappa concettuale fatta da una studentessa. Aiutala a migliorarla, rispettando il suo lavoro.
 Regole:
 - MANTIENI la sua struttura e le sue parole: non cancellare i suoi riquadri e non riscriverli, salvo per correggere errori di ortografia o di contenuto evidenti;
-- AGGIUNGI i concetti importanti che mancano per un buon voto al liceo (date, nomi, opere, termini tecnici, cause, conseguenze, collegamenti), al punto giusto della mappa;
+- AGGIUNGI i concetti importanti che mancano per studiare bene l'argomento al suo livello (date, nomi, opere, termini tecnici, cause, conseguenze, collegamenti), al punto giusto della mappa;
 - metti "nuovo": true SOLO sui riquadri che aggiungi tu, e su quelli in cui correggi un errore;
 - ogni riquadro al massimo 7 parole; massimo 4 livelli sotto il titolo; non aggiungere più di 15 riquadri in tutto;
 - se un riquadro è troppo lungo puoi accorciarlo (e segnarlo con "nuovo": true).
@@ -700,7 +702,7 @@ ${json}`,
   flashcard: (t) => `Crea flashcard per ripassare questo testo in vista di una verifica.
 Rispondi SOLO con JSON: {"titolo": "argomento breve", "carte": [{"domanda": "...", "risposta": "..."}]}
 Regole:
-- ${cardCount(t)} carte, che coprano TUTTI i concetti, i nomi, le date e le definizioni importanti (livello quarta superiore, non domande banali);
+- ${cardCount(t)} carte, che coprano TUTTI i concetti, i nomi, le date e le definizioni importanti (al livello della fonte, anche universitario; mai domande banali);
 - mescola i tipi di domanda: definizioni precise, "perché…", "come…", cause e conseguenze, confronti, collegamenti, chi/quando/dove;
 - domande chiare, una sola cosa per domanda;
 - risposte complete ma compatte (fino a 40 parole), con i termini tecnici, i nomi e le date giuste.
@@ -755,14 +757,14 @@ Regole: da 2 a 4 colonne; da 5 a 10 righe; celle precise e concrete (fino a 20 p
 TESTO:
 ${t}`,
   domanda: (t, gia) => `Sei un insegnante che interroga una studentessa delle superiori su questo testo.
-Fai UNA sola domanda aperta, chiara, come in una vera interrogazione orale di quarta o quinta superiore. Alterna domande di definizione precisa, di spiegazione ("perché…", "come…"), di esposizione ("parlami di…"), di confronto e di collegamento; non fare domande banali o di sola memoria spicciola.
+Fai UNA sola domanda aperta, chiara, come in una vera interrogazione orale, al livello del testo (liceo o università). Alterna domande di definizione precisa, di spiegazione ("perché…", "come…"), di esposizione ("parlami di…"), di confronto e di collegamento; non fare domande banali o di sola memoria spicciola.
 ${gia.length ? "NON ripetere queste domande già fatte:\n- " + gia.join("\n- ") : ""}
 Rispondi SOLO con JSON: {"domanda": "..."}
 
 TESTO:
 ${t}`,
   valuta: (t, domanda, risposta) => `Sei un insegnante gentile ma preciso. Una studentessa con dislessia ha risposto A VOCE a una domanda di interrogazione (la risposta è trascritta automaticamente: ignora errori di trascrizione, ripetizioni e punteggiatura).
-Valuta il CONTENUTO confrontandolo con il testo studiato, con il metro di un professore di liceo: "ottimo" solo se la risposta è completa, precisa e usa i termini giusti; "buono" se manca poco; non regalare il giudizio. Sii incoraggiante nel tono e concreto nelle indicazioni.
+Valuta il CONTENUTO confrontandolo con il testo studiato, con il metro di un professore esigente, al livello del testo: "ottimo" solo se la risposta è completa, precisa e usa i termini giusti; "buono" se manca poco; non regalare il giudizio. Sii incoraggiante nel tono e concreto nelle indicazioni.
 Rispondi SOLO con JSON:
 {"livello": "ottimo" | "buono" | "sufficiente" | "da rivedere", "bene": ["cosa ha detto di giusto"], "manca": ["concetto importante che non ha detto"], "errori": ["affermazione sbagliata → versione corretta"], "risposta_modello": "una risposta da voto alto, in 4-7 frasi chiare, con i termini tecnici, i nomi e le date giuste", "consiglio": "un consiglio pratico per migliorare l'esposizione"}
 
@@ -798,8 +800,8 @@ ${t}`,
 Rispondi SOLO con JSON:
 {"introduzione": "2 frasi: di cosa parla l'argomento e perché è importante",
  "schede": [{"ramo": "testo ESATTO del ramo", "spiegazione": "3-5 frasi chiare che spiegano e collegano i concetti del ramo, con nomi, date e termini precisi", "ricorda": "la frase chiave da ricordare"}],
- "domande": ["4-6 domande da interrogazione su tutta la mappa, livello quarta superiore"]}
-Usa solo informazioni corrette; frasi di massimo 25 parole; nessun elenco dentro le frasi; contenuti da liceo, non generici.
+ "domande": ["4-6 domande da interrogazione su tutta la mappa, al livello dei suoi contenuti"]}
+Usa solo informazioni corrette; frasi di massimo 25 parole; nessun elenco dentro le frasi; contenuti precisi al livello della mappa (almeno liceo), non generici.
 
 MAPPA:
 ${json}`,
@@ -2652,8 +2654,7 @@ function pickSource(sel) {
 
 /* ---------- Cosa c'è di nuovo: alla prima apertura dopo un aggiornamento ---------- */
 const NEWS = [
-  { v: 28, icon: "list", title: "Studio più approfondito", text: "Riassunti, schede, flashcard e spiegazioni ora sono a livello di quarta superiore: completi, con nomi, date e termini. I documenti lunghi vengono lavorati parte per parte.", go: "leggi" },
-  { v: 28, icon: "list", title: "Riassunti da liceo", text: "Riassunti completi, lunghi il giusto, con nomi, date e termini; i documenti lunghi vengono riassunti parte per parte.", go: "leggi" },
+  { v: 29, icon: "list", title: "Studio più approfondito", text: "Riassunti, schede e flashcard restano al livello della fonte (anche universitario): completi, con nomi, date e termini. «Spiegami» invece usa parole semplici. I documenti lunghi vengono lavorati parte per parte.", go: "leggi" },
   { v: 27, icon: "home", title: "Palazzo della memoria", text: "Le sequenze da ricordare diventano una passeggiata a voce nei posti di casa tua.", go: "palazzo" },
   { v: 26, icon: "library", title: "Il Quaderno è in basso", text: "Tutto quello che salvi, a portata di dito. E «Preparo la verifica» ti dice cosa ha salvato.", go: "quaderno" },
   { v: 25, icon: "volume", title: "I tuoi audio", text: "Carica un memo vocale: diventa testo, domande dei professori o una spiegazione da valutare.", go: "leggi" },
@@ -4219,7 +4220,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "28";
+const APP_VERSION = "29";
 
 /* =========================================================
    TESTO DA UN SITO WEB
