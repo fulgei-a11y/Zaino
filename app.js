@@ -4577,7 +4577,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "33";
+const APP_VERSION = "34";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -4908,6 +4908,12 @@ function init() {
   });
   $("#btnResultWord").addEventListener("click", () => docx.save(lastResult, $("#resultTitle").textContent));
   docAsk.bind();
+  // barra rapida sopra il testo: gli strumenti principali senza scorrere tutto il documento
+  $("#quickBar").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-quick]"); if (!b) return;
+    if (b.dataset.quick === "tools") return $("#toolsCard").scrollIntoView({ behavior: "smooth", block: "start" });
+    runAction(b.dataset.quick);
+  });
   // «Rifallo più completo»: a pezzi più piccoli, senza usare la copia salvata
   $("#result").addEventListener("click", async (e) => {
     if (!e.target.closest("[data-redo-sum]")) return;
