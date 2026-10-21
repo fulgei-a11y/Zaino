@@ -483,11 +483,11 @@ function wavBlob(samples, rate) {
 }
 
 /* ---------- Istruzioni per l'IA ---------- */
-const SYSTEM_TUTOR = `Sei un tutor esperto per una studentessa del liceo delle scienze umane (Italia), brava e studiosa, con dislessia (DSA), che studia anche su testi di livello universitario.
-La dislessia riguarda la lettura, NON la capacità di capire. REGOLA FONDAMENTALE: il livello del contenuto è quello della FONTE. Se il testo è universitario o specialistico, il tuo lavoro resta a quel livello: stesso lessico tecnico, stessa precisione, stessa ricchezza di concetti. Non abbassare mai il livello del contenuto (mai da scuola media o elementare); il minimo è il liceo.
-Forma: italiano chiaro, frasi non troppo lunghe (indicativamente fino a 25 parole), una idea per frase, struttura ordinata con titoli ed elenchi.
-Contenuto: completo e preciso. Conserva SEMPRE nomi, date, numeri, luoghi, opere, termini tecnici, definizioni, cause e conseguenze, collegamenti. Non generalizzare e non sostituire i dettagli con frasi vaghe.
-Non usare tabelle. Spiega i termini tecnici la prima volta che compaiono, ma non eliminarli: servono per le verifiche.
+const SYSTEM_TUTOR = `Sei un assistente esperto di studio e di lavoro sui testi. Chi ti usa può essere uno studente (scuola superiore o università) o un professionista, e ha la dislessia (DSA).
+La dislessia riguarda la LETTURA, non la capacità di capire. Quindi l'aiuto sta nella FORMA, mai nella riduzione del contenuto.
+REGOLA FONDAMENTALE — il livello del contenuto è quello della FONTE: liceo, università, documento professionale, tecnico, scientifico o giuridico. Mantieni lo stesso lessico specialistico, la stessa precisione, le stesse distinzioni e la stessa ricchezza di concetti. Non trasformare mai un testo specialistico in un testo divulgativo o scolastico, e non scendere mai sotto il livello liceale.
+Conserva SEMPRE: nomi, date, numeri, dati e unità di misura, luoghi, opere e fonti, riferimenti precisi (articoli, norme, sigle, codici), definizioni, distinzioni concettuali, argomentazioni, condizioni ed eccezioni, cause e conseguenze, collegamenti. Non generalizzare e non sostituire i dettagli con frasi vaghe.
+Forma: italiano chiaro e ordinato, frasi non troppo lunghe (indicativamente fino a 25-30 parole), un'idea per frase, titoli ed elenchi. Non usare tabelle. I termini tecnici restano: spiegali brevemente solo la prima volta, se aiuta.
 Non inventare informazioni che non sono nel testo, salvo quando ti viene chiesto di spiegare.
 Formato consentito: righe che iniziano con "## " per i titoli, righe che iniziano con "- " per gli elenchi, **grassetto** per le parole chiave. Nient'altro.`;
 
@@ -498,15 +498,15 @@ const cardCount = (t) => { const n = Math.min(40, Math.max(10, Math.round(wordCo
 const mapSize = (t) => wordCount(t) > 2500 ? "da 5 a 9 rami principali; fino a 4 livelli sotto il titolo; dentro i riquadri metti nomi, date e termini precisi" : wordCount(t) > 900 ? "da 4 a 8 rami principali; massimo 3 livelli sotto il titolo" : "da 3 a 7 rami principali; massimo 3 livelli sotto il titolo";
 
 const PROMPTS = {
-  palazzoLuoghi: (t) => `Una studentessa ha descritto a voce un percorso che conosce bene (casa sua o un tragitto), per usarlo con il metodo dei loci.
+  palazzoLuoghi: (t) => `Una persona ha descritto a voce un percorso che conosce bene (casa sua o un tragitto), per usarlo con il metodo dei loci.
 Estrai i luoghi IN ORDINE, uno per ogni punto preciso del percorso (es. "porta d'ingresso", "attaccapanni", "divano"). Togli parole come "poi", "dopo", "c'è".
 Rispondi SOLO con JSON: {"luoghi": ["...", "..."]}
 
 DESCRIZIONE:
 """${t}"""`,
-  palazzoCammino: (luoghi, richiesta, testo) => `Sei un esperto di tecniche di memoria. Aiuta una studentessa delle superiori con dislessia a memorizzare una SEQUENZA con il metodo dei loci, usando il suo percorso personale.
+  palazzoCammino: (luoghi, richiesta, testo) => `Sei un esperto di tecniche di memoria. Aiuta una persona con dislessia a memorizzare una SEQUENZA con il metodo dei loci, usando il suo percorso personale.
 COSA DEVE RICORDARE: ${richiesta}
-${testo ? `Prendi gli elementi della sequenza dal TESTO qui sotto (sono la fonte giusta).` : `Se è una sequenza nota della scuola (stadi, fasi, opere, elenchi), usa gli elementi corretti; se non sei sicuro, usa solo quello che è scritto nella richiesta.`}
+${testo ? `Prendi gli elementi della sequenza dal TESTO qui sotto (sono la fonte giusta).` : `Se è una sequenza nota (stadi, fasi, opere, elenchi, procedure), usa gli elementi corretti; se non sei sicuro, usa solo quello che è scritto nella richiesta.`}
 LUOGHI DEL PERCORSO, in ordine: ${luoghi.map((l, i) => `${i + 1}. ${l}`).join("; ")}
 
 Rispondi SOLO con JSON:
@@ -517,7 +517,7 @@ Regole:
 - l'immagine è in seconda persona ("apri la porta e vedi…"), 2-3 frasi, concreta, piena di dettagli da vedere, sentire e toccare, esagerata o buffa, con movimento: così si ricorda;
 - l'immagine deve contenere un aggancio chiaro alla parola chiave dell'elemento (un oggetto, un gioco di parole, un personaggio) e legarsi al luogo;
 - niente scene violente, paurose o inadatte;
-- gli elementi devono essere corretti: è materia di studio.${testo ? `
+- gli elementi devono essere corretti e completi, con il lessico della materia: è materiale di studio o di lavoro.${testo ? `
 
 TESTO:
 """${testo}"""` : ""}`,
@@ -560,7 +560,7 @@ ${storico}
 
 TESTO:
 """${testo}"""`,
-  zoom: (t) => `Prepara una vista "a zoom" di questo testo per una studentessa con dislessia: la legge PRIMA del testo intero, per capirne subito il senso e la struttura.
+  zoom: (t) => `Prepara una vista "a zoom" di questo testo, per una persona con dislessia: la legge PRIMA del testo intero, per capirne subito il senso e la struttura. Resta al livello della fonte: frasi concrete e precise, con il lessico del testo.
 Rispondi SOLO con JSON:
 {"frase": "il succo di tutto il testo in UNA frase di massimo 25 parole",
  "parole_chiave": ["da 3 a 5 parole, nomi o date chiave"],
@@ -569,16 +569,16 @@ Regole: da 4 a ${Math.min(14, Math.max(8, Math.round(wordCount(t) / 600)))} punt
 
 TESTO:
 """${t}"""`,
-  spiegalo: (src, detto) => `Una studentessa delle superiori con dislessia ha spiegato a voce un argomento, senza leggere, come all'interrogazione.
+  spiegalo: (src, detto) => `Una persona con dislessia ha spiegato a voce un argomento, senza leggere, come a un'interrogazione, un esame orale o una presentazione di lavoro.
 Confronta la sua spiegazione con il TESTO di riferimento. La spiegazione è trascritta in automatico: ignora errori di trascrizione, ripetizioni e intercalari ("ehm", "cioè", "praticamente").
 Rispondi SOLO con JSON:
 {"copertura": numero da 0 a 100 (quanta parte dei concetti importanti del testo ha spiegato),
  "giudizio": "2 frasi sincere e incoraggianti",
  "punti_detti": ["concetti importanti spiegati bene, in poche parole"],
- "punti_mancanti": [{"punto": "concetto importante che non ha detto", "in_breve": "come poteva dirlo in una frase semplice"}],
+ "punti_mancanti": [{"punto": "concetto importante che non ha detto", "in_breve": "come poteva dirlo, in una frase precisa con i termini giusti"}],
  "errori": [{"detto": "cosa ha detto di sbagliato o di confuso", "corretto": "la versione giusta"}],
  "termini_usati": ["termini tecnici che ha usato bene"],
- "termini_da_usare": [{"termine": "termine tecnico del testo che non ha usato", "significato": "spiegazione semplice"}],
+ "termini_da_usare": [{"termine": "termine tecnico del testo che non ha usato", "significato": "definizione chiara e precisa"}],
  "ordine": "una frase sull'ordine del discorso: era logico? cosa conveniva dire prima?",
  "consiglio": "un solo consiglio pratico per la prossima volta"}
 Regole: valuta come un professore esigente, al livello del testo (per una copertura alta servono anche i termini tecnici, i nomi, le date e i collegamenti); conta i concetti importanti (al massimo 15 tra detti e mancanti); non segnare come errore una parola trascritta male; se ha detto poco, copertura bassa ma tono gentile; frasi brevi e semplici; liste vuote se non c'è niente da dire.
@@ -588,19 +588,20 @@ TESTO:
 
 SPIEGAZIONE DELLA STUDENTESSA:
 """${detto}"""`,
-  domandeVerifica: (t, materia) => `Una studentessa delle superiori con dislessia ha una verifica di ${materia || "questa materia"} su questo testo.
-Prepara le ${Math.min(15, Math.max(8, Math.round(wordCount(t) / 400)))} domande più probabili che l'insegnante potrebbe fare (scritte o orali), dalla più semplice alla più difficile: definizioni, spiegazioni, esposizioni di un argomento, confronti, collegamenti.
+  domandeVerifica: (t, materia) => `Una persona deve prepararsi a una prova (verifica, interrogazione, esame universitario o colloquio) di ${materia || "questa materia"} su questo testo. Le domande e le risposte devono essere al livello della FONTE.
+Prepara le ${Math.min(15, Math.max(8, Math.round(wordCount(t) / 400)))} domande più probabili che un esaminatore potrebbe fare (scritte o orali), dalla più semplice alla più difficile: definizioni, spiegazioni, esposizioni di un argomento, confronti, collegamenti.
 Per ognuna scrivi una risposta modello da voto alto, presa dal testo.
 Rispondi SOLO con JSON: {"domande": [{"domanda": "...", "risposta": "4-8 frasi chiare e complete, con i termini tecnici, i nomi e le date giuste; parole chiave in **grassetto**"}]}
 
 TESTO:
 """${t}"""`,
-  controlla: (src, out, cosa, json) => `Sei un revisore molto attento. Un assistente ha preparato ${cosa} a partire dal TESTO qui sotto, per una studentessa delle superiori con dislessia.
+  controlla: (src, out, cosa, json) => `Sei un revisore molto attento. Un assistente ha preparato ${cosa} a partire dal TESTO qui sotto, per una persona con dislessia che deve studiarlo o usarlo.
 Controlla il lavoro confrontandolo riga per riga con il TESTO:
 1. correggi ogni informazione sbagliata, confusa o che nel testo non c'è (nomi, date, numeri, definizioni, cause e conseguenze);
 2. aggiungi le informazioni importanti del testo che mancano;
 3. togli ripetizioni e frasi vuote;
-4. NON cambiare lo stile semplice, mantieni più o meno la stessa lunghezza e lo stesso formato.
+4. controlla che il livello sia quello del TESTO (stesso lessico tecnico e stessa precisione): se il lavoro è troppo generico o semplificato, rendilo preciso;
+5. mantieni lo stesso formato; la lunghezza può crescere se servono informazioni mancanti.
 ${json ? "Rispondi SOLO con il JSON corretto, con la stessa identica struttura e gli stessi nomi dei campi." : "Rispondi SOLO con la versione corretta e completa, nello stesso formato, senza commenti e senza dire cosa hai cambiato."}
 Se è già tutto corretto, restituiscilo identico.
 
@@ -622,7 +623,7 @@ Dividilo in blocchi con un titolo "## " ciascuno, nell'ordine del testo. Frasi p
 
 TESTO:
 ${t}`,
-  riassunto: (t) => `Fai un riassunto DI STUDIO di questo testo: chi lo usa deve poter studiare SOLO sul riassunto e prendere il voto massimo, a scuola o all'università.
+  riassunto: (t) => `Fai un riassunto DI STUDIO di questo testo: chi lo usa deve poter studiare o lavorare SOLO sul riassunto senza perdere nulla di importante: prendere il voto massimo a scuola o all'università, oppure usarlo al lavoro.
 Livello: quello della FONTE. Mantieni il lessico specialistico, la precisione dei concetti, le distinzioni, le argomentazioni e i passaggi logici dell'autore; non trasformare un testo universitario in un testo divulgativo.
 Lunghezza: circa ${sumTarget(t)} parole; se il testo è denso, puoi superarla: meglio un riassunto più lungo che uno lacunoso. Non essere generico: ogni punto deve contenere informazioni concrete.
 Struttura:
@@ -630,8 +631,8 @@ Struttura:
 (di cosa parla tutto il testo)
 Poi una sezione "## titolo" per ogni parte del testo, NELLO STESSO ORDINE del testo, con elenchi "- " ricchi di dettagli:
 chi, cosa, quando, dove, perché, con quali conseguenze; definizioni dei concetti; nomi, date, numeri, opere; parole chiave in **grassetto**.
-## Da ricordare per la verifica
-- (TUTTI i nomi, le date, i numeri, le definizioni e i termini importanti del testo, uno per riga, con una breve spiegazione)
+## Da ricordare
+- (TUTTI i nomi, le date, i numeri, i dati, i riferimenti, le definizioni e i termini importanti del testo, uno per riga, con una breve spiegazione)
 Non aggiungere informazioni che nel testo non ci sono.
 
 TESTO:
@@ -645,7 +646,7 @@ ${t}`,
   riassuntoCornice: (sum) => `Ecco il riassunto dettagliato di un documento lungo, diviso per sezioni. Preparane la cornice.
 Rispondi SOLO con JSON:
 {"frase": "di cosa parla tutto il documento, in 1-2 frasi",
- "da_ricordare": ["TUTTI i nomi, le date, i numeri e i termini importanti, ciascuno con una breve spiegazione"]}
+ "da_ricordare": ["TUTTI i nomi, le date, i numeri, i dati, i riferimenti e i termini importanti, ciascuno con una breve spiegazione"]}
 
 RIASSUNTO:
 ${sum}`,
@@ -656,7 +657,7 @@ Mettili nell'ordine in cui compaiono nel testo.
 
 TESTO:
 ${t}`,
-  spiega: (t) => `Spiegami questo testo come farebbe un ottimo insegnante, in modo che lo capisca a fondo e sappia esporlo all'interrogazione.
+  spiega: (t) => `Spiegami questo testo come farebbe un ottimo insegnante, in modo che lo capisca a fondo e sappia spiegarlo a sua volta (a un'interrogazione, a un esame o in una riunione di lavoro).
 QUI puoi (e devi) usare parole più semplici, analogie ed esempi di vita quotidiana: è lo strumento per capire. Però non togliere concetti, non dire cose inesatte e non eliminare i termini tecnici: spiegali con parole semplici, così li impara.
 ## Di cosa parla
 (2-3 frasi: argomento, contesto, perché è importante)
@@ -667,7 +668,7 @@ QUI puoi (e devi) usare parole più semplici, analogie ed esempi di vita quotidi
 ## Un esempio per fissarlo
 (un esempio concreto che aiuta a capire il concetto più difficile)
 ## Domande per verificare se ho capito
-- (4 domande da interrogazione sul testo, senza risposta)
+- (4 domande sul testo, al suo livello, senza risposta)
 
 TESTO:
 ${t}`,
@@ -683,14 +684,14 @@ Regole:
 
 TESTO:
 ${t}`,
-  mappaTema: (t) => `Crea una mappa concettuale sull'argomento "${t}" al livello delle scuole superiori italiane.
+  mappaTema: (t) => `Crea una mappa concettuale sull'argomento "${t}", al livello che l'argomento richiede (almeno quello di un buon manuale di liceo; se l'argomento è universitario o professionale, a quel livello).
 Rispondi SOLO con JSON in questo formato:
 {"titolo": "argomento centrale", "rami": [{"testo": "concetto", "figli": [{"testo": "dettaglio", "figli": []}]}]}
-Regole: da 5 a 8 rami principali; fino a 4 livelli; ogni riquadro al massimo 7 parole e con un contenuto preciso (nomi, date, opere, definizioni, cause, conseguenze), mai vago; contenuti corretti e verificabili, al livello di un buon manuale di liceo.`,
-  migliora: (json) => `Questa è una mappa concettuale fatta da una studentessa. Aiutala a migliorarla, rispettando il suo lavoro.
+Regole: da 5 a 8 rami principali; fino a 4 livelli; ogni riquadro al massimo 7 parole e con un contenuto preciso (nomi, date, opere, definizioni, cause, conseguenze), mai vago; contenuti corretti e verificabili.`,
+  migliora: (json) => `Questa è una mappa concettuale fatta da una persona con dislessia. Aiutala a migliorarla, rispettando il suo lavoro e restando al livello dei suoi contenuti.
 Regole:
 - MANTIENI la sua struttura e le sue parole: non cancellare i suoi riquadri e non riscriverli, salvo per correggere errori di ortografia o di contenuto evidenti;
-- AGGIUNGI i concetti importanti che mancano per studiare bene l'argomento al suo livello (date, nomi, opere, termini tecnici, cause, conseguenze, collegamenti), al punto giusto della mappa;
+- AGGIUNGI i concetti importanti che mancano per conoscere bene l'argomento al suo livello (date, nomi, opere, termini tecnici, cause, conseguenze, collegamenti), al punto giusto della mappa;
 - metti "nuovo": true SOLO sui riquadri che aggiungi tu, e su quelli in cui correggi un errore;
 - ogni riquadro al massimo 7 parole; massimo 4 livelli sotto il titolo; non aggiungere più di 15 riquadri in tutto;
 - se un riquadro è troppo lungo puoi accorciarlo (e segnarlo con "nuovo": true).
@@ -699,7 +700,7 @@ Rispondi SOLO con JSON in questo formato:
 
 MAPPA ATTUALE (il primo "testo" è il titolo al centro):
 ${json}`,
-  flashcard: (t) => `Crea flashcard per ripassare questo testo in vista di una verifica.
+  flashcard: (t) => `Crea flashcard per ripassare e ricordare questo testo (in vista di una verifica, di un esame o per il lavoro).
 Rispondi SOLO con JSON: {"titolo": "argomento breve", "carte": [{"domanda": "...", "risposta": "..."}]}
 Regole:
 - ${cardCount(t)} carte, che coprano TUTTI i concetti, i nomi, le date e le definizioni importanti (al livello della fonte, anche universitario; mai domande banali);
@@ -709,17 +710,17 @@ Regole:
 
 TESTO:
 ${t}`,
-  traduci: (t, from, to) => `Traduci questo testo ${from === "it" ? "dall'italiano" : "in italiano"}${to && to !== "it" ? " in " + LANGS[to].name.toLowerCase() : ""}, per una studentessa che lo deve studiare.
+  traduci: (t, from, to) => `Traduci questo testo ${from === "it" ? "dall'italiano" : "in italiano"}${to && to !== "it" ? " in " + LANGS[to].name.toLowerCase() : ""}, per chi lo deve studiare o usare.
 Procedi paragrafo per paragrafo. Per ogni paragrafo scrivi:
 - prima una riga che inizia con "${LANGS[from]?.flag || ""} " seguita dal paragrafo originale;
-- poi una riga che inizia con "${LANGS[to]?.flag || "🇮🇹"} " seguita dalla traduzione, semplice e naturale.
+- poi una riga che inizia con "${LANGS[to]?.flag || "🇮🇹"} " seguita dalla traduzione, fedele e naturale, con la terminologia tecnica corretta del settore.
 Lascia una riga vuota tra un paragrafo e l'altro. Metti in **grassetto** nella traduzione le parole più importanti. Nessun altro commento.
 
 TESTO:
 ${t}`,
-  vocaboli: (t, lang) => `Questo testo è in ${LANGS[lang].name.toLowerCase()}. Crea flashcard di vocaboli per una studentessa italiana delle superiori.
+  vocaboli: (t, lang) => `Questo testo è in ${LANGS[lang].name.toLowerCase()}. Crea flashcard di vocaboli per una persona italiana che deve studiare o usare questo testo.
 Rispondi SOLO con JSON: {"titolo": "argomento breve in italiano", "carte": [{"domanda": "parola o espressione in ${LANGS[lang].name.toLowerCase()}", "risposta": "traduzione italiana — breve esempio in ${LANGS[lang].name.toLowerCase()}"}]}
-Regole: da 10 a 20 carte; scegli parole utili e importanti del testo (anche verbi ed espressioni), non quelle banali; per i verbi irregolari indica le forme principali.
+Regole: da 10 a 25 carte; scegli parole utili e importanti del testo (anche verbi, espressioni e termini tecnici del settore), non quelle banali; per i verbi irregolari indica le forme principali.
 
 TESTO:
 ${t}`,
@@ -737,7 +738,7 @@ Scrivi le formule in modo leggibile, con simboli come ², ³, √, ·, /, Δ, π
 
 TESTO:
 ${t}`,
-  esercizio: (t) => `Questo è un esercizio (di matematica, fisica, chimica, grammatica o altro). Aiuta la studentessa a risolverlo DA SOLA, passo per passo, come farebbe un buon insegnante.
+  esercizio: (t) => `Questo è un esercizio (di matematica, fisica, chimica, grammatica o altro). Aiuta chi studia a risolverlo DA SOLO, passo per passo, come farebbe un buon insegnante, al livello dell'esercizio (scuola o università).
 Rispondi SOLO con JSON:
 {"esercizio": "testo dell'esercizio, ricopiato in breve", "dati": ["dato 1", "dato 2"], "passi": [{"titolo": "titolo breve del passo", "spiegazione": "cosa fare e perché, con il calcolo di questo passo"}], "risultato": "risultato finale con unità di misura", "controllo": "come verificare che il risultato sia sensato"}
 Regole: da 3 a 7 passi; frasi brevi; formule leggibili (², √, ·, niente LaTeX); se ci sono più esercizi, risolvi solo il primo.
@@ -756,14 +757,14 @@ Regole: da 2 a 4 colonne; da 5 a 10 righe; celle precise e concrete (fino a 20 p
 
 TESTO:
 ${t}`,
-  domanda: (t, gia) => `Sei un insegnante che interroga una studentessa delle superiori su questo testo.
+  domanda: (t, gia) => `Sei un docente esigente che interroga su questo testo (interrogazione o esame orale).
 Fai UNA sola domanda aperta, chiara, come in una vera interrogazione orale, al livello del testo (liceo o università). Alterna domande di definizione precisa, di spiegazione ("perché…", "come…"), di esposizione ("parlami di…"), di confronto e di collegamento; non fare domande banali o di sola memoria spicciola.
 ${gia.length ? "NON ripetere queste domande già fatte:\n- " + gia.join("\n- ") : ""}
 Rispondi SOLO con JSON: {"domanda": "..."}
 
 TESTO:
 ${t}`,
-  valuta: (t, domanda, risposta) => `Sei un insegnante gentile ma preciso. Una studentessa con dislessia ha risposto A VOCE a una domanda di interrogazione (la risposta è trascritta automaticamente: ignora errori di trascrizione, ripetizioni e punteggiatura).
+  valuta: (t, domanda, risposta) => `Sei un docente gentile ma preciso. Una persona con dislessia ha risposto A VOCE a una domanda d'esame o di interrogazione (la risposta è trascritta automaticamente: ignora errori di trascrizione, ripetizioni e punteggiatura).
 Valuta il CONTENUTO confrontandolo con il testo studiato, con il metro di un professore esigente, al livello del testo: "ottimo" solo se la risposta è completa, precisa e usa i termini giusti; "buono" se manca poco; non regalare il giudizio. Sii incoraggiante nel tono e concreto nelle indicazioni.
 Rispondi SOLO con JSON:
 {"livello": "ottimo" | "buono" | "sufficiente" | "da rivedere", "bene": ["cosa ha detto di giusto"], "manca": ["concetto importante che non ha detto"], "errori": ["affermazione sbagliata → versione corretta"], "risposta_modello": "una risposta da voto alto, in 4-7 frasi chiare, con i termini tecnici, i nomi e le date giuste", "consiglio": "un consiglio pratico per migliorare l'esposizione"}
@@ -775,7 +776,7 @@ DOMANDA: ${domanda}
 
 RISPOSTA DELLA STUDENTESSA:
 ${risposta}`,
-  piano: (materia, argomenti, giorni, minuti) => `Crea un piano di studio per una studentessa con dislessia che deve prepararsi a una verifica di ${materia}.
+  piano: (materia, argomenti, giorni, minuti) => `Crea un piano di studio per una persona con dislessia che deve prepararsi a una prova (verifica, esame o certificazione) di ${materia}.
 Argomenti da studiare:
 ${argomenti}
 
@@ -783,12 +784,12 @@ Giorni disponibili (formato AAAA-MM-GG): ${giorni.join(", ")}
 Tempo al giorno: circa ${minuti} minuti, divisi in sessioni da 20-25 minuti con pause.
 Regole:
 - distribuisci gli argomenti in modo equilibrato, prima i più difficili;
-- per ogni argomento prevedi attività attive: leggere con la sintesi vocale, fare la mappa, flashcard, interrogazione simulata;
+- per ogni argomento prevedi attività attive: leggere con la sintesi vocale, fare la mappa, flashcard, spiegarlo a voce, interrogazione simulata;
 - l'ultimo giorno è solo ripasso generale (mappe, flashcard, interrogazione);
 - se i giorni sono pochi, concentra l'essenziale;
 - attività brevi e concrete (max 12 parole ciascuna).
 Rispondi SOLO con JSON: {"sessioni": [{"data": "AAAA-MM-GG", "attivita": ["...", "..."]}]}`,
-  spiegaErrori: (t) => `Trova gli errori di ortografia, grammatica e punteggiatura in questo testo scritto da una studentessa con dislessia e disortografia.
+  spiegaErrori: (t) => `Trova gli errori di ortografia, grammatica e punteggiatura in questo testo scritto da una persona con dislessia e disortografia.
 Per ogni errore spiega la regola in modo semplice e gentile, con un trucco per ricordarla.
 Rispondi SOLO con JSON:
 {"errori": [{"sbagliato": "parola o pezzo sbagliato, esattamente come è scritto", "corretto": "versione giusta", "tipo": "accenti" | "apostrofo" | "h" | "doppie" | "maiuscole" | "punteggiatura" | "lettere scambiate" | "parole unite o staccate" | "grammatica" | "altro", "regola": "spiegazione breve con un trucco"}], "testo_corretto": "tutto il testo corretto"}
@@ -796,18 +797,18 @@ Se non ci sono errori, "errori" è una lista vuota.
 
 TESTO:
 ${t}`,
-  schede: (json) => `Questa è una mappa concettuale di una studentessa. Per ogni ramo principale scrivi una scheda di ripasso.
+  schede: (json) => `Questa è una mappa concettuale. Per ogni ramo principale scrivi una scheda di ripasso, al livello dei contenuti della mappa.
 Rispondi SOLO con JSON:
 {"introduzione": "2 frasi: di cosa parla l'argomento e perché è importante",
  "schede": [{"ramo": "testo ESATTO del ramo", "spiegazione": "3-5 frasi chiare che spiegano e collegano i concetti del ramo, con nomi, date e termini precisi", "ricorda": "la frase chiave da ricordare"}],
- "domande": ["4-6 domande da interrogazione su tutta la mappa, al livello dei suoi contenuti"]}
+ "domande": ["4-6 domande di ripasso su tutta la mappa, al livello dei suoi contenuti"]}
 Usa solo informazioni corrette; frasi di massimo 25 parole; nessun elenco dentro le frasi; contenuti precisi al livello della mappa (almeno liceo), non generici.
 
 MAPPA:
 ${json}`,
-  fisica: (t) => `Sei un insegnante di fisica paziente. Aiuta una studentessa delle superiori con dislessia e discalculia a risolvere questo problema DA SOLA, un passo alla volta.
+  fisica: (t) => `Sei un insegnante di fisica paziente. Aiuta una persona con dislessia e discalculia a risolvere questo problema DA SOLA, un passo alla volta, al livello del problema (scuola o università).
 Rispondi SOLO con JSON:
-{"riassunto": "cosa chiede il problema, in una frase semplice",
+{"riassunto": "cosa chiede il problema, in una frase chiara",
  "dati": [{"simbolo": "v₀", "grandezza": "velocità iniziale", "valore": "72", "unita": "km/h", "si": "20 m/s"}],
  "incognite": [{"simbolo": "t", "grandezza": "tempo"}],
  "formule": [{"formula": "v = s / t", "perche": "lega spazio, tempo e velocità"}],
@@ -1485,7 +1486,7 @@ async function studySummary(text) {
     let frame = null;
     try { busy(true, "Metto insieme il riassunto…"); frame = parseJSON(await ask({ prompt: PROMPTS.riassuntoCornice(body), json: true, temperature: 0.2 })); } catch { /* il corpo basta */ }
     md = [frame?.frase ? `## In una frase\n${frame.frase}` : "", body,
-      (frame?.da_ricordare || []).length ? "## Da ricordare per la verifica\n" + frame.da_ricordare.map(x => "- " + x).join("\n") : ""].filter(Boolean).join("\n\n");
+      (frame?.da_ricordare || []).length ? "## Da ricordare\n" + frame.da_ricordare.map(x => "- " + x).join("\n") : ""].filter(Boolean).join("\n\n");
   }
   store.set(key, md);
   const keys = store.get("sumKeys", []).filter(k => k !== key); keys.push(key);
@@ -2654,7 +2655,7 @@ function pickSource(sel) {
 
 /* ---------- Cosa c'è di nuovo: alla prima apertura dopo un aggiornamento ---------- */
 const NEWS = [
-  { v: 29, icon: "list", title: "Studio più approfondito", text: "Riassunti, schede e flashcard restano al livello della fonte (anche universitario): completi, con nomi, date e termini. «Spiegami» invece usa parole semplici. I documenti lunghi vengono lavorati parte per parte.", go: "leggi" },
+  { v: 29, icon: "list", title: "Studio al livello del testo", text: "Riassunti, mappe, schede e flashcard restano al livello della fonte, anche universitario o di lavoro: completi, con nomi, date, dati e termini. Solo «Spiegami» usa parole semplici. I documenti lunghi vengono lavorati parte per parte.", go: "leggi" },
   { v: 27, icon: "home", title: "Palazzo della memoria", text: "Le sequenze da ricordare diventano una passeggiata a voce nei posti di casa tua.", go: "palazzo" },
   { v: 26, icon: "library", title: "Il Quaderno è in basso", text: "Tutto quello che salvi, a portata di dito. E «Preparo la verifica» ti dice cosa ha salvato.", go: "quaderno" },
   { v: 25, icon: "volume", title: "I tuoi audio", text: "Carica un memo vocale: diventa testo, domande dei professori o una spiegazione da valutare.", go: "leggi" },
