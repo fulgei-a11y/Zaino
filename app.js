@@ -517,6 +517,40 @@ const cardCount = (t) => { const n = Math.min(40, Math.max(10, Math.round(wordCo
 const mapSize = (t) => wordCount(t) > 2500 ? "da 5 a 9 rami principali; fino a 4 livelli sotto il titolo; dentro i riquadri metti nomi, date e termini precisi" : wordCount(t) > 900 ? "da 4 a 8 rami principali; massimo 3 livelli sotto il titolo" : "da 3 a 7 rami principali; massimo 3 livelli sotto il titolo";
 
 const PROMPTS = {
+  chiediDoc: (q, doc, storia) => `Rispondi alla DOMANDA usando SOLO il DOCUMENTO qui sotto (sono estratti di un documento più lungo, nell'ordine originale).
+Regole:
+- risposta completa ma diretta, al livello del documento (stesso lessico tecnico), di solito 80-250 parole; usa elenchi "- " se ci sono più elementi;
+- per ogni informazione indica la pagina tra parentesi, così: (p. 12) oppure (pp. 12-13), usando i segni ⟦p. N⟧ del documento (N è la pagina che segue il segno);
+- se la risposta NON è nel documento, dillo chiaramente ("Nel documento non ho trovato…") e, se c'è, indica cosa di vicino contiene; non inventare e non usare conoscenze esterne;
+- niente saluti o introduzioni.
+${storia ? `CONVERSAZIONE PRECEDENTE:\n${storia}\n` : ""}
+DOMANDA: ${q}
+
+DOCUMENTO:
+"""${doc}"""`,
+  estrai: (t) => `Estrai dal testo TUTTE le sigle, i riferimenti normativi e i dati numerici. Sii completo e preciso.
+Rispondi SOLO con JSON:
+{"sigle": [{"sigla": "es. PMI", "significato": "piccole e medie imprese", "pagina": "12"}],
+ "norme": [{"riferimento": "riferimento completo, es. Legge 11 novembre 2011, n. 180, art. 2", "contenuto": "cosa prevede o perché il testo la cita, in una frase", "pagina": "8"}],
+ "dati": [{"dato": "cosa misura", "valore": "numero con unità o percentuale", "contesto": "anno, luogo o confronto, in poche parole", "pagina": "5"}]}
+Regole: "pagina" è il numero del segno ⟦p. N⟧ che precede l'informazione (stringa vuota se il testo non ha segni di pagina); sigle: solo quelle presenti nel testo, con lo scioglimento giusto; norme: leggi, decreti, regolamenti, direttive, articoli, sentenze; dati: numeri significativi (non i numeri di pagina o di paragrafo); liste vuote se non ce ne sono.
+
+TESTO:
+"""${t}"""`,
+  executive: (md) => `Dal RIASSUNTO dettagliato qui sotto prepara un EXECUTIVE SUMMARY di una pagina (massimo 350 parole), al livello della fonte, per chi deve capire e decidere in fretta.
+Formato:
+## In sintesi
+(2-3 frasi: di cosa si tratta e la conclusione principale)
+## Punti chiave
+- (5-8 punti, i più importanti, concreti)
+## Conclusioni e proposte
+- (cosa si conclude o si propone)
+## Numeri chiave
+- (i dati più importanti, se ci sono)
+Mantieni i riferimenti di pagina (p. N) quando ci sono. Niente saluti o introduzioni.
+
+RIASSUNTO:
+${md}`,
   palazzoLuoghi: (t) => `Una persona ha descritto a voce un percorso che conosce bene (casa sua o un tragitto), per usarlo con il metodo dei loci.
 Estrai i luoghi IN ORDINE, uno per ogni punto preciso del percorso (es. "porta d'ingresso", "attaccapanni", "divano"). Togli parole come "poi", "dopo", "c'è".
 Rispondi SOLO con JSON: {"luoghi": ["...", "..."]}
@@ -652,20 +686,20 @@ Poi una sezione "## titolo" per ogni parte del testo, NELLO STESSO ORDINE del te
 chi, cosa, quando, dove, perché, con quali conseguenze; definizioni dei concetti; nomi, date, numeri, opere; parole chiave in **grassetto**.
 ## Da ricordare
 - (TUTTI i nomi, le date, i numeri, i dati, i riferimenti, le definizioni e i termini importanti del testo, uno per riga, con una breve spiegazione)
-Non aggiungere informazioni che nel testo non ci sono.
+Non aggiungere informazioni che nel testo non ci sono.${pageRule(t)}
 
 TESTO:
 ${t}`,
   riassuntoParte: (t, k, n) => `Questa è la parte ${k} di ${n} di un documento lungo. Fai il riassunto DI STUDIO solo di questa parte, al livello della FONTE (se è universitaria, resta universitario: stesso lessico tecnico e stessa precisione).
 Lunghezza: circa ${sumTarget(t)} parole; se la parte è densa puoi superarla, meglio più lungo che lacunoso. Non essere generico: conserva nomi, date, numeri, opere, definizioni, distinzioni concettuali, argomentazioni, termini tecnici, cause e conseguenze.
-Formato: una sezione "## titolo" per ogni argomento della parte, nello stesso ordine del testo, con elenchi "- " ricchi di dettagli e parole chiave in **grassetto**. Niente introduzioni o conclusioni generali.
+Formato: una sezione "## titolo" per ogni argomento della parte, nello stesso ordine del testo, con elenchi "- " ricchi di dettagli e parole chiave in **grassetto**. Niente introduzioni o conclusioni generali.${pageRule(t)}
 
 TESTO (parte ${k} di ${n}):
 ${t}`,
   riassuntoCornice: (sum) => `Ecco il riassunto dettagliato di un documento lungo, diviso per sezioni. Preparane la cornice.
 Rispondi SOLO con JSON:
 {"frase": "di cosa parla tutto il documento, in 1-2 frasi",
- "da_ricordare": ["TUTTI i nomi, le date, i numeri, i dati, i riferimenti e i termini importanti, ciascuno con una breve spiegazione"]}
+ "da_ricordare": ["TUTTI i nomi, le date, i numeri, i dati, i riferimenti e i termini importanti, ciascuno con una breve spiegazione e, se c'è nel riassunto, la pagina tra parentesi (p. N)"]}
 
 RIASSUNTO:
 ${sum}`,
@@ -968,7 +1002,7 @@ const tts = {
   /** Legge un testo qualsiasi (risultati, carte, mappe). La lingua, se non indicata, la riconosce da sola. */
   say(text, onEnd, lang) {
     this.stop();
-    const clean = (text || "").replace(/[#*_`>\[\]]/g, " ").replace(/\s+/g, " ").trim();
+    const clean = (text || "").replace(/⟦p\.[^⟧]*⟧/g, " ").replace(/\((?:pp?\.)\s*[\w\s,–-]+\)/g, " ").replace(/[#*_`>\[\]]/g, " ").replace(/\s+/g, " ").trim();
     if (!clean) return;
     const lg = lang || detectLang(clean);
     const chunks = splitSentences(clean);
@@ -1024,7 +1058,7 @@ const reader = {
 
   /** Un titolo per il testo aperto: la prima riga. */
   title() {
-    return (this.text.split("\n").find(l => l.trim()) || "Testo").replace(/^#+\s*/, "").slice(0, 60);
+    return (this.text.split("\n").find(l => l.trim() && !/^⟦p\./.test(l.trim())) || "Testo").replace(/^#+\s*/, "").slice(0, 60);
   },
 
   setLang(lang) {
@@ -1090,6 +1124,12 @@ const reader = {
     // i titoli (# …) diventano sempre un paragrafo a sé
     const paragraphs = this.text.replace(/^(#.*)$/gm, "\n$1\n").split(/\n\s*\n/);
     for (const para of paragraphs) {
+      const pm = para.trim().match(/^⟦p\. ([^⟧]+)⟧$/);
+      if (pm) {   // segno di pagina: un piccolo separatore, che la voce non legge
+        const d = document.createElement("div");
+        d.className = "pg-mark"; d.dataset.page = pm[1]; d.textContent = "pagina " + pm[1];
+        box.appendChild(d); continue;
+      }
       const p = document.createElement("p");
       let t = para.replace(/\n/g, " ").trim();
       if (!t) continue;
@@ -1241,10 +1281,10 @@ async function pdfToText(file) {
   const MAX_PAGES = 60;
   let pages = [...Array(Math.min(pdf.numPages, MAX_PAGES)).keys()].map(i => i + 1);
   // PDF lunghi (per esempio i libri di LibroAID): chiedo quali pagine servono
+  let labels = null;
+  try { labels = await pdf.getPageLabels(); } catch { /* niente */ }
   if (pdf.numPages > 8) {
     busy(false);
-    let labels = null;
-    try { labels = await pdf.getPageLabels(); } catch { /* niente */ }
     const chosen = await askPdfPages(pdf.numPages, labels, file.name);
     if (!chosen) throw new Error("Nessuna pagina scelta.");
     pages = chosen;
@@ -1280,7 +1320,8 @@ async function pdfToText(file) {
       await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
       text = await ask({ prompt: PROMPTS.ocr, images: [canvasToB64(c)], temperature: 0, patient: true });
     }
-    out.push(text.trim());
+    // segno di pagina: serve per citare la pagina nei riassunti e per tornare al punto giusto
+    out.push(`⟦p. ${labels && labels.some((l, i) => l !== String(i + 1)) ? labels[p - 1] : p}⟧\n\n${text.trim()}`);
   }
   const clean = cleanDocText(out.join("\n\n"));
   pdfInfo = { pages: n, imgPages, words: wordCount(clean) };
@@ -1419,7 +1460,9 @@ async function handleFiles(files) {
 function mdToHtml(md) {
   const lines = escapeHtml(md.trim()).split("\n");
   let html = "", list = null;
-  const inline = (s) => s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+  const inline = (s) => s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+    .replace(/⟦p\.\s*([^⟧]+)⟧/g, "(p. $1)")
+    .replace(/\((pp?\.\s*([\w]+)(?:\s*[-–,]\s*[\w]+)*)\)/g, (m, all, first) => `<button class="pref" data-page="${first}" title="Vai a questa pagina del testo">${all}</button>`);
   const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
   for (const raw of lines) {
     const l = raw.trim();
@@ -1591,10 +1634,10 @@ async function studySummary(text, { force = false, size = 0 } = {}) {
 let sumInfo = null;
 /** Riga grigia sotto il riassunto: quanto è lungo, in quante parti, con quale IA; e il dettaglio parte per parte. */
 function sumInfoHtml() {
-  if (!sumInfo) return `<p class="hint sum-info">Riassunto già pronto (salvato) · <button class="linklike" data-redo-sum>Rifallo più completo</button></p>`;
+  if (!sumInfo) return `<div class="hint sum-info"><p><button class="btn small" data-exec>${icon("list")}Versione breve (1 pagina)</button></p><p>Riassunto già pronto (salvato) · <button class="linklike" data-redo-sum>Rifallo più completo</button></p></div>`;
   const f = (n) => n.toLocaleString("it-IT");
   const d = sumInfo.details || [];
-  return `<div class="hint sum-info"><p>Riassunto di ${f(sumInfo.out)} parole da un testo di ${f(sumInfo.src)}${sumInfo.parts > 1 ? ` · lavorato in ${sumInfo.parts} parti` : ""}${sumInfo.ai ? ` · fatto con ${escapeHtml(sumInfo.ai)}` : ""} · <button class="linklike" data-redo-sum>Rifallo più completo</button></p>
+  return `<div class="hint sum-info"><p><button class="btn small" data-exec>${icon("list")}Versione breve (1 pagina)</button></p><p>Riassunto di ${f(sumInfo.out)} parole da un testo di ${f(sumInfo.src)}${sumInfo.parts > 1 ? ` · lavorato in ${sumInfo.parts} parti` : ""}${sumInfo.ai ? ` · fatto con ${escapeHtml(sumInfo.ai)}` : ""} · <button class="linklike" data-redo-sum>Rifallo più completo</button></p>
     ${d.length > 1 ? `<details><summary>Dettagli parte per parte</summary><ol>${d.map(x => `<li>${escapeHtml(x.start || "")}… — ${f(x.inW)} parole lette → ${f(x.outW)} nel riassunto · ${escapeHtml(x.ai || "?")}${x.retried ? " · rifatta" : ""}</li>`).join("")}</ol></details>` : ""}</div>`;
 }
 /** Per mappe, flashcard e simili su testi lunghi: si parte dal riassunto dettagliato, che conserva nomi e date. */
@@ -1628,6 +1671,12 @@ async function runAction(act, source) {
   try {
     if (act === "interroga") { showView("ripassa"); ripassa.tab("interroga"); return quiz.setSource(text, reader.title()); }
     if (act === "palazzo") return palazzo.fromReader();
+    if (act === "chiedidoc") return docAsk.open();
+    if (act === "estrai") {
+      const d = await extractRefs(text);
+      const r = renderRefs(d);
+      return showResult("Sigle, norme e dati" + part, r.html, r.md);
+    }
     if (act === "mappa") {
       busy(true, "Sto creando la mappa…");
       const base = await studyBase(text);
@@ -2503,6 +2552,201 @@ const ripassa = {
   }
 };
 
+/** Dal riferimento «(p. 12)» al punto del testo originale nel lettore */
+function goToPage(label) {
+  const mark = [...document.querySelectorAll("#reader .pg-mark")].find(m => m.dataset.page === String(label));
+  if (!mark) return toast("Per tornare alla pagina, apri in Studia il documento da cui viene il riassunto.", 5000);
+  showView("leggi");
+  if (zoom.level !== 3) zoom.set(3);
+  setTimeout(() => {
+    mark.scrollIntoView({ behavior: "smooth", block: "start" });
+    const next = mark.nextElementSibling;
+    [mark, next].forEach(el => { el?.classList.add("zm-flash"); setTimeout(() => el?.classList.remove("zm-flash"), 2500); });
+  }, 60);
+}
+/** Istruzione per citare le pagine, se il testo ha i segni di pagina */
+const pageRule = (t) => /⟦p\./.test(t) ? `\nIl testo contiene i segni di pagina ⟦p. N⟧ (N è il numero della pagina che segue). Alla fine di ogni punto indica tra parentesi la pagina da cui viene l'informazione, così: (p. 12) oppure (pp. 12-13). Non copiare i segni ⟦ ⟧.` : "";
+
+/** Parti di un documento che cominciano sempre con il loro segno di pagina (per citare la pagina giusta). */
+function chunkWithPages(text, size) {
+  let lastMark = "";
+  return chunkText(text, size).map(c => {
+    const first = c.trim().match(/^⟦p\.[^⟧]+⟧/);
+    const out = first || !lastMark ? c : lastMark + "\n\n" + c;
+    const marks = c.match(/⟦p\.[^⟧]+⟧/g); if (marks) lastMark = marks[marks.length - 1];
+    return out;
+  });
+}
+
+/* ---------- Chiedi al documento: risposte solo dal testo, con le pagine ---------- */
+const docAsk = {
+  log: [], textHash: "", rec: null,
+  open() {
+    if (!reader.text) return toast("Prima apri un documento.");
+    const h = zoom.hash(reader.text);
+    if (h !== this.textHash) { this.log = []; this.textHash = h; }
+    this.render();
+    $("#docAskCard").classList.remove("hidden");
+    $("#docAskCard").scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => $("#docAskInput").focus(), 300);
+  },
+  /** Per i documenti lunghi scelgo i pezzi più pertinenti alla domanda. */
+  context(q) {
+    const text = reader.text;
+    if (wordCount(text) <= 8000) return text;
+    const norm = (x) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const STOP = new Set("della delle degli dello nella nelle negli sono come cosa quali quale quando dove perche anche questo questa quello quella essere stato hanno fatto fare loro sulla sulle dalla dalle".split(" "));
+    const keys = [...new Set(norm(q).split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !STOP.has(w)).map(w => w.slice(0, Math.max(5, w.length - 2))))];
+    const pieces = chunkWithPages(text, 800);
+    const scored = pieces.map((c, i) => { const n = norm(c); return { i, c, sc: keys.reduce((a, k) => a + (n.split(k).length - 1), 0) }; });
+    const pick = [];
+    let words = 0;
+    for (const x of scored.slice().sort((a, b) => b.sc - a.sc)) {
+      if (words > 6500) break;
+      if (x.sc === 0 && pick.length >= 3) break;
+      pick.push(x); words += wordCount(x.c);
+    }
+    return pick.sort((a, b) => a.i - b.i).map(x => x.c).join("\n\n[…]\n\n");
+  },
+  async send() {
+    const q = $("#docAskInput").value.trim();
+    if (!q) return;
+    $("#docAskInput").value = "";
+    this.log.push({ q, a: null });
+    this.render();
+    try {
+      const storia = this.log.slice(-4, -1).map(x => `D: ${x.q}\nR: ${x.a || ""}`).join("\n");
+      const a = (await ask({ prompt: PROMPTS.chiediDoc(q, this.context(q), storia), system: SYSTEM_TUTOR, temperature: 0.2, patient: true })).trim();
+      this.log[this.log.length - 1].a = a;
+    } catch (e) { this.log.pop(); toast(e.message || "Non sono riuscito a rispondere. Riprova.", 6000); $("#docAskInput").value = q; }
+    this.render();
+  },
+  render() {
+    $("#docAskLog").innerHTML = this.log.length ? this.log.map((x, i) => `<div class="dq">${escapeHtml(x.q)}</div>
+      <div class="da">${x.a == null ? `<span class="hint">Cerco nel documento…</span>` : mdToHtml(x.a) + `<button class="icon-btn" data-dsay="${i}" aria-label="Ascolta">${icon("volume")}</button>`}</div>`).join("")
+      : `<p class="hint">Esempi: «Quali norme cita sulle start-up innovative?» · «Cosa propone per l'energia?» · «Quali sono i dati principali sul PIL?»</p>`;
+    const last = $("#docAskLog").lastElementChild; last?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    $("#btnDocAskSave").classList.toggle("hidden", !this.log.some(x => x.a));
+  },
+  async save() {
+    const md = this.log.filter(x => x.a).map(x => `## ${x.q}\n${x.a}`).join("\n\n");
+    const r = await askSave("Salva domande e risposte", "Domande su: " + reader.title(), reader.subject);
+    if (r && notebookPut({ id: uid(), type: "testo", title: r.title, subject: r.subject, date: todayLabel(), data: md })) toast("Salvato nel quaderno");
+  },
+  bind() {
+    $("#btnDocAsk").addEventListener("click", () => this.send());
+    $("#docAskInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); this.send(); } });
+    $("#btnDocAskClose").addEventListener("click", () => $("#docAskCard").classList.add("hidden"));
+    $("#btnDocAskSave").addEventListener("click", () => this.save());
+    $("#docAskLog").addEventListener("click", (e) => { const b = e.target.closest("[data-dsay]"); if (b) tts.say(this.log[+b.dataset.dsay]?.a || "", null, "it"); });
+    this.rec = makeRecorder($("#docAskMic"), $("#docAskMicStatus"), (t) => { $("#docAskInput").value = t; this.send(); }, "");
+    $("#docAskMic").addEventListener("click", () => this.rec.toggle());
+  }
+};
+
+/* ---------- Sigle, norme e dati ---------- */
+async function extractRefs(text) {
+  const parts = wordCount(text) > 2500 ? chunkWithPages(text, 2000) : [text];
+  const all = { sigle: [], norme: [], dati: [] };
+  for (let k = 0; k < parts.length; k++) {
+    busy(true, parts.length > 1 ? `Cerco sigle, norme e dati: parte ${k + 1} di ${parts.length}…` : "Cerco sigle, norme e dati…");
+    try {
+      const d = parseJSON(await ask({ prompt: PROMPTS.estrai(parts[k]), json: true, temperature: 0.1, patient: true }));
+      for (const key of Object.keys(all)) if (Array.isArray(d[key])) all[key].push(...d[key]);
+    } catch { /* una parte non riuscita non blocca le altre */ }
+  }
+  const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const uniq = (arr, keyF) => { const seen = new Map(); for (const x of arr) { const k = keyF(x); if (!k) continue; if (!seen.has(k)) seen.set(k, { ...x }); else if (x.pagina && !String(seen.get(k).pagina).split(", ").includes(String(x.pagina))) seen.get(k).pagina = [seen.get(k).pagina, x.pagina].filter(Boolean).join(", "); } return [...seen.values()]; };
+  all.sigle = uniq(all.sigle, x => x.sigla && norm(x.sigla)).sort((a, b) => a.sigla.localeCompare(b.sigla, "it"));
+  all.norme = uniq(all.norme, x => x.riferimento && norm(x.riferimento));
+  all.dati = uniq(all.dati, x => x.valore && norm(x.dato) + norm(x.valore));
+  return all;
+}
+function renderRefs(d) {
+  const pg = (p) => p ? ` (p. ${p})` : "";
+  const pgHtml = (p) => p ? ` <button class="pref" data-page="${escapeHtml(String(p).split(/[,\s]/)[0])}">p. ${escapeHtml(String(p))}</button>` : "";
+  const html = `
+    <h3>Sigle (${d.sigle.length})</h3>${d.sigle.length ? `<dl class="au-words">${d.sigle.map(x => `<dt>${escapeHtml(x.sigla)}</dt><dd>${escapeHtml(x.significato || "")}${pgHtml(x.pagina)}</dd>`).join("")}</dl>` : `<p class="hint">Nessuna sigla.</p>`}
+    <h3>Riferimenti normativi (${d.norme.length})</h3>${d.norme.length ? `<ul class="refs-list">${d.norme.map(x => `<li><b>${escapeHtml(x.riferimento)}</b>${x.contenuto ? `: ${escapeHtml(x.contenuto)}` : ""}${pgHtml(x.pagina)}</li>`).join("")}</ul>` : `<p class="hint">Nessun riferimento normativo.</p>`}
+    <h3>Dati e numeri (${d.dati.length})</h3>${d.dati.length ? `<div class="table-wrap"><table class="compare"><thead><tr><th>Dato</th><th>Valore</th><th>Contesto</th><th>Pag.</th></tr></thead><tbody>${d.dati.map(x => `<tr><td>${escapeHtml(x.dato || "")}</td><td><b>${escapeHtml(x.valore || "")}</b></td><td>${escapeHtml(x.contesto || "")}</td><td>${pgHtml(x.pagina)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="hint">Nessun dato numerico.</p>`}`;
+  const md = [`## Sigle`, ...d.sigle.map(x => `- **${x.sigla}**: ${x.significato || ""}${pg(x.pagina)}`),
+    `## Riferimenti normativi`, ...d.norme.map(x => `- **${x.riferimento}**: ${x.contenuto || ""}${pg(x.pagina)}`),
+    `## Dati e numeri`, ...d.dati.map(x => `- **${x.dato || ""}**: ${x.valore || ""}${x.contesto ? " — " + x.contesto : ""}${pg(x.pagina)}`)].join("\n");
+  return { html, md };
+}
+
+/* ---------- Esportazione in Word (.docx), senza librerie esterne ---------- */
+const docx = {
+  crcTable: null,
+  crc(bytes) {
+    const T = this.crcTable ||= Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+    let c = 0xffffffff; for (const b of bytes) c = T[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0;
+  },
+  zip(files) {   // archivio ZIP senza compressione: Word lo apre senza problemi
+    const enc = new TextEncoder(), chunks = [], central = []; let off = 0;
+    const u16 = (n) => [n & 255, (n >> 8) & 255], u32 = (n) => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+    for (const [name, text] of files) {
+      const data = enc.encode(text), nm = enc.encode(name), crc = this.crc(data);
+      const head = [...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0)];
+      chunks.push(new Uint8Array(head), nm, data);
+      central.push([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)], nm);
+      off += head.length + nm.length + data.length;
+    }
+    let cSize = 0; const cParts = central.map(x => { const a = x instanceof Uint8Array ? x : new Uint8Array(x); cSize += a.length; return a; });
+    const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(cSize), ...u32(off), ...u16(0)]);
+    return new Blob([...chunks, ...cParts, end], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  },
+  esc: (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"),
+  runs(t) {   // **grassetto** → run in grassetto
+    return String(t).split(/(\*\*[^*]+\*\*)/).filter(Boolean).map(x => x.startsWith("**") && x.endsWith("**")
+      ? `<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${this.esc(x.slice(2, -2))}</w:t></w:r>`
+      : `<w:r><w:t xml:space="preserve">${this.esc(x)}</w:t></w:r>`).join("");
+  },
+  para(style, t) { return `<w:p><w:pPr><w:pStyle w:val="${style}"/></w:pPr>${this.runs(t)}</w:p>`; },
+  build(md, title, source) {
+    const lines = md.replace(/⟦p\.\s*([^⟧]+)⟧/g, "(p. $1)").split("\n");
+    const heads = lines.filter(l => /^#{1,4}\s+/.test(l.trim())).map(l => l.trim().replace(/^#+\s*/, ""));
+    const body = [this.para("Title", title), this.para("Sottotitolo", [source && "Fonte: " + source, "Preparato con Zaino il " + todayLabel()].filter(Boolean).join(" · "))];
+    if (heads.length > 2) { body.push(this.para("Heading1", "Indice")); heads.forEach(h => body.push(this.para("Indice", h))); }
+    for (const raw of lines) {
+      const l = raw.trim(); if (!l) continue;
+      let m;
+      if ((m = l.match(/^#{1,2}\s+(.*)/))) body.push(this.para("Heading1", m[1]));
+      else if ((m = l.match(/^#{3,4}\s+(.*)/))) body.push(this.para("Heading2", m[1]));
+      else if ((m = l.match(/^[-*•]\s+(.*)/))) body.push(this.para("Elenco", "•\t" + m[1]));
+      else if ((m = l.match(/^(\d+)[.)]\s+(.*)/))) body.push(this.para("Elenco", m[1] + ".\t" + m[2]));
+      else body.push(this.para("Normal", l));
+    }
+    const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+    const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W}><w:body>${body.join("")}<w:sectPr><w:footerReference w:type="default" r:id="rIdF"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1300" w:right="1300" w:bottom="1300" w:left="1300" w:header="600" w:footer="600" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+    const font = `<w:rFonts w:ascii="Verdana" w:hAnsi="Verdana" w:cs="Verdana"/>`;
+    const st = (id, name, ppr, rpr, extra = "") => `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/><w:basedOn w:val="Normal"/>${extra}<w:pPr>${ppr}</w:pPr><w:rPr>${rpr}</w:rPr></w:style>`;
+    const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles ${W}>
+      <w:docDefaults><w:rPrDefault><w:rPr>${font}<w:sz w:val="23"/><w:lang w:val="it-IT"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="140" w:line="360" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>
+      <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
+      ${st("Title", "Title", `<w:spacing w:after="80"/>`, `<w:b/><w:sz w:val="40"/><w:color w:val="1C2440"/>`)}
+      ${st("Sottotitolo", "Subtitle", `<w:spacing w:after="360"/>`, `<w:i/><w:sz w:val="20"/><w:color w:val="5B6275"/>`)}
+      ${st("Heading1", "heading 1", `<w:keepNext/><w:spacing w:before="320" w:after="120"/><w:outlineLvl w:val="0"/>`, `<w:b/><w:sz w:val="30"/><w:color w:val="2C47C9"/>`, `<w:next w:val="Normal"/>`)}
+      ${st("Heading2", "heading 2", `<w:keepNext/><w:spacing w:before="240" w:after="80"/><w:outlineLvl w:val="1"/>`, `<w:b/><w:sz w:val="25"/>`, `<w:next w:val="Normal"/>`)}
+      ${st("Elenco", "List Paragraph", `<w:tabs><w:tab w:val="left" w:pos="360"/></w:tabs><w:spacing w:after="100"/><w:ind w:left="360" w:hanging="360"/>`, ``)}
+      ${st("Indice", "Indice", `<w:spacing w:after="40"/><w:ind w:left="240"/>`, `<w:color w:val="2C47C9"/>`)}
+    </w:styles>`;
+    const footer = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr ${W}><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">${this.esc(title.slice(0, 70))} · pagina </w:t></w:r><w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r><w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:t>1</w:t></w:r><w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r></w:p></w:ftr>`;
+    return this.zip([
+      ["[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/></Types>`],
+      ["_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`],
+      ["word/_rels/document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdF" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>`],
+      ["word/document.xml", doc], ["word/styles.xml", styles], ["word/footer1.xml", footer]
+    ]);
+  },
+  save(md, title) {
+    if (!md) return;
+    const clean = String(title || "Zaino").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 60) || "Zaino";
+    download(clean + ".docx", this.build(md, title || "Zaino", reader.text ? reader.title() : ""));
+    toast("Documento Word scaricato");
+  }
+};
+
 /* ---------- Testo a zoom: in una frase → i punti → tutto il testo ---------- */
 const zoom = {
   level: 3, data: null,
@@ -2763,6 +3007,7 @@ function pickSource(sel) {
 
 /* ---------- Cosa c'è di nuovo: alla prima apertura dopo un aggiornamento ---------- */
 const NEWS = [
+  { v: 33, icon: "file", title: "Strumenti professionali", text: "Riassunti con il numero di pagina (tocchi e vai al punto), «Chiedi al documento», sigle, norme e dati estratti, versione breve di una pagina ed esportazione in Word.", go: "leggi" },
   { v: 31, icon: "list", title: "Studio al livello del testo", text: "Riassunti, mappe, schede e flashcard restano al livello della fonte, anche universitario o di lavoro: completi, con nomi, date, dati e termini. Solo «Spiegami» usa parole semplici. I documenti lunghi vengono lavorati parte per parte, e sotto il riassunto vedi quanto è lungo e quale IA l'ha fatto.", go: "leggi" },
   { v: 27, icon: "home", title: "Palazzo della memoria", text: "Le sequenze da ricordare diventano una passeggiata a voce nei posti di casa tua.", go: "palazzo" },
   { v: 26, icon: "library", title: "Il Quaderno è in basso", text: "Tutto quello che salvi, a portata di dito. E «Preparo la verifica» ti dice cosa ha salvato.", go: "quaderno" },
@@ -4076,6 +4321,9 @@ const GUIDE = [
     ["book", "1. Porta il testo", "In Studia fotografa una pagina, carica una foto o un PDF, oppure incolla un testo o un link. Con un PDF lungo, come un libro di LibroAID, ti chiedo quali pagine leggere."],
     ["globe", "Da un sito o Wikipedia", "Incolla un link: Zaino prende solo il testo della pagina, senza pubblicità. Oppure scrivi un argomento e trova la voce di Wikipedia. Per le pagine con accesso (registro, piattaforma della scuola) c'è il tasto «Manda a Zaino»; su Android anche Condividi → Zaino."],
     ["volume", "2. Ascoltalo", "Premi il tasto blu: la voce legge e la frase si colora come con un evidenziatore. Tocca una frase per partire da lì."],
+    ["chat", "Chiedi al documento", "Fai domande sul testo aperto: rispondo solo con quello che c'è scritto, con le pagine. Se una cosa non c'è, lo dico."],
+    ["tag", "Sigle, norme e dati", "Tutte le sigle sciolte, i riferimenti normativi e i numeri del documento, ciascuno con la sua pagina."],
+    ["file", "Pagine, versione breve e Word", "Nei riassunti dei PDF ogni punto ha la pagina: toccala e torni al testo originale. Sotto il riassunto c'è la versione breve di una pagina; ogni risultato si esporta in Word."],
     ["layers", "Testo a zoom", "Sopra il testo scegli la vista: «In una frase» per il succo, «I punti» per la struttura, «Tutto il testo» per leggere. Tocca un punto per saltare a quella parte."],
     ["sparkles", "3. Trasformalo", "Sotto il testo scegli cosa ti serve: riassunto, mappa, linea del tempo, flashcard e altro."],
     ["image", "Immagini nelle mappe", "Tocca un riquadro e premi «Immagine»: una foto, un'immagine copiata o una cercata su Wikipedia. Si vede nella mappa, in stampa e nelle schede."],
@@ -4329,7 +4577,7 @@ async function loadModels() {
 /* =========================================================
    14. AVVIO
    ========================================================= */
-const APP_VERSION = "32";
+const APP_VERSION = "33";
 
 /* =========================================================
    TESTO DA UN SITO WEB
@@ -4640,6 +4888,26 @@ function init() {
   $$(".action").forEach(b => b.addEventListener("click", () => runAction(b.dataset.act)));
   $("#btnResultRead").addEventListener("click", () => tts.say(lastResult));
   $("#result").addEventListener("click", (e) => { const b = e.target.closest("[data-ex]"); if (b) exerciseControl(b.dataset.ex); });
+  // riferimenti di pagina cliccabili, ovunque compaiano
+  document.addEventListener("click", (e) => { const b = e.target.closest(".pref"); if (b) { e.preventDefault(); goToPage(b.dataset.page); } });
+  // versione breve (executive summary) e copia
+  $("#result").addEventListener("click", async (e) => {
+    if (e.target.closest("[data-copy]")) {
+      const plain = lastResult.replace(/^#+\s*/gm, "").replace(/\*\*/g, "");
+      try { await navigator.clipboard.writeText(plain); toast("Copiato: puoi incollarlo in una mail."); } catch { toast("Non riesco a copiare: seleziona il testo a mano."); }
+      return;
+    }
+    if (!e.target.closest("[data-exec]")) return;
+    const full = lastResult;
+    try {
+      busy(true, "Preparo la versione breve…");
+      const out = (await ask({ prompt: PROMPTS.executive(full), system: SYSTEM_TUTOR, temperature: 0.2, patient: true })).trim();
+      showResult("In breve (executive summary)", mdToHtml(out) + `<p class="sum-info"><button class="btn small" data-copy>${icon("copy")}Copia per una mail</button></p>`, out);
+    } catch (err) { toast(err.message || "Non sono riuscito a preparare la versione breve.", 6000); }
+    finally { busy(false); }
+  });
+  $("#btnResultWord").addEventListener("click", () => docx.save(lastResult, $("#resultTitle").textContent));
+  docAsk.bind();
   // «Rifallo più completo»: a pezzi più piccoli, senza usare la copia salvata
   $("#result").addEventListener("click", async (e) => {
     if (!e.target.closest("[data-redo-sum]")) return;

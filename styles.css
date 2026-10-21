@@ -1169,3 +1169,16 @@ input[type="search"] { font: inherit; font-size: 1rem; color: var(--ink); backgr
 .sum-info { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--line, #e4e6ee); font-size: .85rem; }
 .sum-info p { margin: 0 0 6px; } .sum-info details { margin-top: 4px; } .sum-info summary { cursor: pointer; color: var(--pen); }
 .sum-info ol { margin: 6px 0 0; padding-left: 1.3em; line-height: 1.5; }
+
+/* ---------- strumenti professionali ---------- */
+.pg-mark { margin: 18px 0 8px; font-family: var(--ui, inherit); font-size: .78rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted, #5b6275); display: flex; align-items: center; gap: 10px; }
+.pg-mark::before, .pg-mark::after { content: ""; flex: 1; height: 1px; background: var(--line, #e4e6ee); }
+.pref { display: inline-block; font: inherit; font-size: .78em; font-weight: 600; padding: 0 7px; margin: 0 2px; border-radius: 999px; border: 1px solid var(--pen); color: var(--pen); background: transparent; cursor: pointer; line-height: 1.6; white-space: nowrap; vertical-align: 1px; }
+.pref:hover, .pref:focus-visible { background: var(--pen); color: #fff; }
+.doc-log { display: flex; flex-direction: column; gap: 10px; margin: 10px 0; max-height: 60vh; overflow: auto; }
+.doc-log .dq { align-self: flex-end; max-width: 85%; background: var(--ink); color: var(--app, #fff); padding: 8px 12px; border-radius: 14px 14px 4px 14px; }
+.doc-log .da { align-self: flex-start; max-width: 95%; background: var(--page, #f4f5f9); padding: 8px 14px; border-radius: 14px 14px 14px 4px; position: relative; }
+.doc-log .da .icon-btn { position: absolute; right: 4px; bottom: 4px; }
+.doc-ask-row { display: flex; gap: 8px; align-items: flex-end; }
+.doc-ask-row textarea { flex: 1; min-width: 0; }
+.refs-list { line-height: 1.6; padding-left: 1.2em; } .refs-list li { margin-bottom: 6px; }
